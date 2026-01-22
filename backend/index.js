@@ -38,7 +38,7 @@ app.get("/login.html", (req, res) => {
 // DigitalOcean MySQL (Managed) ✅ FIXED
 // =======================
 const fs = require("fs");
-const mysql = require("mysql2");
+
 
 // Option A (recommended): put the CA certificate content in env var DB_SSL_CA
 // If you paste it with "\n", this converts it back to real new lines.
