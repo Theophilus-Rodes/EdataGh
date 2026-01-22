@@ -52,7 +52,7 @@ db.query("SELECT 1", (err) => {
   if (err) console.error("❌ DB Error:", err);
   else console.log("✅ Database connected (DigitalOcean)");
 });
-onsole.log("Database connected");
+console.log("Database connected");
 
 
 // Login API
