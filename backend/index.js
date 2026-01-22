@@ -6,6 +6,8 @@ const path = require("path");
 const cors = require("cors");
 const axios = require("axios");
 
+const PORT = process.env.PORT || 3000;
+
 // Africa's Talking
 const AfricasTalking = require("africastalking");
 
@@ -35,17 +37,15 @@ app.get("/login.html", (req, res) => {
 // =======================
 // DigitalOcean MySQL (Managed)
 // =======================
-const db = mysql.createPool({
-  host: process.env.DB_HOST,                 // <-- DigitalOcean host
-  port: Number(process.env.DB_PORT || 25060),// <-- DigitalOcean port (usually 25060)
-  user: process.env.DB_USER,                 // <-- DigitalOcean username
-  password: process.env.DB_PASSWORD,         // <-- DigitalOcean password
-  database: process.env.DB_NAME,             // <-- ✅ THIS IS WHERE DB NAME GOES (edata_db)
-  waitForConnections: true,
-  connectionLimit: 10,
-  queueLimit: 0,
-  ssl: { rejectUnauthorized: true }          // ✅ DigitalOcean requires SSL
+const db = mysql.createConnection({
+  host: process.env.DB_HOST,
+  port: Number(process.env.DB_PORT || 25060),
+  user: process.env.DB_USER,
+  password: process.env.DB_PASSWORD,
+  database: process.env.DB_NAME,
+  ssl: { rejectUnauthorized: true }
 });
+
 
 // quick connection test
 db.query("SELECT 1", (err) => {
@@ -1205,6 +1205,6 @@ app.get("/api/orders/error-count", async (req, res) => {
 
 
 
-app.listen(3000, () => {
-  console.log("EDATA server running at http://localhost:3000");
+app.listen(PORT, () => {
+  console.log(`EDATA server running on port ${PORT}`);
 });
