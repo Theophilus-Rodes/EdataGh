@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Buy Data Bundles</title>
+
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <style>
+    :root{
+      --primary:#1FAF6B;
+      --primary-soft:#E9F9F1;
+      --bg:#F8FAF9;
+      --card:#FFFFFF;
+      --text:#0F172A;
+      --muted:#64748B;
+      --border:#E5E7EB;
+    }
+
+    *{
+      box-sizing:border-box;
+      font-family:Inter,system-ui,Segoe UI,Roboto,Arial;
+    }
+
+    body{
+      margin:0;
+      background:var(--bg);
+      color:var(--text);
+    }
+
+    /* HEADER */
+    .header{
+      background:#fff;
+      border-bottom:1px solid var(--border);
+      padding:16px 20px;
+      position:sticky;
+      top:0;
+      z-index:10;
+    }
+
+    .brand{
+      max-width:1100px;
+      margin:auto;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+    }
+
+    .logo{
+      font-size:20px;
+      font-weight:700;
+    }
+
+    .logo span{
+      color:var(--primary);
+    }
+
+    /* HERO */
+    .hero{
+      max-width:1100px;
+      margin:30px auto 10px;
+      padding:0 20px;
+      text-align:center;
+    }
+
+    .hero h1{
+      margin:0 0 10px;
+      font-size:30px;
+      font-weight:700;
+    }
+
+    .hero p{
+      margin:0;
+      color:var(--muted);
+      font-size:15px;
+      line-height:1.6;
+    }
+
+    /* GRID */
+    .grid{
+      max-width:1100px;
+      margin:30px auto;
+      padding:0 20px;
+      display:grid;
+      grid-template-columns:repeat(auto-fit,minmax(220px,1fr));
+      gap:20px;
+    }
+
+    .card{
+      background:var(--card);
+      border-radius:18px;
+      padding:24px;
+      border:1px solid var(--border);
+      cursor:pointer;
+      transition:.25s ease;
+      display:flex;
+      flex-direction:column;
+      justify-content:space-between;
+    }
+
+    .card:hover{
+      transform:translateY(-4px);
+      box-shadow:0 15px 30px rgba(0,0,0,.08);
+      border-color:var(--primary);
+    }
+
+    .top{
+      display:flex;
+      align-items:center;
+      gap:14px;
+    }
+
+    .icon{
+      width:56px;
+      height:56px;
+      border-radius:14px;
+      background:var(--primary-soft);
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      flex-shrink:0;
+    }
+
+    .icon img{
+      width:34px;
+      height:34px;
+      object-fit:contain;
+    }
+
+    .card h3{
+      margin:0;
+      font-size:18px;
+    }
+
+    .card p{
+      margin:6px 0 0;
+      font-size:13px;
+      color:var(--muted);
+    }
+
+    .action{
+      margin-top:22px;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      color:var(--primary);
+      font-weight:600;
+      font-size:14px;
+    }
+
+    /* MOBILE TWEAKS */
+    @media(max-width:600px){
+      .hero h1{
+        font-size:24px;
+      }
+
+      .card{
+        padding:20px;
+      }
+    }
+  </style>
+</head>
+
+<body>
+
+ <header class="header">
+  <div class="brand">
+    <img src="EDATA-LOGO.png" alt="EDATA Logo" style="height:40px; object-fit:contain;">
+  </div>
+</header>
+
+  <section class="hero">
+    <h1>Choose Your Network</h1>
+    <p>
+      Select a mobile network to view available data bundles.
+      Fast activation and reliable service.
+    </p>
+  </section>
+
+  <section class="grid">
+
+    <div class="card" onclick="go('mtn.html')">
+      <div class="top">
+        <div class="icon">
+          <img src="MTN.png" alt="MTN">
+        </div>
+        <div>
+          <h3>MTN</h3>
+          <p>Browse MTN data packages</p>
+        </div>
+      </div>
+      <div class="action">
+        <span>View Bundles</span>
+        <span>→</span>
+      </div>
+    </div>
+
+    <div class="card" onclick="go('telecel.html')">
+      <div class="top">
+        <div class="icon">
+          <img src="TL.png" alt="Telecel">
+        </div>
+        <div>
+          <h3>Telecel</h3>
+          <p>View Telecel internet bundles</p>
+        </div>
+      </div>
+      <div class="action">
+        <span>View Bundles</span>
+        <span>→</span>
+      </div>
+    </div>
+
+    <div class="card" onclick="go('airteltigo.html')">
+      <div class="top">
+        <div class="icon">
+          <img src="AT.png" alt="AirtelTigo">
+        </div>
+        <div>
+          <h3>AirtelTigo</h3>
+          <p>Access AirtelTigo packages</p>
+        </div>
+      </div>
+      <div class="action">
+        <span>View Bundles</span>
+        <span>→</span>
+      </div>
+    </div>
+
+  </section>
+
+  <script>
+    function go(page){
+      window.location.href = page;
+    }
+  </script>
+
+</body>
+</html>

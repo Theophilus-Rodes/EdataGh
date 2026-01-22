@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Admin | Edit Info</title>
+
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet" />
+
+  <style>
+    :root{
+      --primary:#0A3D62; --accent:#1DD1A1; --bg:#F5F7FA; --card:#fff;
+      --text:#0f172a; --muted:#64748b; --line:#e2e8f0; --danger:#ef4444;
+    }
+    *{box-sizing:border-box;font-family:Poppins,system-ui,Segoe UI,Roboto,Arial}
+    body{margin:0;background:var(--bg);color:var(--text)}
+    .wrap{max-width:900px;margin:24px auto;padding:0 14px}
+
+    .top{
+      display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap;
+      margin-bottom:14px;
+    }
+    .title{font-size:20px;font-weight:800}
+    .sub{color:var(--muted);font-size:13px;margin-top:4px}
+
+    .card{
+      background:var(--card);
+      border:1px solid var(--line);
+      border-radius:16px;
+      box-shadow:0 10px 30px rgba(2,6,23,.06);
+      padding:16px;
+    }
+
+    .grid{
+      display:grid;
+      grid-template-columns: 1fr 1fr;
+      gap:12px;
+    }
+
+    .field label{display:block;font-size:12px;color:var(--muted);margin-bottom:6px}
+    input{
+      width:100%;
+      padding:12px;
+      border:1px solid var(--line);
+      border-radius:12px;
+      font-size:14px;
+      outline:none;
+      background:#fff;
+    }
+    input:focus{border-color:rgba(10,61,98,.5)}
+
+    .note{
+      margin-top:10px;
+      font-size:12px;
+      color:var(--muted);
+      background:#f8fafc;
+      border:1px solid var(--line);
+      padding:10px 12px;
+      border-radius:12px;
+    }
+
+    .actions{
+      margin-top:14px;
+      display:flex;
+      gap:10px;
+      justify-content:flex-end;
+      flex-wrap:wrap;
+    }
+    .btn{
+      border:0;border-radius:12px;
+      padding:12px 14px;
+      font-weight:800;
+      cursor:pointer;
+      background:var(--primary);
+      color:#fff;
+      white-space:nowrap;
+    }
+    .btn-outline{
+      background:#fff;color:var(--primary);
+      border:1px solid rgba(10,61,98,.25);
+    }
+    .btn:disabled{opacity:.6;cursor:not-allowed}
+
+    .status{
+      margin-top:12px;
+      padding:12px;
+      border-radius:12px;
+      border:1px solid var(--line);
+      background:#fff;
+      font-size:13px;
+      color:var(--muted);
+    }
+    .status.ok{
+      border-color: rgba(29,209,161,.35);
+      background: rgba(29,209,161,.08);
+      color:#065f46;
+      font-weight:700;
+    }
+    .status.err{
+      border-color: rgba(239,68,68,.35);
+      background: rgba(239,68,68,.08);
+      color:#991b1b;
+      font-weight:700;
+    }
+
+    @media (max-width: 760px){
+      .grid{grid-template-columns: 1fr;}
+      .btn{width:100%}
+      .actions{justify-content:stretch}
+    }
+  </style>
+</head>
+
+<body>
+  <div class="wrap">
+    <div class="top">
+      <div>
+        <div class="title">Edit Admin Info</div>
+        <div class="sub">Your info loads automatically. Update name, email, and password (optional).</div>
+      </div>
+      <button class="btn btn-outline" id="btnReload">Reload</button>
+    </div>
+
+    <div class="card">
+      <div class="grid">
+        <div class="field">
+          <label>Full Name</label>
+          <input id="username" placeholder="Enter name" />
+        </div>
+
+        <div class="field">
+          <label>Email</label>
+          <input id="email" type="email" placeholder="Enter email" />
+        </div>
+
+        <div class="field" style="grid-column: 1 / -1;">
+          <label>New Password (optional)</label>
+          <input id="new_password" type="password" placeholder="Leave blank to keep current password" />
+          <div class="note">
+            Leave password empty if you don’t want to change it.
+          </div>
+        </div>
+      </div>
+
+      <div class="actions">
+        <button class="btn btn-outline" id="btnClearPass">Clear Password</button>
+        <button class="btn" id="btnUpdate">Update</button>
+      </div>
+
+      <div class="status" id="statusBox">Status: Loading your profile...</div>
+    </div>
+  </div>
+
+<script>
+  const API_BASE = ""; 
+
+  const username = document.getElementById("username");
+  const email = document.getElementById("email");
+  const newPassword = document.getElementById("new_password");
+
+  const btnUpdate = document.getElementById("btnUpdate");
+  const btnReload = document.getElementById("btnReload");
+  const btnClearPass = document.getElementById("btnClearPass");
+
+  const statusBox = document.getElementById("statusBox");
+
+  function setStatus(text, type=""){
+    statusBox.textContent = text;
+    statusBox.className = "status" + (type ? " " + type : "");
+  }
+
+  async function loadMe(){
+    setStatus("Status: Loading your profile...");
+    try{
+      const r = await fetch(`${API_BASE}/api/admin/me`, { credentials: "include" });
+      const data = await r.json();
+
+      if(!data.ok) throw new Error(data.message || "Failed to load");
+
+      username.value = data.user.username || "";
+      email.value = data.user.email || "";
+      newPassword.value = "";
+
+      setStatus("Status: Profile loaded.", "ok");
+    }catch(e){
+      setStatus("Error: " + (e.message || "Failed to load profile"), "err");
+    }
+  }
+
+  async function updateMe(){
+    const u = username.value.trim();
+    const e = email.value.trim();
+    const p = newPassword.value;
+
+    if(!u || !e){
+      return setStatus("Error: Name and email are required.", "err");
+    }
+
+    btnUpdate.disabled = true;
+    setStatus("Status: Updating profile...");
+
+    try{
+      const r = await fetch(`${API_BASE}/api/admin/me`, {
+        method: "PUT",
+        credentials: "include",
+        headers: { "Content-Type":"application/json" },
+        body: JSON.stringify({
+          username: u,
+          email: e,
+          new_password: p.trim() ? p : ""
+        })
+      });
+
+      const data = await r.json();
+      if(!data.ok) throw new Error(data.message || "Update failed");
+
+      newPassword.value = "";
+      setStatus("✅ " + (data.message || "Updated successfully."), "ok");
+    }catch(e){
+      setStatus("Error: " + (e.message || "Update failed"), "err");
+    }finally{
+      btnUpdate.disabled = false;
+    }
+  }
+
+  btnReload.addEventListener("click", loadMe);
+  btnUpdate.addEventListener("click", updateMe);
+  btnClearPass.addEventListener("click", () => {
+    newPassword.value = "";
+    setStatus("Status: Password field cleared.", "ok");
+  });
+
+  // auto load on open
+  loadMe();
+</script>
+</body>
+</html>

@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>MTN Data Bundles</title>
+
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <style>
+    :root{
+      --green:#16A34A;
+      --green-soft:#ECFDF3;
+      --bg:#F9FAFB;
+      --card:#FFFFFF;
+      --text:#0F172A;
+      --muted:#6B7280;
+      --border:#E5E7EB;
+      --danger:#DC2626;
+    }
+
+    *{box-sizing:border-box;font-family:Inter,system-ui}
+
+    body{ margin:0; background:var(--bg); color:var(--text); }
+
+    .header{
+      background:#fff;
+      border-bottom:1px solid var(--border);
+      padding:14px 16px;
+      position:sticky; top:0; z-index:10;
+    }
+    .header-inner{
+      max-width:1100px; margin:auto;
+      display:flex; align-items:center; justify-content:space-between; gap:12px;
+    }
+    .brand{display:flex; align-items:center; gap:10px; font-weight:700; font-size:18px;}
+    .badge{
+      background:var(--green-soft); color:var(--green);
+      padding:6px 12px; border-radius:999px; font-size:12px; font-weight:600;
+    }
+
+    .wrap{max-width:1100px; margin:auto; padding:20px 16px 40px;}
+    .topbar{display:flex; align-items:center; justify-content:space-between; margin-bottom:18px; gap:10px;}
+    .back{
+      border:none; background:var(--green-soft); color:var(--green);
+      padding:10px 14px; border-radius:10px; font-weight:600; cursor:pointer;
+    }
+
+    .grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:16px;}
+    .pkg{
+      background:var(--card); border-radius:16px; padding:18px; border:1px solid var(--border);
+      display:flex; flex-direction:column; transition:.25s;
+    }
+    .pkg:hover{
+      transform:translateY(-4px);
+      box-shadow:0 12px 25px rgba(0,0,0,.08);
+      border-color:var(--green);
+    }
+    .pkg h4{margin:0 0 6px; font-size:16px;}
+    .price{font-size:20px; font-weight:700; color:var(--green); margin:6px 0;}
+    .meta{font-size:12px; color:var(--muted); margin-bottom:14px;}
+    .btn{
+      margin-top:auto; border:none; border-radius:12px; padding:12px;
+      background:var(--green); color:#fff; font-weight:600; cursor:pointer;
+    }
+    .empty{text-align:center; color:var(--muted); margin-top:30px;}
+
+    /* MODAL */
+    .modal-backdrop{
+      position:fixed; inset:0; background:rgba(0,0,0,.55);
+      display:none; align-items:center; justify-content:center; padding:14px; z-index:1000;
+    }
+    .modal{width:100%; max-width:480px; background:#fff; border-radius:18px; padding:18px;}
+    .modal-header{display:flex; justify-content:space-between; gap:10px;}
+    .modal-header h3{margin:0; font-size:16px}
+    .modal-sub{font-size:12px; color:var(--muted); margin-top:4px;}
+    .x{border:none; background:none; font-size:22px; cursor:pointer;}
+    .field{margin-top:12px;}
+    .field label{font-size:12px; color:var(--muted);}
+    .field input{
+      width:100%; padding:12px; border-radius:10px;
+      border:1px solid var(--border); margin-top:6px; font-size:14px;
+    }
+    .helper{margin-top:12px; font-size:12px; background:var(--green-soft); padding:10px; border-radius:10px;}
+    .modal-footer{margin-top:16px; display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px;}
+    .btn-ghost{background:#F3F4F6; color:#111;}
+    .err{color:var(--danger); font-size:12px; margin-top:10px;}
+
+    /* OVERLAY */
+    .overlay{
+      position:fixed; inset:0; background:rgba(0,0,0,.6);
+      display:none; align-items:center; justify-content:center; z-index:1200;
+    }
+    .overlay-card{
+      background:#fff; padding:20px; border-radius:16px; text-align:center;
+      width:90%; max-width:420px;
+    }
+    .spinner{
+      width:44px; height:44px; border-radius:50%;
+      border:4px solid #E5E7EB; border-top-color:var(--green);
+      margin:10px auto; animation:spin 1s linear infinite;
+    }
+    @keyframes spin{to{transform:rotate(360deg)}}
+  </style>
+</head>
+
+<body>
+
+<header class="header">
+  <div class="header-inner">
+    <div class="brand">MTN Data Bundles</div>
+    <div class="badge">MTN Network</div>
+  </div>
+</header>
+
+<div class="wrap">
+  <div class="topbar">
+    <button class="back" onclick="location.href='index.html'">← Back</button>
+    <small style="color:var(--muted)">Select a bundle to continue</small>
+  </div>
+
+  <div id="packages" class="grid"></div>
+  <div id="empty" class="empty">Loading MTN packages...</div>
+</div>
+
+<!-- ✅ BUY MODAL -->
+<div id="modalBackdrop" class="modal-backdrop">
+  <div class="modal">
+    <div class="modal-header">
+      <div>
+        <h3 id="mTitle">Buy Bundle</h3>
+        <div class="modal-sub" id="mSub">Fill details below</div>
+      </div>
+      <button class="x" onclick="closeModal()">×</button>
+    </div>
+
+    <div class="helper" id="mSummary">Package: - | Amount: -</div>
+
+    <div class="field">
+      <label>Receiver Number</label>
+      <input id="receiverNumber" placeholder="e.g. 024xxxxxxx" inputmode="tel" />
+    </div>
+
+    <div class="field">
+      <label>MoMo Number (payer)</label>
+      <input id="momoNumber" placeholder="e.g. 055xxxxxxx" inputmode="tel" />
+    </div>
+
+    <div class="field" id="otpField" style="display:none;">
+      <label>OTP Code</label>
+      <input id="otpCode" placeholder="Enter OTP" inputmode="numeric" />
+    </div>
+
+    <div id="mErr" class="err" style="display:none;"></div>
+
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-ghost" id="sendOtpBtn" onclick="sendOtp()">Send OTP</button>
+      <button class="btn" id="payBtn" onclick="verifyOtpAndPay()" disabled>Verify & Pay</button>
+    </div>
+  </div>
+</div>
+
+<!-- ✅ OVERLAY (Prompt / Polling) -->
+<div id="overlay" class="overlay">
+  <div class="overlay-card">
+    <div class="spinner" id="spin"></div>
+    <div id="overlayMsg" style="font-weight:700;">Please wait...</div>
+    <div id="overlaySub" style="margin-top:6px;color:var(--muted);font-size:12px;">Processing</div>
+    <div id="overlayErr" class="err" style="display:none;"></div>
+    <div style="margin-top:14px;">
+      <button class="btn btn-ghost" onclick="hideOverlay()">Close</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  // -------------------------------
+  // LOAD MTN PACKAGES
+  // -------------------------------
+  document.addEventListener("DOMContentLoaded", loadMTNPackages);
+
+  async function loadMTNPackages() {
+    const box = document.getElementById("packages");
+    const empty = document.getElementById("empty");
+
+    box.innerHTML = "";
+    empty.style.display = "block";
+    empty.textContent = "Loading MTN packages...";
+
+    try {
+      const res = await fetch("/api/mtn-prices");
+      if (!res.ok) throw new Error("HTTP " + res.status);
+
+      const json = await res.json();
+      const data = json.rows || [];
+
+      if (!data.length) {
+        empty.textContent = "No active MTN packages found.";
+        return;
+      }
+
+      empty.style.display = "none";
+
+      box.innerHTML = data.map(p => `
+        <div class="pkg">
+          <h4>${escapeHtml(p.package_name)}</h4>
+          <div class="price">GHS ${Number(p.price).toFixed(2)}</div>
+          <div class="meta">Network: ${escapeHtml(p.network)}</div>
+          <button class="btn" onclick="openBuyModal(${Number(p.id)}, '${escapeJs(p.package_name)}', ${Number(p.price)})">
+            Buy Bundle
+          </button>
+        </div>
+      `).join("");
+
+    } catch (err) {
+      console.error(err);
+      empty.textContent = "Failed to load MTN packages. Check console.";
+    }
+  }
+
+  // -------------------------------
+  // BUY MODAL + OTP + PAY FLOW
+  // -------------------------------
+  let selected = { package_id:null, name:"", price:0 };
+  let otpSessionId = "";
+
+  function openBuyModal(package_id, name, price) {
+    selected = { package_id, name, price };
+    otpSessionId = "";
+
+    document.getElementById("mTitle").textContent = "Buy Bundle";
+    document.getElementById("mSub").textContent = "Enter receiver and payer number";
+    document.getElementById("mSummary").textContent = `Package: ${name} | Amount: GHS ${Number(price).toFixed(2)}`;
+
+    document.getElementById("receiverNumber").value = "";
+    document.getElementById("momoNumber").value = "";
+    document.getElementById("otpCode").value = "";
+
+    document.getElementById("otpField").style.display = "none";
+    document.getElementById("payBtn").disabled = true;
+    document.getElementById("sendOtpBtn").disabled = false;
+
+    hideError();
+    document.getElementById("modalBackdrop").style.display = "flex";
+  }
+
+  function closeModal() {
+    document.getElementById("modalBackdrop").style.display = "none";
+  }
+
+  function showError(msg) {
+    const el = document.getElementById("mErr");
+    el.style.display = "block";
+    el.textContent = msg;
+  }
+  function hideError() {
+    const el = document.getElementById("mErr");
+    el.style.display = "none";
+    el.textContent = "";
+  }
+
+  async function sendOtp() {
+    hideError();
+    const momo = document.getElementById("momoNumber").value.trim();
+
+    if (!momo) return showError("Enter MoMo number.");
+
+    try {
+      document.getElementById("sendOtpBtn").disabled = true;
+
+      const res = await fetch("/api/send-momo-otp", {
+        method:"POST",
+        headers:{ "Content-Type":"application/json" },
+        body: JSON.stringify({ momo_number: momo })
+      });
+
+      const json = await res.json();
+
+      if (!json.ok) {
+        document.getElementById("sendOtpBtn").disabled = false;
+        return showError(json.message || "Failed to send OTP.");
+      }
+
+      otpSessionId = json.session_id || "";
+      document.getElementById("otpField").style.display = "block";
+      document.getElementById("payBtn").disabled = false;
+
+    } catch (e) {
+      console.error(e);
+      document.getElementById("sendOtpBtn").disabled = false;
+      showError("Network error sending OTP.");
+    }
+  }
+
+  async function verifyOtpAndPay() {
+    hideError();
+
+    const recipient = document.getElementById("receiverNumber").value.trim();
+    const momo = document.getElementById("momoNumber").value.trim();
+    const otp = document.getElementById("otpCode").value.trim();
+
+    if (!recipient) return showError("Enter receiver number.");
+    if (!momo) return showError("Enter MoMo number.");
+    if (!otp) return showError("Enter OTP code.");
+
+    try {
+      // 1) Verify OTP
+      const vr = await fetch("/api/verify-momo-otp", {
+        method:"POST",
+        headers:{ "Content-Type":"application/json" },
+        body: JSON.stringify({ momo_number: momo, otp, session_id: otpSessionId })
+      });
+      const vj = await vr.json();
+      if (!vj.ok) return showError(vj.message || "OTP verification failed.");
+
+      // 2) Initiate TheTeller prompt
+      closeModal();
+      showOverlay("Please wait for prompt on your phone", "Approve the payment using your MoMo PIN");
+
+      const pr = await fetch("/api/buy-data-theteller", {
+        method:"POST",
+        headers:{ "Content-Type":"application/json" },
+        body: JSON.stringify({
+          package_id: selected.package_id,
+          momo_number: momo,
+          recipient_number: recipient,
+          vendor_id: 1
+        })
+      });
+
+      const pj = await pr.json();
+      if (!pj.ok) {
+        showOverlayError(pj.message || "Payment could not be initiated.");
+        return;
+      }
+
+      // 3) Poll status
+      const tx = pj.transaction_id;
+      pollStatus(tx);
+
+    } catch (e) {
+      console.error(e);
+      showOverlayError("Network error. Try again.");
+    }
+  }
+
+  let pollTimer = null;
+
+  async function pollStatus(transaction_id) {
+    clearInterval(pollTimer);
+
+    let tries = 0;
+    const maxTries = 80; // ~80*4s = ~5min
+
+    pollTimer = setInterval(async () => {
+      tries++;
+      try {
+        const res = await fetch(`/api/theteller-status?transaction_id=${encodeURIComponent(transaction_id)}`);
+        const json = await res.json();
+
+        if (json.ok && json.status === "approved") {
+          clearInterval(pollTimer);
+          showOverlay("Payment Successful ✅", "Order saved. Thank you!");
+          document.getElementById("spin").style.display = "none";
+          return;
+        }
+
+        if (json.ok && json.status === "failed") {
+          clearInterval(pollTimer);
+          showOverlayError("Payment failed/declined.");
+          return;
+        }
+
+        // pending/unknown
+        if (tries >= maxTries) {
+          clearInterval(pollTimer);
+          showOverlayError("Timed out. If you approved, it may confirm shortly.");
+        } else {
+          showOverlay("Awaiting approval…", "Check your phone for the MoMo prompt");
+        }
+
+      } catch (e) {
+        // ignore transient errors, but stop if too long
+        if (tries >= maxTries) {
+          clearInterval(pollTimer);
+          showOverlayError("Status check failed. Try again.");
+        }
+      }
+    }, 4000);
+  }
+
+  function showOverlay(msg, sub) {
+    document.getElementById("overlay").style.display = "flex";
+    document.getElementById("overlayMsg").textContent = msg || "Please wait…";
+    document.getElementById("overlaySub").textContent = sub || "";
+    document.getElementById("overlayErr").style.display = "none";
+    document.getElementById("overlayErr").textContent = "";
+    document.getElementById("spin").style.display = "block";
+  }
+
+  function showOverlayError(msg) {
+    document.getElementById("overlay").style.display = "flex";
+    document.getElementById("overlayMsg").textContent = "Error";
+    document.getElementById("overlaySub").textContent = "";
+    document.getElementById("overlayErr").style.display = "block";
+    document.getElementById("overlayErr").textContent = msg || "Something went wrong.";
+    document.getElementById("spin").style.display = "none";
+  }
+
+  function hideOverlay() {
+    document.getElementById("overlay").style.display = "none";
+    clearInterval(pollTimer);
+  }
+
+  function escapeHtml(str) {
+    return String(str ?? "").replace(/[&<>"']/g, m => ({
+      "&":"&amp;",
+      "<":"&lt;",
+      ">":"&gt;",
+      '"':"&quot;",
+      "'":"&#039;"
+    }[m]));
+  }
+  function escapeJs(str) {
+    return String(str ?? "").replace(/\\/g, "\\\\").replace(/'/g, "\\'");
+  }
+</script>
+
+</body>
+</html>

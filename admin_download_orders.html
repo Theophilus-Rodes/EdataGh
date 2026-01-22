@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Admin | Download Orders</title>
+
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root{
+      --bg:#F5F7FA; --card:#fff; --text:#0f172a; --muted:#64748b; --line:#e2e8f0;
+      --mtn:#16A34A; --tel:#2563EB; --at:#1DD1A1; --danger:#ef4444;
+    }
+    *{box-sizing:border-box;font-family:Inter,system-ui}
+    body{margin:0;background:var(--bg);color:var(--text)}
+    .wrap{max-width:1100px;margin:22px auto;padding:0 14px}
+    .top{display:flex;justify-content:space-between;gap:12px;align-items:center;margin-bottom:14px}
+    .title{font-size:20px;font-weight:800}
+    .row{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin-bottom:18px}
+    .btn{
+      border:1px solid var(--line); background:var(--card); border-radius:16px; padding:14px;
+      cursor:pointer; position:relative; text-align:left;
+      box-shadow:0 8px 20px rgba(2,6,23,.06);
+    }
+    .btn h3{margin:0;font-size:16px}
+    .btn small{color:var(--muted)}
+    .badge{
+      position:absolute; top:-10px; right:12px;
+      background:#111; color:#fff; font-weight:800; font-size:12px;
+      padding:6px 10px; border-radius:999px;
+      border:3px solid var(--bg);
+      min-width:34px; text-align:center;
+    }
+    .btn.mtn .badge{background:var(--mtn)}
+    .btn.tel .badge{background:var(--tel)}
+    .btn.at  .badge{background:var(--at)}
+
+    .panel{
+      background:var(--card); border:1px solid var(--line); border-radius:16px;
+      padding:14px; box-shadow:0 8px 20px rgba(2,6,23,.06);
+    }
+    .panel-head{display:flex;justify-content:space-between;align-items:center;gap:10px}
+    .panel-head h4{margin:0}
+    .tabs{display:flex;gap:8px;flex-wrap:wrap}
+    .tab{
+      border:1px solid var(--line); background:#fff; border-radius:999px;
+      padding:8px 12px; cursor:pointer; font-weight:700; font-size:12px;
+    }
+    .tab.active{background:#0f172a;color:#fff;border-color:#0f172a}
+    .muted{color:var(--muted);font-size:12px}
+
+    .batch{
+      margin-top:12px; border:1px solid var(--line); border-radius:14px; overflow:hidden;
+    }
+    .batch-top{
+      padding:12px; display:flex; justify-content:space-between; align-items:center; gap:10px;
+      background:#f8fafc;
+    }
+    .batch-top b{font-size:13px}
+    .batch-actions{display:flex;gap:8px;align-items:center}
+    .mini{
+      border:none; border-radius:10px; padding:10px 12px; cursor:pointer; font-weight:800;
+    }
+    .mini.view{background:#e2e8f0}
+    .mini.del{background:#16A34A;color:#fff}
+    .mini.del:disabled{opacity:.6;cursor:not-allowed}
+
+    table{width:100%;border-collapse:collapse}
+    th,td{padding:10px;border-top:1px solid var(--line);font-size:12px;text-align:left}
+    th{color:var(--muted);background:#fff}
+    .hidden{display:none}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="top">
+      <div class="title">Admin Order Downloads</div>
+      <div class="muted" id="hint">Approved counts update automatically.</div>
+    </div>
+
+    <div class="row">
+      <button class="btn mtn" onclick="downloadNow('mtn')">
+        <span class="badge" id="b_mtn">0</span>
+        <h3>Download MTN Orders</h3>
+        <small>Downloads approved → groups as one batch</small>
+      </button>
+
+      <button class="btn tel" onclick="downloadNow('telecel')">
+        <span class="badge" id="b_telecel">0</span>
+        <h3>Download Telecel Orders</h3>
+        <small>Downloads approved → groups as one batch</small>
+      </button>
+
+      <button class="btn at" onclick="downloadNow('airteltigo')">
+        <span class="badge" id="b_airteltigo">0</span>
+        <h3>Download AirtelTigo Orders</h3>
+        <small>Downloads approved → groups as one batch</small>
+      </button>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head">
+        <h4>Downloaded Batches</h4>
+        <div class="tabs">
+          <button class="tab active" id="t_mtn" onclick="setTab('mtn')">MTN</button>
+          <button class="tab" id="t_telecel" onclick="setTab('telecel')">Telecel</button>
+          <button class="tab" id="t_airteltigo" onclick="setTab('airteltigo')">AirtelTigo</button>
+        </div>
+      </div>
+
+      <div id="list" class="muted" style="margin-top:10px;">Loading…</div>
+    </div>
+  </div>
+
+<script>
+  let active = "mtn";
+
+  async function refreshBadges(){
+    try{
+      const r = await fetch("/api/admin/approved-counts");
+      const j = await r.json();
+      if(!j.ok) return;
+      document.getElementById("b_mtn").textContent = j.counts.mtn ?? 0;
+      document.getElementById("b_telecel").textContent = j.counts.telecel ?? 0;
+      document.getElementById("b_airteltigo").textContent = j.counts.airteltigo ?? 0;
+    }catch(e){}
+  }
+
+  function setTab(net){
+    active = net;
+    ["mtn","telecel","airteltigo"].forEach(n=>{
+      document.getElementById("t_"+n).classList.toggle("active", n===net);
+    });
+    loadBatches();
+  }
+
+  async function downloadNow(net){
+    // open download in a new tab so browser downloads the file
+    window.open(`/api/admin/download-orders?network=${encodeURIComponent(net)}`, "_blank");
+
+    // after a short moment refresh UI
+    setTimeout(async ()=>{
+      await refreshBadges();
+      if(active === net) loadBatches();
+    }, 1500);
+  }
+
+  async function loadBatches(){
+    const list = document.getElementById("list");
+    list.textContent = "Loading…";
+
+    try{
+      const r = await fetch(`/api/admin/order-batches?network=${encodeURIComponent(active)}`);
+      const j = await r.json();
+      if(!j.ok) return list.textContent = "Failed to load batches.";
+
+      if(!j.batches.length){
+        return list.textContent = "No downloaded batches yet.";
+      }
+
+      list.innerHTML = j.batches.map(b=>{
+        const deliveredText = b.all_delivered ? "Delivered ✅" : "Not delivered";
+        const dis = b.all_delivered ? "disabled" : "";
+        return `
+          <div class="batch">
+            <div class="batch-top">
+              <div>
+                <b>Batch: ${escapeHtml(b.download_batch)}</b>
+                <div class="muted">Items: ${b.items_count} • ${deliveredText}</div>
+              </div>
+              <div class="batch-actions">
+                <button class="mini view" onclick="toggleBatch('${escapeJs(b.download_batch)}')">View</button>
+                <button class="mini del" ${dis} onclick="markDelivered('${escapeJs(b.download_batch)}')">Mark Delivered</button>
+              </div>
+            </div>
+            <div id="box_${escapeId(b.download_batch)}" class="hidden">
+              <table>
+                <thead>
+                  <tr>
+                    <th>ID</th><th>Package</th><th>Amount</th><th>Recipient</th><th>MoMo</th><th>Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${b.items.map(it=>`
+                    <tr>
+                      <td>${it.id}</td>
+                      <td>${escapeHtml(it.package_name)}</td>
+                      <td>${Number(it.amount).toFixed(2)}</td>
+                      <td>${escapeHtml(it.recipient_number)}</td>
+                      <td>${escapeHtml(it.momo_number)}</td>
+                      <td>${escapeHtml(it.status)}</td>
+                    </tr>
+                  `).join("")}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        `;
+      }).join("");
+
+    }catch(e){
+      list.textContent = "Error loading batches.";
+    }
+  }
+
+  function toggleBatch(batch){
+    const id = "box_" + escapeId(batch);
+    const el = document.getElementById(id);
+    if(!el) return;
+    el.classList.toggle("hidden");
+  }
+
+  async function markDelivered(batch){
+    if(!confirm("Mark this whole batch as delivered?")) return;
+
+    try{
+      const r = await fetch("/api/admin/mark-delivered",{
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body: JSON.stringify({ download_batch: batch })
+      });
+      const j = await r.json();
+      if(!j.ok) return alert(j.message || "Failed");
+
+      await loadBatches();
+    }catch(e){
+      alert("Network error");
+    }
+  }
+
+  function escapeHtml(s){
+    return String(s ?? "").replace(/[&<>"']/g, m => ({
+      "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"
+    }[m]));
+  }
+  function escapeJs(s){
+    return String(s ?? "").replace(/\\/g,"\\\\").replace(/'/g,"\\'");
+  }
+  function escapeId(s){
+    return String(s ?? "").replace(/[^a-zA-Z0-9_-]/g,"_");
+  }
+
+  // init
+  refreshBadges();
+  loadBatches();
+  setInterval(refreshBadges, 4000);
+</script>
+</body>
+</html>

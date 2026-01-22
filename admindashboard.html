@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>EDATA Admin Dashboard</title>
+
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <style>
+    :root{
+      --primary:#1FAF6B;
+      --primary-soft:#E9F9F1;
+      --bg:#F8FAF9;
+      --card:#FFFFFF;
+      --text:#0F172A;
+      --muted:#64748B;
+      --border:#E5E7EB;
+      --danger:#DC2626;
+    }
+
+    *{box-sizing:border-box;font-family:Inter,system-ui,Segoe UI,Roboto,Arial;margin:0;padding:0;}
+
+    body{background:var(--bg);color:var(--text);}
+
+    /* HEADER */
+    .header{
+      background:#fff;
+      border-bottom:1px solid var(--border);
+      padding:16px 20px;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      position:sticky;
+      top:0;
+      z-index:10;
+    }
+
+    .header-left{
+      display:flex;
+      align-items:center;
+      gap:10px;
+    }
+
+    .header-left img{
+      height:40px;
+      object-fit:contain;
+    }
+
+    .header-left h2{
+      font-size:20px;
+      color:var(--primary);
+    }
+
+    /* ACTION BUTTONS */
+    .actions{
+      display:flex;
+      flex-wrap:wrap;
+      gap:12px;
+      margin:20px auto;
+      max-width:1100px;
+      padding:0 20px;
+      justify-content:center;
+    }
+
+    .action-btn{
+      background:var(--primary-soft);
+      color:var(--primary);
+      border:none;
+      border-radius:12px;
+      padding:12px 20px;
+      font-weight:600;
+      cursor:pointer;
+      transition:.2s;
+      min-width:140px;
+      text-align:center;
+    }
+
+    .action-btn:hover{
+      background:var(--primary);
+      color:#fff;
+    }
+
+    /* DASHBOARD CARDS */
+    .dashboard{
+      display:grid;
+      grid-template-columns:repeat(auto-fit,minmax(180px,1fr));
+      gap:20px;
+      max-width:1100px;
+      margin:20px auto;
+      padding:0 20px;
+    }
+
+    .card{
+      background:var(--card);
+      border-radius:16px;
+      padding:20px;
+      box-shadow:0 10px 20px rgba(0,0,0,.05);
+      text-align:center;
+    }
+
+    .card h3{
+      margin-bottom:8px;
+      font-size:16px;
+      color:var(--muted);
+      font-weight:500;
+    }
+
+    .card span{
+      display:block;
+      font-size:24px;
+      font-weight:700;
+      color:var(--text);
+    }
+
+    /* LOGOUT MODAL */
+.logout-backdrop{
+  position:fixed;
+  inset:0;
+  background:rgba(0,0,0,.55);
+  display:none;
+  align-items:center;
+  justify-content:center;
+  z-index:2000;
+}
+
+.logout-modal{
+  background:#fff;
+  width:90%;
+  max-width:360px;
+  padding:22px;
+  border-radius:16px;
+  text-align:center;
+  box-shadow:0 20px 40px rgba(0,0,0,.25);
+}
+
+.logout-modal h3{
+  margin:0 0 8px;
+  font-size:18px;
+}
+
+.logout-modal p{
+  margin:0 0 18px;
+  color:#64748b;
+  font-size:14px;
+}
+
+.logout-actions{
+  display:flex;
+  gap:10px;
+}
+
+.logout-actions button{
+  flex:1;
+  padding:12px;
+  border-radius:12px;
+  border:none;
+  font-weight:700;
+  cursor:pointer;
+}
+
+.btn-cancel{
+  background:#e5e7eb;
+  color:#111;
+}
+
+.btn-logout{
+  background:#dc2626;
+  color:#fff;
+}
+
+
+    @media(max-width:600px){
+      .action-btn{
+        flex:1 1 45%;
+      }
+    }
+  </style>
+</head>
+
+<body>
+
+  <!-- HEADER -->
+  <header class="header">
+    <div class="header-left">
+      <img src="EDATA-LOGO.png" alt="EDATA Logo">
+      <h2>Admin Dashboard</h2>
+    </div>
+    <div class="header-right">
+      <span>Welcome, Admin</span>
+    </div>
+  </header>
+
+  <!-- ACTION BUTTONS -->
+  <div class="actions">
+    <button class="action-btn" onclick="window.location.href='admin_download_orders.html'">Download Orders</button>
+    <button class="action-btn" onclick="window.location.href='AdminSetPrices.html'">Set Prices</button>
+    <button class="action-btn" onclick="window.location.href='SendSMS.html'">Send Messages</button>
+    <button class="action-btn" onclick="window.location.href='edit_admin_info.html'">Edit Info</button>
+    <button class="action-btn" onclick="window.location.href='admin_error_orders.html'">Errors</button>
+  <button class="action-btn" onclick="openLogoutModal()">LOGOUT</button>
+
+<script>
+  function openLogoutModal() {
+    document.getElementById("logoutBackdrop").style.display = "flex";
+  }
+
+  function closeLogoutModal() {
+    document.getElementById("logoutBackdrop").style.display = "none";
+  }
+
+  function confirmLogout() {
+    window.location.href = "login.html";
+  }
+</script>
+
+  </div>
+
+  <!-- DASHBOARD STATS -->
+  <div class="dashboard">
+     <div class="card">
+  <h3>Pending Orders</h3>
+  <span id="approvedCount">0</span>
+</div>
+   <div class="card">
+  <h3>Errors</h3>
+  <span id="errorCount">0</span>
+</div>
+    <div class="card">
+  <h3>Transactions</h3>
+  <span id="totalTransactions">0</span>
+</div>
+ 
+    <div class="card">
+  <h3>Revenue (GHS)</h3>
+  <span id="totalRevenue">0.00</span>
+</div>
+
+  </div>
+
+  <script>
+    function downloadOrders(){ alert("Download Orders clicked"); }
+    function setPrices(){ alert("Set Prices clicked"); }
+    function sendMessages(){ alert("Send Messages clicked"); }
+    function editInfo(){ alert("Edit Info clicked"); }
+    function searchNumberStatus(){ alert("Search Number Status clicked"); }
+    function viewErrors(){ alert("Errors clicked"); }
+  </script>
+
+
+<script>
+  async function loadApprovedCount() {
+    try {
+      const res = await fetch("/api/orders/approved-count");
+      const data = await res.json();
+
+      if (data.ok) {
+        document.getElementById("approvedCount").textContent = data.total;
+      }
+    } catch (e) {
+      console.error("Failed to load approved count");
+    }
+  }
+
+  // load on page open
+  loadApprovedCount();
+
+  // optional: auto-refresh every 5 seconds
+  setInterval(loadApprovedCount, 5000);
+</script>
+
+<script>
+  async function loadTotalTransactions() {
+    try {
+      const res = await fetch("/api/orders/total-count");
+      const data = await res.json();
+
+      if (data.ok) {
+        document.getElementById("totalTransactions").textContent =
+          Number(data.total).toLocaleString();
+      }
+    } catch (e) {
+      console.error("Failed to load total transactions");
+    }
+  }
+
+  // load on page open
+  loadTotalTransactions();
+
+  // optional auto refresh
+  setInterval(loadTotalTransactions, 5000);
+</script>
+
+<script>
+  async function loadTotalRevenue() {
+    try {
+      const res = await fetch("/api/orders/total-revenue");
+      const data = await res.json();
+
+      if (data.ok) {
+        document.getElementById("totalRevenue").textContent =
+          Number(data.total).toLocaleString(undefined, {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2
+          });
+      }
+    } catch (e) {
+      console.error("Failed to load total revenue");
+    }
+  }
+
+  // load on page open
+  loadTotalRevenue();
+
+  // optional auto refresh every 5 seconds
+  setInterval(loadTotalRevenue, 5000);
+</script>
+
+<script>
+  async function loadErrorCount() {
+    try {
+      const res = await fetch("/api/orders/error-count");
+      const data = await res.json();
+
+      if (data.ok) {
+        document.getElementById("errorCount").textContent =
+          Number(data.total).toLocaleString();
+      }
+    } catch (e) {
+      console.error("Failed to load error count");
+    }
+  }
+
+  // load on page open
+  loadErrorCount();
+
+  // optional auto-refresh
+  setInterval(loadErrorCount, 5000);
+</script>
+
+
+
+
+
+  <!-- LOGOUT CONFIRM MODAL -->
+<div class="logout-backdrop" id="logoutBackdrop">
+  <div class="logout-modal">
+    <h3>Confirm Logout</h3>
+    <p>Are you sure you want to log out?</p>
+
+    <div class="logout-actions">
+      <button class="btn-cancel" onclick="closeLogoutModal()">Cancel</button>
+      <button class="btn-logout" onclick="confirmLogout()">Yes, Logout</button>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

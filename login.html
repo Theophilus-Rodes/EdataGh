@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>EDATA Admin Login</title>
+
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <style>
+    :root{
+      --primary:#1FAF6B;
+      --primary-soft:#E9F9F1;
+      --bg:#F8FAF9;
+      --card:#FFFFFF;
+      --text:#0F172A;
+      --muted:#64748B;
+      --border:#E5E7EB;
+      --danger:#DC2626;
+    }
+
+    *{
+      box-sizing:border-box;
+      font-family:Inter,system-ui,Segoe UI,Roboto,Arial;
+      margin:0;
+      padding:0;
+    }
+
+    body{
+      background:var(--bg);
+      min-height:100vh;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      padding:20px;
+    }
+
+    .login-container{
+      background:var(--card);
+      width:100%;
+      max-width:420px;
+      border-radius:18px;
+      padding:30px 28px;
+      box-shadow:0 20px 40px rgba(0,0,0,.08);
+    }
+
+    .logo{
+      display:flex;
+      justify-content:center;
+      margin-bottom:20px;
+    }
+
+    .logo img{
+      height:55px;
+      object-fit:contain;
+    }
+
+    h2{
+      text-align:center;
+      margin-bottom:6px;
+      color:var(--text);
+    }
+
+    p{
+      text-align:center;
+      font-size:14px;
+      color:var(--muted);
+      margin-bottom:24px;
+    }
+
+    .form-group{
+      margin-bottom:18px;
+    }
+
+    label{
+      display:block;
+      margin-bottom:6px;
+      font-size:14px;
+      font-weight:500;
+      color:var(--text);
+    }
+
+    input{
+      width:100%;
+      padding:12px 14px;
+      border-radius:10px;
+      border:1px solid var(--border);
+      font-size:15px;
+      outline:none;
+      transition:.2s;
+    }
+
+    input:focus{
+      border-color:var(--primary);
+      box-shadow:0 0 0 3px var(--primary-soft);
+    }
+
+    .login-btn{
+      width:100%;
+      padding:13px;
+      border:none;
+      border-radius:12px;
+      background:var(--primary);
+      color:#fff;
+      font-size:16px;
+      font-weight:600;
+      cursor:pointer;
+      transition:.2s;
+      margin-top:10px;
+    }
+
+    .login-btn:hover{
+      opacity:.9;
+    }
+
+    .error{
+      color:var(--danger);
+      font-size:13px;
+      margin-top:12px;
+      text-align:center;
+      display:none;
+    }
+
+    .footer-text{
+      text-align:center;
+      font-size:13px;
+      color:var(--muted);
+      margin-top:18px;
+    }
+
+    @media(max-width:480px){
+      .login-container{
+        padding:24px 20px;
+      }
+    }
+  </style>
+</head>
+
+<body>
+
+  <div class="login-container">
+
+    <div class="logo">
+      <img src="EDATA-LOGO.png" alt="EDATA Logo">
+    </div>
+
+    <h2>Admin Login</h2>
+    <p>Sign in to manage the EDATA platform</p>
+
+    <form onsubmit="loginAdmin(event)">
+      <div class="form-group">
+        <label>Email</label>
+        <input type="email" id="email" placeholder="Enter your email" required>
+      </div>
+
+      <div class="form-group">
+        <label>Password</label>
+        <input type="password" id="password" placeholder="Enter your password" required>
+      </div>
+
+      <button class="login-btn">Login</button>
+    </form>
+
+    <div class="error" id="errorMsg"></div>
+
+    <div class="footer-text">
+      © 2026 EDATA Platform
+    </div>
+
+  </div>
+
+ <script>
+  async function loginAdmin(e){
+    e.preventDefault();
+
+    const email = document.querySelector("input[type='text'], input[type='email']").value;
+    const password = document.querySelector("input[type='password']").value;
+
+    try {
+      const res = await fetch("/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password })
+      });
+
+      const data = await res.json();
+
+      if (data.success) {
+        // ✅ REDIRECT
+        window.location.href = data.redirect;
+      } else {
+        alert(data.message || "Login failed");
+      }
+    } catch (err) {
+      alert("Server error. Please try again.");
+    }
+  }
+</script>
+
+
+</body>
+</html>

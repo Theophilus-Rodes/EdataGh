@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Admin | Error Orders</title>
+
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet" />
+  <style>
+    :root{
+      --bg:#F5F7FA; --card:#fff; --text:#0f172a; --muted:#64748b; --line:#e2e8f0;
+      --ok:#16A34A; --warn:#f59e0b; --danger:#ef4444; --btn:#0f172a;
+    }
+    *{box-sizing:border-box;font-family:Inter,system-ui}
+    body{margin:0;background:var(--bg);color:var(--text)}
+    .wrap{max-width:1150px;margin:22px auto;padding:0 14px}
+    .top{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px;flex-wrap:wrap}
+    .title{font-size:20px;font-weight:900}
+    .muted{color:var(--muted);font-size:12px}
+
+    .toolbar{
+      background:var(--card); border:1px solid var(--line); border-radius:16px;
+      padding:12px; display:flex; gap:10px; flex-wrap:wrap; align-items:center;
+      box-shadow:0 8px 20px rgba(2,6,23,.06);
+      margin-bottom:12px;
+    }
+    .inp{
+      border:1px solid var(--line); border-radius:12px; padding:10px 12px; min-width:240px;
+      outline:none;
+    }
+    .btn{
+      border:none; border-radius:12px; padding:10px 14px; cursor:pointer;
+      font-weight:800;
+    }
+    .btn.primary{background:var(--btn);color:#fff}
+    .btn.ghost{background:#e2e8f0;color:#111}
+    .btn.danger{background:var(--danger);color:#fff}
+    .btn:disabled{opacity:.6;cursor:not-allowed}
+
+    .card{
+      background:var(--card); border:1px solid var(--line); border-radius:16px;
+      padding:12px; box-shadow:0 8px 20px rgba(2,6,23,.06);
+    }
+
+    table{width:100%;border-collapse:collapse}
+    th,td{padding:10px;border-top:1px solid var(--line);font-size:12px;text-align:left}
+    th{color:var(--muted);font-weight:900;background:#fff;position:sticky;top:0}
+    .pill{
+      display:inline-block; padding:5px 10px; border-radius:999px;
+      font-weight:900; font-size:11px;
+    }
+    .pill.pending{background:#fff7ed;color:#9a3412;border:1px solid #fed7aa}
+    .pill.failed{background:#fef2f2;color:#991b1b;border:1px solid #fecaca}
+    .small{font-size:11px;color:var(--muted)}
+    .rowline{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+  </style>
+</head>
+
+<body>
+  <div class="wrap">
+    <div class="top">
+      <div>
+        <div class="title">Error / Pending Orders</div>
+        <div class="muted">Shows orders where status = failed OR pending. Select rows to download & move to processing.</div>
+      </div>
+      <button class="btn ghost" onclick="location.href='admin_download_orders.html'">← Back to Downloads</button>
+    </div>
+
+    <div class="toolbar">
+      <div class="rowline">
+        <input id="search" class="inp" placeholder="Search recipient_number e.g. 0532687733" />
+        <button class="btn ghost" onclick="load()">Search</button>
+        <button class="btn ghost" onclick="clearSearch()">Clear</button>
+      </div>
+
+      <div class="rowline">
+        <button class="btn primary" id="downloadBtn" onclick="downloadSelected()" disabled>
+          Download Selected (Excel)
+        </button>
+        <span class="small" id="selInfo">0 selected</span>
+      </div>
+
+      <div class="rowline">
+        <button class="btn ghost" onclick="toggleSelectAll(true)">Select All</button>
+        <button class="btn ghost" onclick="toggleSelectAll(false)">Unselect All</button>
+        <button class="btn ghost" onclick="load()">Refresh</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="muted" id="status">Loading…</div>
+      <div style="overflow:auto;max-height:70vh;margin-top:10px;">
+        <table>
+          <thead>
+            <tr>
+              <th style="width:40px;"></th>
+              <th>ID</th>
+              <th>Network</th>
+              <th>Package</th>
+              <th>Amount</th>
+              <th>Recipient</th>
+              <th>MoMo</th>
+              <th>Status</th>
+              <th>Transaction</th>
+              <th>Created</th>
+            </tr>
+          </thead>
+          <tbody id="tbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+<script>
+  let rows = [];
+  let selected = new Set();
+
+  document.addEventListener("DOMContentLoaded", load);
+
+  async function load(){
+    const q = document.getElementById("search").value.trim();
+    document.getElementById("status").textContent = "Loading…";
+    document.getElementById("tbody").innerHTML = "";
+    selected.clear();
+    updateSelectedUI();
+
+    try{
+      const url = q ? `/api/admin/error-orders?search=${encodeURIComponent(q)}` : `/api/admin/error-orders`;
+      const r = await fetch(url);
+      const j = await r.json();
+
+      if(!j.ok){
+        document.getElementById("status").textContent = "Failed to load orders.";
+        return;
+      }
+
+      rows = j.rows || [];
+      if(!rows.length){
+        document.getElementById("status").textContent = "No failed/pending orders found.";
+        return;
+      }
+
+      document.getElementById("status").textContent = `Loaded ${rows.length} orders.`;
+
+      document.getElementById("tbody").innerHTML = rows.map(o => `
+        <tr>
+          <td>
+            <input type="checkbox" onchange="toggleRow(${o.id}, this.checked)">
+          </td>
+          <td>${o.id}</td>
+          <td>${esc(o.network)}</td>
+          <td>${esc(o.package_name)}</td>
+          <td>${Number(o.amount).toFixed(2)}</td>
+          <td>${esc(o.recipient_number)}</td>
+          <td>${esc(o.momo_number)}</td>
+          <td>${pill(o.status)}</td>
+          <td class="small">${esc(o.transaction_id || "")}</td>
+          <td class="small">${esc(o.created_at || "")}</td>
+        </tr>
+      `).join("");
+
+    }catch(e){
+      console.error(e);
+      document.getElementById("status").textContent = "Network error loading orders.";
+    }
+  }
+
+  function toggleRow(id, checked){
+    if(checked) selected.add(id);
+    else selected.delete(id);
+    updateSelectedUI();
+  }
+
+  function toggleSelectAll(on){
+    const boxes = document.querySelectorAll("tbody input[type='checkbox']");
+    boxes.forEach((b, idx) => {
+      b.checked = on;
+      const id = rows[idx]?.id;
+      if(!id) return;
+      if(on) selected.add(id);
+      else selected.delete(id);
+    });
+    updateSelectedUI();
+  }
+
+  function updateSelectedUI(){
+    const n = selected.size;
+    document.getElementById("selInfo").textContent = `${n} selected`;
+    document.getElementById("downloadBtn").disabled = n === 0;
+  }
+
+  async function downloadSelected(){
+    const ids = Array.from(selected);
+    if(!ids.length) return;
+
+    if(!confirm(`Download ${ids.length} selected rows as Excel and move them to PROCESSING?`)) return;
+
+    try{
+      // fetch excel as blob
+      const r = await fetch("/api/admin/download-selected-errors", {
+        method:"POST",
+        headers:{ "Content-Type":"application/json" },
+        body: JSON.stringify({ ids })
+      });
+
+      if(!r.ok){
+        const t = await r.text();
+        alert(t || "Download failed.");
+        return;
+      }
+
+      const blob = await r.blob();
+      const url = URL.createObjectURL(blob);
+
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `selected-error-orders.xlsx`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+
+      // refresh list after download (they will now be processing so removed)
+      setTimeout(load, 800);
+
+    }catch(e){
+      console.error(e);
+      alert("Network error downloading.");
+    }
+  }
+
+  function clearSearch(){
+    document.getElementById("search").value = "";
+    load();
+  }
+
+  function pill(status){
+    const s = String(status||"").toLowerCase();
+    if(s === "pending") return `<span class="pill pending">pending</span>`;
+    return `<span class="pill failed">${esc(s)}</span>`;
+  }
+
+  function esc(v){
+    return String(v ?? "").replace(/[&<>"']/g, m => ({
+      "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"
+    }[m]));
+  }
+</script>
+</body>
+</html>

@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Admin | Send SMS</title>
+
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet" />
+
+  <style>
+    :root{
+      --primary:#0A3D62; --accent:#1DD1A1; --bg:#F5F7FA; --card:#fff;
+      --text:#0f172a; --muted:#64748b; --line:#e2e8f0; --danger:#ef4444;
+    }
+    *{box-sizing:border-box;font-family:Poppins,system-ui,Segoe UI,Roboto,Arial}
+    body{margin:0;background:var(--bg);color:var(--text)}
+    .wrap{max-width:1100px;margin:24px auto;padding:0 14px}
+
+    .top{
+      display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap;
+      margin-bottom:14px;
+    }
+    .title{font-size:20px;font-weight:800}
+    .sub{color:var(--muted);font-size:13px;margin-top:4px}
+
+    .card{
+      background:var(--card);
+      border:1px solid var(--line);
+      border-radius:16px;
+      box-shadow:0 10px 30px rgba(2,6,23,.06);
+      padding:14px;
+    }
+
+    .grid{
+      display:grid;
+      grid-template-columns: 1fr 1fr;
+      gap:12px;
+      align-items:start;
+    }
+
+    .section{
+      border:1px solid var(--line);
+      border-radius:14px;
+      padding:14px;
+      background:#fff;
+    }
+
+    .sec-title{
+      font-size:14px;
+      font-weight:800;
+      margin:0 0 10px 0;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+    }
+
+    .hint{font-size:12px;color:var(--muted);margin-top:2px}
+    .field{margin-top:10px}
+    .field label{display:block;font-size:12px;color:var(--muted);margin-bottom:6px}
+    input, select, textarea{
+      width:100%;
+      padding:12px;
+      border:1px solid var(--line);
+      border-radius:12px;
+      font-size:14px;
+      outline:none;
+      background:#fff;
+    }
+    textarea{min-height:120px;resize:vertical}
+    input:focus, select:focus, textarea:focus{border-color:rgba(10,61,98,.5)}
+
+    .row{
+      display:flex;gap:10px;align-items:center;flex-wrap:wrap;
+    }
+    .btn{
+      border:0;border-radius:12px;
+      padding:12px 14px;
+      font-weight:800;
+      cursor:pointer;
+      background:var(--primary);
+      color:#fff;
+      white-space:nowrap;
+    }
+    .btn-outline{
+      background:#fff;color:var(--primary);
+      border:1px solid rgba(10,61,98,.25);
+    }
+    .btn-danger{background:var(--danger)}
+    .btn:disabled{opacity:.6;cursor:not-allowed}
+
+    .numbers-box{
+      margin-top:10px;
+      border:1px dashed rgba(10,61,98,.25);
+      background:#f8fafc;
+      border-radius:12px;
+      padding:12px;
+    }
+    .numbers-head{
+      display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;
+      margin-bottom:8px;
+    }
+    .count{
+      font-size:12px;color:var(--muted);
+      background:#fff;border:1px solid var(--line);
+      padding:6px 10px;border-radius:999px;font-weight:800;
+    }
+    .list{
+      margin:0;padding:0;list-style:none;
+      max-height:220px;overflow:auto;
+    }
+    .list li{
+      display:flex;justify-content:space-between;align-items:center;gap:10px;
+      padding:10px;border-bottom:1px solid var(--line);
+      font-size:13px;
+      background:#fff;
+      border-radius:10px;
+      margin-bottom:8px;
+    }
+    .list li:last-child{margin-bottom:0}
+    .chip{
+      font-size:12px;
+      color:var(--muted);
+      background:#f1f5f9;
+      padding:4px 10px;
+      border-radius:999px;
+      font-weight:800;
+      white-space:nowrap;
+    }
+
+    .footer-actions{
+      margin-top:14px;
+      display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap;
+    }
+
+    .status{
+      margin-top:10px;
+      padding:12px;
+      border-radius:12px;
+      border:1px solid var(--line);
+      background:#fff;
+      color:var(--muted);
+      font-size:13px;
+    }
+    .status.warn{
+      border-color: rgba(245,158,11,.35);
+      background: rgba(245,158,11,.08);
+      color:#92400e;
+      font-weight:700;
+    }
+
+    .meta{
+      display:flex;gap:10px;flex-wrap:wrap;
+      margin-top:10px;
+    }
+    .meta .pill{
+      background:#fff;border:1px solid var(--line);
+      padding:8px 10px;border-radius:999px;
+      font-size:12px;color:var(--muted);font-weight:800;
+    }
+
+    @media (max-width: 860px){
+      .grid{grid-template-columns: 1fr;}
+    }
+  </style>
+</head>
+
+<body>
+  <div class="wrap">
+    <div class="top">
+      <div>
+        <div class="title">Send SMS</div>
+        <div class="sub">Upload recipients or add them one-by-one, choose business name, write message, then send.</div>
+      </div>
+      <button class="btn btn-outline" id="btnClearAll">Clear All</button>
+    </div>
+
+    <div class="card">
+      <div class="grid">
+
+        <!-- LEFT: NUMBERS -->
+        <div class="section">
+          <div class="sec-title">
+            <span>Recipients</span>
+            <span class="count" id="countBadge">0 numbers</span>
+          </div>
+          <div class="hint">Accepted formats: <b>+233XXXXXXXXX</b> or <b>0XXXXXXXXX</b>. Duplicates are removed automatically.</div>
+
+          <div class="field">
+            <label>Upload Numbers (CSV / TXT)</label>
+            <input type="file" id="fileInput" accept=".csv,.txt" />
+            <div class="hint">CSV/TXT should contain one number per line (or first column).</div>
+          </div>
+
+          <div class="field">
+            <label>Add Number (One-by-one)</label>
+            <div class="row">
+              <input id="singleNumber" placeholder="e.g. 0241234567 or +233241234567" />
+              <button class="btn" id="btnAddOne">Add</button>
+              <button class="btn btn-outline" id="btnPasteMany">Paste Many</button>
+            </div>
+            <div class="hint">Tip: “Paste Many” lets you paste many numbers separated by spaces, commas, or new lines.</div>
+          </div>
+
+          <div class="numbers-box">
+            <div class="numbers-head">
+              <div class="hint" style="margin:0">Current recipients list</div>
+              <button class="btn btn-danger" id="btnClearList" style="padding:10px 12px">Clear List</button>
+            </div>
+
+            <ul class="list" id="numbersList">
+              <li style="justify-content:center;color:var(--muted);background:transparent;border:0">
+                No numbers added yet.
+              </li>
+            </ul>
+          </div>
+        </div>
+
+        <!-- RIGHT: MESSAGE -->
+        <div class="section">
+          <div class="sec-title">
+            <span>Message</span>
+            <span class="chip" id="charCount">0 chars</span>
+          </div>
+
+          <div class="field">
+            <label>Select Business / Sender Name</label>
+            <select id="senderName">
+              <option value="">-- Select business name --</option>
+              <option value="Sandypay">Sandypay</option>
+              <option value="Rhotech Core">Rhotech Core</option>
+              <option value="IPMC Kumasi">IPMC Kumasi</option>
+            </select>
+            <div class="hint">You can edit these options later to match your approved Sender IDs.</div>
+          </div>
+
+          <div class="field">
+            <label>Type Message</label>
+            <textarea id="messageBox" placeholder="Type your SMS message here..."></textarea>
+            <div class="meta">
+              <div class="pill" id="smsParts">Parts: 1</div>
+              <div class="pill" id="estimate">Estimated send to: 0</div>
+            </div>
+          </div>
+
+          <div class="footer-actions">
+            <button class="btn btn-outline" id="btnPreview">Preview</button>
+            <button class="btn" id="btnSend">Send Message</button>
+          </div>
+
+          <div class="status" id="statusBox">Status: Ready.</div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+<script>
+  // --- STATE ---
+  const numbersSet = new Set(); // store normalized numbers to avoid duplicates
+
+  const fileInput = document.getElementById("fileInput");
+  const singleNumber = document.getElementById("singleNumber");
+  const btnAddOne = document.getElementById("btnAddOne");
+  const btnPasteMany = document.getElementById("btnPasteMany");
+  const btnClearList = document.getElementById("btnClearList");
+  const btnClearAll = document.getElementById("btnClearAll");
+
+  const numbersList = document.getElementById("numbersList");
+  const countBadge = document.getElementById("countBadge");
+
+  const senderName = document.getElementById("senderName");
+  const messageBox = document.getElementById("messageBox");
+  const charCount = document.getElementById("charCount");
+  const smsParts = document.getElementById("smsParts");
+  const estimate = document.getElementById("estimate");
+
+  const btnPreview = document.getElementById("btnPreview");
+  const btnSend = document.getElementById("btnSend");
+  const statusBox = document.getElementById("statusBox");
+
+  // --- HELPERS ---
+  function setStatus(text, warn=false){
+    statusBox.textContent = text;
+    statusBox.className = warn ? "status warn" : "status";
+  }
+
+  function normalizeNumber(raw){
+    const n = String(raw || "").trim();
+    if(!n) return null;
+
+    // remove spaces and dashes
+    const cleaned = n.replace(/[^\d+]/g, "");
+
+    // Accept +233xxxxxxxxx
+    if(cleaned.startsWith("+233") && cleaned.length === 13){
+      return cleaned; // keep as +233...
+    }
+
+    // Accept 0xxxxxxxxx (10 digits)
+    if(cleaned.startsWith("0") && cleaned.length === 10){
+      return cleaned;
+    }
+
+    // Accept 233xxxxxxxxx without plus
+    if(cleaned.startsWith("233") && cleaned.length === 12){
+      return "+" + cleaned;
+    }
+
+    return null;
+  }
+
+  function addNumber(raw){
+    const norm = normalizeNumber(raw);
+    if(!norm) return false;
+    numbersSet.add(norm);
+    return true;
+  }
+
+  function removeNumber(num){
+    numbersSet.delete(num);
+    renderNumbers();
+  }
+
+  function renderNumbers(){
+    const arr = Array.from(numbersSet);
+    countBadge.textContent = `${arr.length} number${arr.length === 1 ? "" : "s"}`;
+    estimate.textContent = `Estimated send to: ${arr.length}`;
+
+    if(arr.length === 0){
+      numbersList.innerHTML = `
+        <li style="justify-content:center;color:var(--muted);background:transparent;border:0">
+          No numbers added yet.
+        </li>
+      `;
+      return;
+    }
+
+    numbersList.innerHTML = arr.map(n => `
+      <li>
+        <span>${n}</span>
+        <button class="btn btn-danger" style="padding:8px 10px;border-radius:10px;font-size:12px"
+          onclick="window.__remove('${n.replaceAll("'", "\\'")}')">Remove</button>
+      </li>
+    `).join("");
+  }
+
+  window.__remove = removeNumber;
+
+  function updateMessageMeta(){
+    const txt = messageBox.value || "";
+    charCount.textContent = `${txt.length} chars`;
+
+    // SMS parts estimate (simple rule):
+    // 160 chars per part (not handling unicode complexities here)
+    const parts = Math.max(1, Math.ceil(txt.length / 160));
+    smsParts.textContent = `Parts: ${parts}`;
+  }
+
+  // --- EVENTS ---
+  btnAddOne.addEventListener("click", () => {
+    const v = singleNumber.value.trim();
+    if(!v) return setStatus("Enter a number first.", true);
+
+    const ok = addNumber(v);
+    if(!ok) return setStatus("Invalid number format. Use +233XXXXXXXXX or 0XXXXXXXXX.", true);
+
+    singleNumber.value = "";
+    renderNumbers();
+    setStatus("Number added.");
+  });
+
+  btnPasteMany.addEventListener("click", () => {
+    const text = prompt("Paste numbers (separate by comma, space, or new line):");
+    if(!text) return;
+
+    const tokens = text.split(/[\s,;]+/g).filter(Boolean);
+    let added = 0, bad = 0;
+
+    tokens.forEach(t => {
+      if(addNumber(t)) added++;
+      else bad++;
+    });
+
+    renderNumbers();
+    setStatus(`Done. Added: ${added}. Invalid: ${bad}.`);
+  });
+
+  fileInput.addEventListener("change", async () => {
+    const file = fileInput.files && fileInput.files[0];
+    if(!file) return;
+
+    const text = await file.text();
+
+    // split by lines, also handle comma-separated values (take first column)
+    const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+
+    let added = 0, bad = 0;
+
+    for(const line of lines){
+      const firstCol = line.split(",")[0].trim();
+      if(addNumber(firstCol)) added++;
+      else bad++;
+    }
+
+    renderNumbers();
+    setStatus(`Upload complete. Added: ${added}. Invalid: ${bad}.`);
+    fileInput.value = "";
+  });
+
+  btnClearList.addEventListener("click", () => {
+    numbersSet.clear();
+    renderNumbers();
+    setStatus("Recipient list cleared.");
+  });
+
+  btnClearAll.addEventListener("click", () => {
+    numbersSet.clear();
+    senderName.value = "";
+    messageBox.value = "";
+    updateMessageMeta();
+    renderNumbers();
+    setStatus("All fields cleared.");
+  });
+
+  messageBox.addEventListener("input", updateMessageMeta);
+
+  btnPreview.addEventListener("click", () => {
+    const arr = Array.from(numbersSet);
+    const sender = senderName.value;
+    const msgTxt = messageBox.value.trim();
+
+    if(arr.length === 0) return setStatus("Add at least one recipient number.", true);
+    if(!sender) return setStatus("Select a business/sender name.", true);
+    if(!msgTxt) return setStatus("Type a message before preview.", true);
+
+    alert(
+      `PREVIEW\n\nSender: ${sender}\nRecipients: ${arr.length}\nMessage:\n${msgTxt}`
+    );
+    setStatus("Preview shown.");
+  });
+
+  // ✅ SEND BUTTON (MAINTENANCE ONLY)
+  btnSend.addEventListener("click", () => {
+    setStatus("⚠️ Under Maintenance: SMS sending will be enabled soon. Please try again later.", true);
+  });
+
+  // init
+  renderNumbers();
+  updateMessageMeta();
+</script>
+</body>
+</html>
