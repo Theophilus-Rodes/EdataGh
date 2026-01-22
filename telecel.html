@@ -140,6 +140,10 @@ body{margin:0;background:var(--bg);color:var(--text);}
   // -------------------------------
   // LOAD TELECEL PACKAGES
   // -------------------------------
+   const API_BASE =
+      location.hostname === "localhost"
+        ? "http://localhost:8080"
+        : "https://edatagh.com/edatagh-backend";
   document.addEventListener("DOMContentLoaded", loadTelecelPackages);
 
   async function loadTelecelPackages() {
@@ -151,7 +155,7 @@ body{margin:0;background:var(--bg);color:var(--text);}
     empty.textContent = "Loading Telecel packages...";
 
     try {
-      const res = await fetch("/api/telecel-prices");
+      const res = await fetch(`${API_BASE}/api/telecel-prices`);
       if (!res.ok) throw new Error("HTTP " + res.status);
 
       const json = await res.json();
@@ -229,7 +233,7 @@ body{margin:0;background:var(--bg);color:var(--text);}
     try {
       document.getElementById("sendOtpBtn").disabled = true;
 
-      const res = await fetch("/api/send-momo-otp", {
+      const res = await fetch(`${API_BASE}/api/send-momo-otp`, {
         method:"POST",
         headers:{ "Content-Type":"application/json" },
         body: JSON.stringify({ momo_number: momo })
@@ -266,7 +270,7 @@ body{margin:0;background:var(--bg);color:var(--text);}
 
     try {
       // 1) Verify OTP
-      const vr = await fetch("/api/verify-momo-otp", {
+      const vr = await fetch(`${API_BASE}/api/verify-momo-otp`, {
         method:"POST",
         headers:{ "Content-Type":"application/json" },
         body: JSON.stringify({ momo_number: momo, otp, session_id: otpSessionId })
@@ -278,7 +282,7 @@ body{margin:0;background:var(--bg);color:var(--text);}
       closeModal();
       showOverlay("Please wait for prompt on your phone", "Approve the payment using your MoMo PIN");
 
-      const pr = await fetch("/api/buy-data-theteller", {
+      const pr = await fetch(`${API_BASE}/api/buy-data-theteller`, {
         method:"POST",
         headers:{ "Content-Type":"application/json" },
         body: JSON.stringify({
@@ -318,7 +322,7 @@ body{margin:0;background:var(--bg);color:var(--text);}
     pollTimer = setInterval(async () => {
       tries++;
       try {
-        const res = await fetch(`/api/theteller-status?transaction_id=${encodeURIComponent(transaction_id)}`);
+        const res = await fetch(`${API_BASE}/api/theteller-status?transaction_id=${encodeURIComponent(transaction_id)}`);
         const json = await res.json();
 
         if (json.ok && json.status === "approved") {

@@ -274,7 +274,7 @@
     try {
       document.getElementById("sendOtpBtn").disabled = true;
 
-      const res = await fetch("/api/send-momo-otp", {
+      const res = await fetch(`${API_BASE}/api/send-momo-otp`, {
         method:"POST",
         headers:{ "Content-Type":"application/json" },
         body: JSON.stringify({ momo_number: momo })
@@ -311,7 +311,7 @@
 
     try {
       // 1) Verify OTP
-      const vr = await fetch("/api/verify-momo-otp", {
+      const vr = await fetch(`${API_BASE}/api/verify-momo-otp`, {
         method:"POST",
         headers:{ "Content-Type":"application/json" },
         body: JSON.stringify({ momo_number: momo, otp, session_id: otpSessionId })
@@ -323,7 +323,7 @@
       closeModal();
       showOverlay("Please wait for prompt on your phone", "Approve the payment using your MoMo PIN");
 
-      const pr = await fetch("/api/buy-data-theteller", {
+      const pr = await fetch(`${API_BASE}/api/buy-data-theteller`, {
         method:"POST",
         headers:{ "Content-Type":"application/json" },
         body: JSON.stringify({
@@ -361,7 +361,7 @@
     pollTimer = setInterval(async () => {
       tries++;
       try {
-        const res = await fetch(`/api/theteller-status?transaction_id=${encodeURIComponent(transaction_id)}`);
+        const res = await fetch(`${API_BASE}/api/theteller-status?transaction_id=${encodeURIComponent(transaction_id)}`);
         const json = await res.json();
 
         if (json.ok && json.status === "approved") {
