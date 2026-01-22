@@ -136,8 +136,10 @@
 
 <script>
   // ✅ Change this if your backend is hosted elsewhere
-  const API_BASE = ""; // e.g. "https://vendor.sandipay.co" or "http://localhost:5000"
-
+   const API_BASE =
+      location.hostname === "localhost"
+        ? "http://localhost:8080"
+        : "https://edatagh.com/edatagh-backend";
   const tbody = document.getElementById("tbody");
   const msg = document.getElementById("msg");
 
