@@ -113,11 +113,15 @@
   </div>
 
 <script>
+  const API_BASE =
+  location.hostname === "localhost"
+    ? "http://localhost:8080"
+    : "https://edatagh.com/edatagh-backend";
   let active = "mtn";
 
   async function refreshBadges(){
     try{
-      const r = await fetch("/api/admin/approved-counts");
+     const r = await fetch(`${API_BASE}/api/admin/approved-counts`);
       const j = await r.json();
       if(!j.ok) return;
       document.getElementById("b_mtn").textContent = j.counts.mtn ?? 0;
@@ -136,7 +140,8 @@
 
   async function downloadNow(net){
     // open download in a new tab so browser downloads the file
-    window.open(`/api/admin/download-orders?network=${encodeURIComponent(net)}`, "_blank");
+    window.open(`${API_BASE}/api/admin/download-orders?network=${encodeURIComponent(net)}`, "_blank");
+
 
     // after a short moment refresh UI
     setTimeout(async ()=>{
@@ -150,7 +155,7 @@
     list.textContent = "Loading…";
 
     try{
-      const r = await fetch(`/api/admin/order-batches?network=${encodeURIComponent(active)}`);
+      const r = await fetch(`${API_BASE}/api/admin/order-batches?network=${encodeURIComponent(active)}`);
       const j = await r.json();
       if(!j.ok) return list.textContent = "Failed to load batches.";
 
@@ -214,7 +219,7 @@
     if(!confirm("Mark this whole batch as delivered?")) return;
 
     try{
-      const r = await fetch("/api/admin/mark-delivered",{
+      const r = await fetch(`${API_BASE}/api/admin/mark-delivered`,{
         method:"POST",
         headers:{"Content-Type":"application/json"},
         body: JSON.stringify({ download_batch: batch })

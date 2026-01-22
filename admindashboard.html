@@ -200,6 +200,17 @@
     <button class="action-btn" onclick="window.location.href='admin_error_orders.html'">Errors</button>
   <button class="action-btn" onclick="openLogoutModal()">LOGOUT</button>
 
+
+
+<script>
+  const API_BASE =
+    location.hostname === "localhost"
+      ? "http://localhost:8080"
+      : "https://edatagh.com/edatagh-backend";
+</script>
+
+
+
 <script>
   function openLogoutModal() {
     document.getElementById("logoutBackdrop").style.display = "flex";
@@ -251,7 +262,7 @@
 <script>
   async function loadApprovedCount() {
     try {
-      const res = await fetch("/api/orders/approved-count");
+     const res = await fetch(`${API_BASE}/api/orders/approved-count`);
       const data = await res.json();
 
       if (data.ok) {
@@ -272,7 +283,7 @@
 <script>
   async function loadTotalTransactions() {
     try {
-      const res = await fetch("/api/orders/total-count");
+      const res = await fetch(`${API_BASE}/api/orders/total-count`);
       const data = await res.json();
 
       if (data.ok) {
@@ -294,7 +305,7 @@
 <script>
   async function loadTotalRevenue() {
     try {
-      const res = await fetch("/api/orders/total-revenue");
+    const res = await fetch(`${API_BASE}/api/orders/total-revenue`);
       const data = await res.json();
 
       if (data.ok) {
@@ -319,7 +330,7 @@
 <script>
   async function loadErrorCount() {
     try {
-      const res = await fetch("/api/orders/error-count");
+      const res = await fetch(`${API_BASE}/api/orders/error-count`);
       const data = await res.json();
 
       if (data.ok) {

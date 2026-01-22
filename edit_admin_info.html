@@ -152,7 +152,10 @@
   </div>
 
 <script>
-  const API_BASE = ""; 
+   const API_BASE =
+      location.hostname === "localhost"
+        ? "http://localhost:8080"
+        : "https://edatagh.com/edatagh-backend";
 
   const username = document.getElementById("username");
   const email = document.getElementById("email");

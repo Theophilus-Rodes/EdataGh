@@ -112,6 +112,11 @@
   </div>
 
 <script>
+
+   const API_BASE =
+      location.hostname === "localhost"
+        ? "http://localhost:8080"
+        : "https://edatagh.com/edatagh-backend";
   let rows = [];
   let selected = new Set();
 
@@ -125,7 +130,9 @@
     updateSelectedUI();
 
     try{
-      const url = q ? `/api/admin/error-orders?search=${encodeURIComponent(q)}` : `/api/admin/error-orders`;
+      const url = q
+  ? `${API_BASE}/api/admin/error-orders?search=${encodeURIComponent(q)}`
+  : `${API_BASE}/api/admin/error-orders`;
       const r = await fetch(url);
       const j = await r.json();
 
@@ -197,7 +204,7 @@
 
     try{
       // fetch excel as blob
-      const r = await fetch("/api/admin/download-selected-errors", {
+      const r = await fetch(`${API_BASE}/api/admin/download-selected-errors`, {
         method:"POST",
         headers:{ "Content-Type":"application/json" },
         body: JSON.stringify({ ids })
