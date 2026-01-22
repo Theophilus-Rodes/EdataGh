@@ -194,7 +194,7 @@
     empty.textContent = "Loading MTN packages...";
 
     try {
-      const res = await fetch("${API_BASE}/api/mtn-prices");
+      const res = await fetch(`${API_BASE}/api/mtn-prices`);
       if (!res.ok) throw new Error("HTTP " + res.status);
 
       const json = await res.json();
