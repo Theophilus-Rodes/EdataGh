@@ -35,24 +35,41 @@ app.get("/login.html", (req, res) => {
 
 // Database
 // =======================
-// DigitalOcean MySQL (Managed)
+// DigitalOcean MySQL (Managed) ✅ FIXED
 // =======================
-const db = mysql.createConnection({
+const fs = require("fs");
+const mysql = require("mysql2");
+
+// Option A (recommended): put the CA certificate content in env var DB_SSL_CA
+// If you paste it with "\n", this converts it back to real new lines.
+const caFromEnv = process.env.DB_SSL_CA
+  ? process.env.DB_SSL_CA.replace(/\\n/g, "\n")
+  : null;
+
+// Option B: if you saved the CA file inside your repo (e.g. backend/ca.pem)
+// const caFromFile = fs.readFileSync(require("path").join(__dirname, "ca.pem"), "utf8");
+
+const db = mysql.createPool({
   host: process.env.DB_HOST,
   port: Number(process.env.DB_PORT || 25060),
   user: process.env.DB_USER,
   password: process.env.DB_PASSWORD,
   database: process.env.DB_NAME,
-  ssl: { rejectUnauthorized: true }
+
+  ssl: caFromEnv
+    ? { ca: caFromEnv, rejectUnauthorized: true }
+    : { rejectUnauthorized: true },
+
+  waitForConnections: true,
+  connectionLimit: 10,
+  queueLimit: 0,
 });
 
-
-// quick connection test
-db.query("SELECT 1", (err) => {
-  if (err) console.error("❌ DB Error:", err);
+// ✅ quick connection test
+db.query("SELECT 1 AS ok", (err) => {
+  if (err) console.error("❌ DB Error:", err.message);
   else console.log("✅ Database connected (DigitalOcean)");
 });
-console.log("Database connected");
 
 
 // Login API
