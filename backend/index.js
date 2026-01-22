@@ -129,13 +129,32 @@ app.post("/api/admin-prices", (req, res) => {
 
 
 // GET ALL ADMIN PRICES
+// GET ALL ADMIN PRICES (ORDERED: MTN → TELECEL → AIRTELTIGO, PRICE ASC)
 app.get("/api/admin-prices", (req, res) => {
-  const sql = "SELECT * FROM admin_prices ORDER BY network ASC, price ASC, id DESC";
+  const sql = `
+    SELECT *
+    FROM admin_prices
+    ORDER BY
+      CASE LOWER(TRIM(network))
+        WHEN 'mtn' THEN 1
+        WHEN 'telecel' THEN 2
+        WHEN 'airteltigo' THEN 3
+        ELSE 4
+      END,
+      price ASC,
+      id DESC
+  `;
+
   db.query(sql, (err, rows) => {
-    if (err) return res.status(500).json({ ok: false, message: "DB error" });
+    if (err) {
+      console.error("admin-prices error:", err);
+      return res.status(500).json({ ok: false, message: "DB error" });
+    }
+
     res.json({ ok: true, rows: rows || [] });
   });
 });
+
 
 // UPDATE PRICE ROW
 app.put("/api/admin-prices/:id", (req, res) => {
