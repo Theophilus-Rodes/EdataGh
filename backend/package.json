@@ -10,9 +10,11 @@
   "license": "ISC",
   "description": "",
   "dependencies": {
+    "africastalking": "^0.7.8",
     "axios": "^1.13.2",
     "bcrypt": "^6.0.0",
     "cors": "^2.8.5",
+    "exceljs": "^4.4.0",
     "express": "^5.2.1",
     "express-session": "^1.18.2",
     "mysql2": "^3.16.1"
