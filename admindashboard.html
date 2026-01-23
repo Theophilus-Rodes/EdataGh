@@ -209,6 +209,37 @@
       : "https://edatagh.com/edatagh-backend";
 </script>
 
+<script>
+  async function requireAdminAuth() {
+    try {
+      const res = await fetch(`${API_BASE}/api/admin/me`, {
+        credentials: "include"
+      });
+
+      if (!res.ok) {
+        // Not logged in → redirect
+        window.location.href = "login.html";
+        return;
+      }
+
+      const data = await res.json();
+
+      // Optional: show admin name/email
+      if (data.ok && data.user) {
+        console.log("Logged in as:", data.user.username);
+      }
+
+    } catch (err) {
+      // Network or server issue → force login
+      window.location.href = "login.html";
+    }
+  }
+
+  // 🔥 Run immediately when page loads
+  requireAdminAuth();
+</script>
+
+
 
 
 <script>
@@ -348,8 +379,12 @@
   // optional auto-refresh
   setInterval(loadErrorCount, 5000);
 </script>
-
-
+<script>
+async function confirmLogout() {
+  await fetch(`${API_BASE}/logout`, { method: "POST", credentials: "include" });
+  window.location.href = "login.html";
+}
+</script>
 
 
 
