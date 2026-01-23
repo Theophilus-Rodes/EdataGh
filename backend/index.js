@@ -630,12 +630,6 @@ function detectMomoNetwork(msisdn) {
 const pendingOrders = new Map();
 
 
-if (!isOtpVerifiedNow(momo_number)) {
-  return res.json({
-    ok: false,
-    message: "OTP not verified. Please verify OTP first."
-  });
-}
 
 // POST /api/buy-data-theteller
 // body: { package_id, momo_number, recipient_number, vendor_id }
