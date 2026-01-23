@@ -494,10 +494,20 @@ app.post("/api/verify-momo-otp", (req, res) => {
     if (!momoE164) return res.json({ ok: false, message: "Invalid MoMo number." });
     if (!/^\d{4,8}$/.test(otp)) return res.json({ ok: false, message: "Invalid OTP code." });
 
+    // ✅ Recommended: require session_id
+    if (!sessionId) {
+      return res.json({ ok: false, message: "Missing session_id. Please request a new OTP." });
+    }
+
     const rec = otpStore.get(momoE164);
     if (!rec) return res.json({ ok: false, message: "No OTP request found. Please send OTP again." });
 
-    if (sessionId && rec.sessionId !== sessionId) {
+    // ✅ If already verified, allow quickly
+    if (Date.now() < (rec.verifiedUntil || 0)) {
+      return res.json({ ok: true, message: "OTP already verified." });
+    }
+
+    if (rec.sessionId !== sessionId) {
       return res.json({ ok: false, message: "OTP session mismatch. Please request a new OTP." });
     }
 
@@ -513,11 +523,17 @@ app.post("/api/verify-momo-otp", (req, res) => {
     }
 
     if (otp !== rec.otp) {
-      otpStore.set(momoE164, rec);
+      // rec already updated in memory; no need to set again
       return res.json({ ok: false, message: "Incorrect OTP." });
     }
 
-    rec.verifiedUntil = Date.now() + (10 * 60 * 1000); // 10 minutes
+    // ✅ Mark verified for 10 minutes
+    rec.verifiedUntil = Date.now() + (10 * 60 * 1000);
+
+    // ✅ Optional but cleaner: remove the OTP value so it can't be reused
+    rec.otp = null;
+    rec.expiresAt = 0;
+
     otpStore.set(momoE164, rec);
 
     return res.json({ ok: true, message: "OTP verified." });
@@ -527,11 +543,16 @@ app.post("/api/verify-momo-otp", (req, res) => {
   }
 });
 
-function isOtpVerifiedNow(momoRaw) {
+function isOtpVerifiedNow(momoRaw, sessionId) {
   const momoE164 = normalizePhoneToE164Ghana(momoRaw);
   if (!momoE164) return false;
+
   const rec = otpStore.get(momoE164);
   if (!rec) return false;
+
+  // ✅ Stronger: require the same sessionId that was verified
+  if (sessionId && rec.sessionId !== sessionId) return false;
+
   return Date.now() < (rec.verifiedUntil || 0);
 }
 
