@@ -400,6 +400,13 @@ const sms = at.SMS;
 // In-memory OTP store: momo -> { otp, expiresAt, attempts, sessionId, verifiedUntil }
 const otpStore = new Map();
 
+otpStore.set(momoE164, {
+  otp,
+  expiresAt,
+  attempts: 0,
+  verifiedUntil: 0
+});
+
 function normalizePhoneToE164Ghana(input = "") {
   const v = String(input).replace(/\s+/g, "").replace(/^\+/, "");
   if (/^0\d{9}$/.test(v)) return "+233" + v.slice(1);
@@ -476,45 +483,52 @@ app.post("/api/send-momo-otp", async (req, res) => {
 // POST /api/verify-momo-otp  body: { otp, session_id }
 app.post("/api/verify-momo-otp", (req, res) => {
   try {
+    const momoRaw = req.body?.momo_number;
     const otp = String(req.body?.otp || "").trim();
-    const sessionId = String(req.body?.session_id || "").trim();
 
-    if (!sessionId) return res.json({ ok: false, message: "Missing session_id. Please send OTP again." });
-    if (!/^\d{4,8}$/.test(otp)) return res.json({ ok: false, message: "Invalid OTP code." });
+    const momoE164 = normalizePhoneToE164Ghana(momoRaw);
+    if (!momoE164) return res.json({ ok:false, message:"Invalid MoMo number." });
+    if (!/^\d{4,8}$/.test(otp)) return res.json({ ok:false, message:"Invalid OTP code." });
 
-    const rec = otpSessionStore.get(sessionId);
-    if (!rec) return res.json({ ok: false, message: "No OTP request found. Please send OTP again." });
+    const rec = otpStore.get(momoE164);
+    if (!rec) return res.json({ ok:false, message:"No OTP request found. Please send OTP again." });
 
     if (Date.now() > rec.expiresAt) {
-      otpSessionStore.delete(sessionId);
-      return res.json({ ok: false, message: "OTP expired. Please request a new OTP." });
+      otpStore.delete(momoE164);
+      return res.json({ ok:false, message:"OTP expired. Please request a new OTP." });
     }
 
     rec.attempts++;
     if (rec.attempts > 5) {
-      otpSessionStore.delete(sessionId);
-      return res.json({ ok: false, message: "Too many attempts. Please request a new OTP." });
+      otpStore.delete(momoE164);
+      return res.json({ ok:false, message:"Too many attempts. Please request a new OTP." });
     }
 
-    if (otp !== rec.otp) return res.json({ ok: false, message: "Incorrect OTP." });
+    if (otp !== rec.otp) {
+      return res.json({ ok:false, message:"Incorrect OTP." });
+    }
 
-    rec.verifiedUntil = Date.now() + 10 * 60 * 1000;
-    rec.otp = null;
-    rec.expiresAt = 0;
+    // ✅ mark verified
+    rec.verifiedUntil = Date.now() + (10 * 60 * 1000);
+    otpStore.set(momoE164, rec);
 
-    otpSessionStore.set(sessionId, rec);
-    return res.json({ ok: true, message: "OTP verified." });
+    return res.json({ ok:true, message:"OTP verified." });
   } catch (err) {
     console.error("❌ verify-momo-otp error:", err);
-    return res.status(500).json({ ok: false, message: "OTP verification failed." });
+    return res.status(500).json({ ok:false, message:"OTP verification failed." });
   }
 });
 
-function isOtpVerifiedNow(sessionId) {
-  const rec = otpSessionStore.get(sessionId);
+function isOtpVerifiedNow(momoRaw) {
+  const momoE164 = normalizePhoneToE164Ghana(momoRaw);
+  if (!momoE164) return false;
+
+  const rec = otpStore.get(momoE164);
   if (!rec) return false;
+
   return Date.now() < (rec.verifiedUntil || 0);
 }
+
 
 // =======================
 // MTN PRICES ENDPOINT
@@ -598,18 +612,27 @@ function detectMomoNetwork(msisdn) {
 // ===============================
 const pendingOrders = new Map();
 
+
+if (!isOtpVerifiedNow(momo_number)) {
+  return res.json({
+    ok: false,
+    message: "OTP not verified. Please verify OTP first."
+  });
+}
+
 // POST /api/buy-data-theteller
 // body: { package_id, momo_number, recipient_number, vendor_id }
 app.post("/api/buy-data-theteller", async (req, res) => {
-  const { package_id, momo_number, recipient_number, vendor_id, session_id } = req.body;
+  const { package_id, momo_number, recipient_number, vendor_id } = req.body;
   const vid = Number(vendor_id || 1);
 
   if (!package_id || !momo_number || !recipient_number) {
-    return res.json({ ok: false, message: "Missing required fields." });
+    return res.json({ ok:false, message:"Missing required fields." });
   }
 
+  // ✅ OTP CHECK (MATCHES YOUR PERFECT VERSION)
   if (!isOtpVerifiedNow(momo_number)) {
-    return res.json({ ok: false, message: "OTP not verified. Please verify OTP first." });
+    return res.json({ ok:false, message:"OTP not verified. Please verify OTP first." });
   }
 
   try {
