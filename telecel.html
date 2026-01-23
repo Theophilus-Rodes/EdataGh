@@ -137,13 +137,11 @@ body{margin:0;background:var(--bg);color:var(--text);}
 </div>
 
 <script>
-  // -------------------------------
-  // LOAD TELECEL PACKAGES
-  // -------------------------------
-   const API_BASE =
-      location.hostname === "localhost"
-        ? "http://localhost:8080"
-        : "https://edatagh.com/edatagh-backend";
+  const API_BASE =
+    location.hostname === "localhost"
+      ? "http://localhost:8080"
+      : "https://edatagh.com/edatagh-backend";
+
   document.addEventListener("DOMContentLoaded", loadTelecelPackages);
 
   async function loadTelecelPackages() {
@@ -185,15 +183,11 @@ body{margin:0;background:var(--bg);color:var(--text);}
     }
   }
 
-  // -------------------------------
-  // BUY MODAL + OTP + PAY FLOW
-  // -------------------------------
   let selected = { package_id:null, name:"", price:0 };
   let otpSessionId = "";
 
   function openBuyModal(package_id, name, price) {
     selected = { package_id, name, price };
-    otpSessionId = "";
 
     document.getElementById("mSummary").textContent =
       `Package: ${name} | Amount: GHS ${Number(price).toFixed(2)}`;
@@ -201,10 +195,17 @@ body{margin:0;background:var(--bg);color:var(--text);}
     document.getElementById("recipientNumber").value = "";
     document.getElementById("momoNumber").value = "";
     document.getElementById("otpCode").value = "";
+    document.getElementById("otpCode").disabled = false;
 
     document.getElementById("otpField").style.display = "none";
     document.getElementById("payBtn").disabled = true;
-    document.getElementById("sendOtpBtn").disabled = false;
+
+    const btn = document.getElementById("sendOtpBtn");
+    btn.disabled = false;
+    btn.textContent = "Send OTP";
+
+    // restore last session if any
+    otpSessionId = localStorage.getItem("otp_session_id") || "";
 
     hideError();
     document.getElementById("modalBackdrop").style.display = "flex";
@@ -225,14 +226,17 @@ body{margin:0;background:var(--bg);color:var(--text);}
     el.textContent = "";
   }
 
+  // ✅ Improved sendOtp (cooldown + save session)
   async function sendOtp() {
     hideError();
     const momo = document.getElementById("momoNumber").value.trim();
     if (!momo) return showError("Enter MoMo number.");
 
-    try {
-      document.getElementById("sendOtpBtn").disabled = true;
+    const btn = document.getElementById("sendOtpBtn");
+    btn.disabled = true;
+    btn.textContent = "Sending...";
 
+    try {
       const res = await fetch(`${API_BASE}/api/send-momo-otp`, {
         method:"POST",
         headers:{ "Content-Type":"application/json" },
@@ -242,17 +246,36 @@ body{margin:0;background:var(--bg);color:var(--text);}
       const json = await res.json();
 
       if (!json.ok) {
-        document.getElementById("sendOtpBtn").disabled = false;
+        btn.disabled = false;
+        btn.textContent = "Send OTP";
         return showError(json.message || "Failed to send OTP.");
       }
 
       otpSessionId = json.session_id || "";
+      localStorage.setItem("otp_session_id", otpSessionId);
+      localStorage.setItem("otp_momo", momo);
+
       document.getElementById("otpField").style.display = "block";
       document.getElementById("payBtn").disabled = false;
 
+      // cooldown (20s)
+      let seconds = 20;
+      btn.textContent = `Resend in ${seconds}s`;
+      const t = setInterval(() => {
+        seconds--;
+        if (seconds <= 0) {
+          clearInterval(t);
+          btn.disabled = false;
+          btn.textContent = "Resend OTP";
+        } else {
+          btn.textContent = `Resend in ${seconds}s`;
+        }
+      }, 1000);
+
     } catch (e) {
       console.error(e);
-      document.getElementById("sendOtpBtn").disabled = false;
+      btn.disabled = false;
+      btn.textContent = "Send OTP";
       showError("Network error sending OTP.");
     }
   }
@@ -267,6 +290,7 @@ body{margin:0;background:var(--bg);color:var(--text);}
     if (!recipient) return showError("Enter recipient number.");
     if (!momo) return showError("Enter MoMo number.");
     if (!otp) return showError("Enter OTP code.");
+    if (!otpSessionId) return showError("Please click Send OTP again.");
 
     try {
       // 1) Verify OTP
@@ -277,6 +301,12 @@ body{margin:0;background:var(--bg);color:var(--text);}
       });
       const vj = await vr.json();
       if (!vj.ok) return showError(vj.message || "OTP verification failed.");
+
+      // lock OTP UI
+      document.getElementById("otpCode").disabled = true;
+      const sendBtn = document.getElementById("sendOtpBtn");
+      sendBtn.disabled = true;
+      sendBtn.textContent = "OTP Verified";
 
       // 2) Initiate TheTeller prompt
       closeModal();
@@ -299,7 +329,6 @@ body{margin:0;background:var(--bg);color:var(--text);}
         return;
       }
 
-      // 3) Poll status
       pollStatus(pj.transaction_id);
 
     } catch (e) {
@@ -308,16 +337,13 @@ body{margin:0;background:var(--bg);color:var(--text);}
     }
   }
 
-  // -------------------------------
-  // STATUS POLLING
-  // -------------------------------
   let pollTimer = null;
 
   async function pollStatus(transaction_id) {
     clearInterval(pollTimer);
 
     let tries = 0;
-    const maxTries = 80; // ~5 mins
+    const maxTries = 80;
 
     pollTimer = setInterval(async () => {
       tries++;
@@ -354,9 +380,6 @@ body{margin:0;background:var(--bg);color:var(--text);}
     }, 4000);
   }
 
-  // -------------------------------
-  // OVERLAY HELPERS
-  // -------------------------------
   function showOverlay(msg, sub) {
     document.getElementById("overlay").style.display = "flex";
     document.getElementById("overlayMsg").textContent = msg || "Please wait…";
@@ -380,9 +403,6 @@ body{margin:0;background:var(--bg);color:var(--text);}
     clearInterval(pollTimer);
   }
 
-  // -------------------------------
-  // ESCAPERS
-  // -------------------------------
   function escapeHtml(str) {
     return String(str ?? "").replace(/[&<>"']/g, m => ({
       "&":"&amp;",
