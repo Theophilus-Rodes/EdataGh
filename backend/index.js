@@ -445,15 +445,12 @@ app.post("/api/send-momo-otp", async (req, res) => {
     const momoE164 = normalizePhoneToE164Ghana(momoRaw);
     if (!momoE164) return res.json({ ok: false, message: "Invalid MoMo number format." });
 
-    // ✅ cooldown per number (avoid spam)
-    for (const [sid, rec] of otpSessionStore.entries()) {
-      if (rec.momoE164 === momoE164) {
-        const stillValid = Date.now() < rec.expiresAt;
-        const stillCooldown = Date.now() - (rec.sentAt || 0) < COOLDOWN_MS;
-        if (stillValid && stillCooldown) {
-          return res.json({ ok: false, message: "OTP already sent. Please wait a few seconds and try again." });
-        }
-      }
+    // ✅ simple cooldown per number (prevents spam)
+    // you can store lastSentByNumber in a Map
+    global.lastOtpSentByNumber = global.lastOtpSentByNumber || new Map();
+    const lastSent = global.lastOtpSentByNumber.get(momoE164) || 0;
+    if (Date.now() - lastSent < COOLDOWN_MS) {
+      return res.json({ ok: false, message: "Please wait a few seconds and try again." });
     }
 
     const otp = generateOtp(6);
@@ -463,15 +460,18 @@ app.post("/api/send-momo-otp", async (req, res) => {
     // ✅ send SMS first
     await sendOtpSmsAfricaTalking(momoE164, otp);
 
-    // ✅ store after successful send
+    // ✅ store by session_id (what verify uses)
     otpSessionStore.set(session_id, {
       momoE164,
       otp,
       expiresAt,
       attempts: 0,
       verifiedUntil: 0,
-      sentAt: Date.now()
+      createdAt: Date.now(),
     });
+
+    // track cooldown
+    global.lastOtpSentByNumber.set(momoE164, Date.now());
 
     return res.json({ ok: true, message: "OTP sent successfully.", session_id });
   } catch (err) {
