@@ -168,36 +168,47 @@
     </div>
 
   </div>
+<script>
+  const API_BASE =
+    location.hostname === "localhost"
+      ? "http://localhost:8080"
+      : "https://edatagh.com/edatagh-backend";
 
- <script>
-   const API_BASE =
-      location.hostname === "localhost"
-        ? "http://localhost:8080"
-        : "https://edatagh.com/edatagh-backend";
-  async function loginAdmin(e){
+  async function loginAdmin(e) {
     e.preventDefault();
 
-    const email = document.querySelector("input[type='text'], input[type='email']").value;
-    const password = document.querySelector("input[type='password']").value;
+    const email = document.getElementById("email").value.trim();
+    const password = document.getElementById("password").value.trim();
+    const errBox = document.getElementById("errorMsg");
+
+    errBox.style.display = "none";
+    errBox.textContent = "";
 
     try {
-      const res = await fetch(`${API_BASE}/login`,{
+      const res = await fetch(`${API_BASE}/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-         credentials: "include",
+        credentials: "include", // ✅ MUST be here
         body: JSON.stringify({ email, password })
       });
 
-      const data = await res.json();
+      const data = await res.json().catch(() => null);
 
-      if (data.success) {
-        // ✅ REDIRECT
-        window.location.href = data.redirect;
-      } else {
-        alert(data.message || "Login failed");
+      // ✅ accept either {ok:true} or {success:true}
+      const loggedIn = (data && (data.ok === true || data.success === true));
+
+      if (!res.ok || !loggedIn) {
+        errBox.style.display = "block";
+        errBox.textContent = (data && (data.message || data.error)) || "Login failed";
+        return;
       }
+
+      // ✅ go to dashboard
+      window.location.href = "admindashboard.html";
+
     } catch (err) {
-      alert("Server error. Please try again.");
+      errBox.style.display = "block";
+      errBox.textContent = "Server error. Please try again.";
     }
   }
 </script>
