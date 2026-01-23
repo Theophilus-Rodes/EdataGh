@@ -13,6 +13,13 @@ const AfricasTalking = require("africastalking");
 
 const app = express();
 app.use(cors());
+app.set("trust proxy", 1); // ✅ required on DigitalOcean App Platform
+
+app.use(cors({
+  origin: ["https://edatagh.com", "http://localhost:8080"],
+  credentials: true
+}));
+
 
 // Parse JSON & form data
 app.use(express.json());
@@ -20,10 +27,26 @@ app.use(express.urlencoded({ extended: true }));
 
 // Sessions
 app.use(session({
+  name: "edata.sid",
   secret: "edata_secret_key",
   resave: false,
-  saveUninitialized: false
+  saveUninitialized: false,
+  proxy: true,
+  cookie: {
+    httpOnly: true,
+    secure: true,      // ✅ HTTPS only (you are on https)
+    sameSite: "lax",   // ✅ works for same-site (edatagh.com + /edatagh-backend)
+    maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
+  }
 }));
+
+app.post("/logout", (req, res) => {
+  req.session.destroy(() => {
+    res.clearCookie("edata.sid");
+    res.json({ ok: true });
+  });
+});
+
 
 // Serve everything in THIS folder (same folder as index.js)
 app.use(express.static(path.join(__dirname)));
@@ -70,6 +93,8 @@ db.query("SELECT 1 AS ok", (err) => {
   if (err) console.error("❌ DB Error:", err.message);
   else console.log("✅ Database connected (DigitalOcean)");
 });
+
+
 
 
 // Login API
