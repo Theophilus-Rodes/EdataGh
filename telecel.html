@@ -358,17 +358,17 @@ body{margin:0;background:var(--bg);color:var(--text);}
     showOverlay("Please wait for prompt on your phone", "Approve the payment using your MoMo PIN");
 
     try {
-      const pr = await fetch(`${API_BASE}/api/buy-data-theteller`, {
-        method:"POST",
-        headers:{ "Content-Type":"application/json" },
-        body: JSON.stringify({
-          package_id: selected.package_id,
-          momo_number: momo,
-          recipient_number: recipient,
-          vendor_id: 1,
-          session_id: otpSessionId  // ✅ IMPORTANT
-        })
-      });
+    const pr = await fetch(`${API_BASE}/api/buy-data-theteller`, {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({
+    package_id: selected.package_id,
+    momo_number: momo,
+    recipient_number: recipient,
+    vendor_id: 1,
+    otp_session_id: otpSessionId   // ✅ MUST MATCH BACKEND
+  })
+});
 
       const pj = await pr.json();
 
