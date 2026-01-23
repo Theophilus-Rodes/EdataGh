@@ -209,29 +209,7 @@
       : "https://edatagh.com/edatagh-backend";
 </script>
 
-<script>
- async function requireAdminAuth() {
-  try {
-    const res = await fetch(`${API_BASE}/api/admin/me`, {
-      credentials: "include"
-    });
 
-    const data = await res.json().catch(() => null);
-
-    if (!res.ok || !data || data.ok !== true) {
-      window.location.href = "login.html";
-      return;
-    }
-
-    console.log("Logged in as:", data.user?.username);
-  } catch (err) {
-    window.location.href = "login.html";
-  }
-}
-
-document.addEventListener("DOMContentLoaded", requireAdminAuth);
-
-</script>
 
 
 
@@ -375,7 +353,7 @@ document.addEventListener("DOMContentLoaded", requireAdminAuth);
 </script>
 <script>
 async function confirmLogout() {
-  await fetch(`${API_BASE}/logout`, { method: "POST", credentials: "include" });
+  await fetch(`${API_BASE}/logout`, { method: "POST" });
   window.location.href = "login.html";
 }
 </script>
