@@ -12,7 +12,7 @@ const PORT = process.env.PORT || 3000;
 const AfricasTalking = require("africastalking");
 
 const app = express();
-app.use(cors());
+
 app.set("trust proxy", 1); // ✅ required on DigitalOcean App Platform
 
 app.use(cors({
@@ -42,10 +42,16 @@ app.use(session({
 
 app.post("/logout", (req, res) => {
   req.session.destroy(() => {
-    res.clearCookie("edata.sid");
+    res.clearCookie("edata.sid", {
+      httpOnly: true,
+      secure: true,
+      sameSite: "lax",
+      path: "/",
+    });
     res.json({ ok: true });
   });
 });
+
 
 
 // Serve everything in THIS folder (same folder as index.js)
