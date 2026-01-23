@@ -364,13 +364,13 @@
      const pr = await fetch(`${API_BASE}/api/buy-data-theteller`, {
   method:"POST",
   headers:{ "Content-Type":"application/json" },
-  body: JSON.stringify({
-    package_id: selected.package_id,
-    momo_number: momo,
-    recipient_number: recipient,
-    vendor_id: 1,
-    session_id: otpSessionId   // ✅ ADD THIS
-  })
+body: JSON.stringify({
+  package_id: selected.package_id,
+  momo_number: momo,
+  recipient_number: recipient,
+  vendor_id: 1,
+  otp_session_id: otpSessionId  // ✅ add this
+})
 });
 
 
