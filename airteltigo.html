@@ -45,7 +45,7 @@ body{margin:0;background:var(--bg);color:var(--text);}
 
 /* MODAL */
 .modal-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.55);display:none;align-items:center;justify-content:center;padding:14px;z-index:1000;}
-.modal{width:100%;max-width:480px;background:#fff;border-radius:18px;padding:18px;}
+.modal{width:100%;max-width:520px;background:#fff;border-radius:18px;padding:18px;}
 .modal-header{display:flex;justify-content:space-between;gap:10px;}
 .modal-header h3{margin:0;font-size:16px}
 .modal-sub{font-size:12px;color:var(--muted);margin-top:4px;}
@@ -54,7 +54,7 @@ body{margin:0;background:var(--bg);color:var(--text);}
 .field label{font-size:12px;color:var(--muted);}
 .field input{width:100%;padding:12px;border-radius:10px;border:1px solid var(--border);margin-top:6px;font-size:14px;}
 .helper{margin-top:12px;font-size:12px;background:var(--green-soft);padding:10px;border-radius:10px;}
-.modal-footer{margin-top:16px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;}
+.modal-footer{margin-top:16px;display:grid;grid-template-columns:repeat(4, 1fr);gap:10px;}
 .btn-ghost{background:#F3F4F6;color:#111;}
 .err{color:var(--danger);font-size:12px;margin-top:10px;display:none;}
 
@@ -91,7 +91,7 @@ body{margin:0;background:var(--bg);color:var(--text);}
     <div class="modal-header">
       <div>
         <h3 id="mTitle">Buy Bundle</h3>
-        <div class="modal-sub" id="mSub">Fill details below</div>
+        <div class="modal-sub" id="mSub">Enter receiver + payer number</div>
       </div>
       <button class="x" onclick="closeModal()">×</button>
     </div>
@@ -100,12 +100,12 @@ body{margin:0;background:var(--bg);color:var(--text);}
 
     <div class="field">
       <label>Recipient Number</label>
-      <input id="recipientNumber" placeholder="e.g. 020xxxxxxx" inputmode="tel">
+      <input id="recipientNumber" placeholder="e.g. 027xxxxxxx" inputmode="tel">
     </div>
 
     <div class="field">
       <label>MoMo Number (payer)</label>
-      <input id="momoNumber" placeholder="e.g. 050xxxxxxx" inputmode="tel">
+      <input id="momoNumber" placeholder="e.g. 056xxxxxxx" inputmode="tel">
     </div>
 
     <div class="field" id="otpField" style="display:none;">
@@ -115,10 +115,16 @@ body{margin:0;background:var(--bg);color:var(--text);}
 
     <div id="mErr" class="err"></div>
 
+    <!-- ✅ NEW FLOW:
+         1) Send OTP
+         2) Verify OTP
+         3) Buy Bundle (shows ONLY after verified)
+    -->
     <div class="modal-footer">
       <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
       <button class="btn btn-ghost" id="sendOtpBtn" onclick="sendOtp()">Send OTP</button>
-      <button class="btn" id="payBtn" onclick="verifyOtpAndPay()" disabled>Verify & Pay</button>
+      <button class="btn" id="verifyBtn" onclick="verifyOtpOnly()" disabled>Verify OTP</button>
+      <button class="btn" id="buyBtn" onclick="buyNow()" style="display:none;">Buy Bundle</button>
     </div>
   </div>
 </div>
@@ -197,16 +203,24 @@ body{margin:0;background:var(--bg);color:var(--text);}
     document.getElementById("otpCode").value = "";
     document.getElementById("otpCode").disabled = false;
 
+    otpSessionId = "";
+
     document.getElementById("otpField").style.display = "none";
-    document.getElementById("payBtn").disabled = true;
-
-    const btn = document.getElementById("sendOtpBtn");
-    btn.disabled = false;
-    btn.textContent = "Send OTP";
-
-    otpSessionId = localStorage.getItem("otp_session_id") || "";
-
     hideError();
+
+    // reset buttons
+    const sendBtn = document.getElementById("sendOtpBtn");
+    sendBtn.disabled = false;
+    sendBtn.textContent = "Send OTP";
+
+    const verifyBtn = document.getElementById("verifyBtn");
+    verifyBtn.disabled = true;
+    verifyBtn.textContent = "Verify OTP";
+
+    const buyBtn = document.getElementById("buyBtn");
+    buyBtn.style.display = "none";
+    buyBtn.disabled = false;
+
     document.getElementById("modalBackdrop").style.display = "flex";
   }
 
@@ -225,88 +239,137 @@ body{margin:0;background:var(--bg);color:var(--text);}
     el.textContent = "";
   }
 
- async function sendOtp() {
-  hideError();
-  const momo = document.getElementById("momoNumber").value.trim();
-  if (!momo) return showError("Enter MoMo number.");
-
-  // ✅ disable pay until we get session_id
-  otpSessionId = "";
-  document.getElementById("payBtn").disabled = true;
-
-  try {
-    document.getElementById("sendOtpBtn").disabled = true;
-
-    const res = await fetch(`${API_BASE}/api/send-momo-otp`, {
-      method:"POST",
-      headers:{ "Content-Type":"application/json" },
-      body: JSON.stringify({ momo_number: momo })
-    });
-
-    const json = await res.json();
-
-    if (!json.ok) {
-      document.getElementById("sendOtpBtn").disabled = false;
-      return showError(json.message || "Failed to send OTP.");
-    }
-
-    // ✅ IMPORTANT: set session_id immediately
-    otpSessionId = json.session_id;
-
-    document.getElementById("otpField").style.display = "block";
-    document.getElementById("payBtn").disabled = false;  // ✅ enable only now
-  } catch (e) {
-    console.error(e);
-    document.getElementById("sendOtpBtn").disabled = false;
-    showError("Network error sending OTP.");
-  }
-}
-
-
-  async function verifyOtpAndPay() {
+  // ✅ Step 1: Send OTP
+  async function sendOtp() {
     hideError();
 
-    const recipient = document.getElementById("recipientNumber").value.trim();
     const momo = document.getElementById("momoNumber").value.trim();
-    const otp = document.getElementById("otpCode").value.trim();
+    if (!momo) return showError("Enter MoMo number.");
 
-    if (!recipient) return showError("Enter recipient number.");
+    otpSessionId = "";
+    document.getElementById("verifyBtn").disabled = true;
+    document.getElementById("buyBtn").style.display = "none";
+
+    const sendBtn = document.getElementById("sendOtpBtn");
+    sendBtn.disabled = true;
+    sendBtn.textContent = "Sending…";
+
+    try {
+      const res = await fetch(`${API_BASE}/api/send-momo-otp`, {
+        method:"POST",
+        headers:{ "Content-Type":"application/json" },
+        body: JSON.stringify({ momo_number: momo })
+      });
+
+      const json = await res.json();
+
+      if (!json.ok) {
+        sendBtn.disabled = false;
+        sendBtn.textContent = "Send OTP";
+        return showError(json.message || "Failed to send OTP.");
+      }
+
+      otpSessionId = json.session_id || "";
+      if (!otpSessionId) {
+        sendBtn.disabled = false;
+        sendBtn.textContent = "Send OTP";
+        return showError("OTP sent but session_id missing. Please try again.");
+      }
+
+      document.getElementById("otpField").style.display = "block";
+      document.getElementById("verifyBtn").disabled = false;
+
+      sendBtn.disabled = false;
+      sendBtn.textContent = "Resend OTP";
+
+    } catch (e) {
+      console.error(e);
+      sendBtn.disabled = false;
+      sendBtn.textContent = "Send OTP";
+      showError("Network error sending OTP.");
+    }
+  }
+
+  // ✅ Step 2: Verify OTP ONLY
+  async function verifyOtpOnly() {
+    hideError();
+
+    const momo = document.getElementById("momoNumber").value.trim();
+    const otp  = document.getElementById("otpCode").value.trim();
+
     if (!momo) return showError("Enter MoMo number.");
     if (!otp) return showError("Enter OTP code.");
     if (!otpSessionId) return showError("Please click Send OTP again.");
+
+    const verifyBtn = document.getElementById("verifyBtn");
+    verifyBtn.disabled = true;
+    verifyBtn.textContent = "Verifying…";
 
     try {
       const vr = await fetch(`${API_BASE}/api/verify-momo-otp`, {
         method:"POST",
         headers:{ "Content-Type":"application/json" },
-        body: JSON.stringify({ momo_number: momo, otp, session_id: otpSessionId })
+        body: JSON.stringify({
+          momo_number: momo,
+          otp,
+          session_id: otpSessionId
+        })
       });
 
       const vj = await vr.json();
-      if (!vj.ok) return showError(vj.message || "OTP verification failed.");
 
+      if (!vj.ok) {
+        verifyBtn.disabled = false;
+        verifyBtn.textContent = "Verify OTP";
+        return showError(vj.message || "OTP verification failed.");
+      }
+
+      // lock otp ui
       document.getElementById("otpCode").disabled = true;
-      const sendBtn = document.getElementById("sendOtpBtn");
-      sendBtn.disabled = true;
-      sendBtn.textContent = "OTP Verified";
+      document.getElementById("sendOtpBtn").disabled = true;
 
-      closeModal();
-      showOverlay("Please wait for prompt on your phone", "Approve the payment using your MoMo PIN");
+      verifyBtn.textContent = "Verified ✅";
 
+      // show buy button
+      document.getElementById("buyBtn").style.display = "inline-block";
+
+    } catch (e) {
+      console.error(e);
+      verifyBtn.disabled = false;
+      verifyBtn.textContent = "Verify OTP";
+      showError("Network error verifying OTP.");
+    }
+  }
+
+  // ✅ Step 3: Buy Bundle (trigger TheTeller prompt)
+  async function buyNow() {
+    hideError();
+
+    const recipient = document.getElementById("recipientNumber").value.trim();
+    const momo = document.getElementById("momoNumber").value.trim();
+
+    if (!recipient) return showError("Enter recipient number.");
+    if (!momo) return showError("Enter MoMo number.");
+    if (!otpSessionId) return showError("Session missing. Please send OTP again.");
+
+    closeModal();
+    showOverlay("Please wait for prompt on your phone", "Approve the payment using your MoMo PIN");
+
+    try {
       const pr = await fetch(`${API_BASE}/api/buy-data-theteller`, {
         method:"POST",
         headers:{ "Content-Type":"application/json" },
-       body: JSON.stringify({
-  package_id: selected.package_id,
-  momo_number: momo,
-  recipient_number: recipient,
-  vendor_id: 1,
-  otp_session_id: otpSessionId  // ✅ add this
-})
-
+        body: JSON.stringify({
+          package_id: selected.package_id,
+          momo_number: momo,
+          recipient_number: recipient,
+          vendor_id: 1,
+          session_id: otpSessionId  // ✅ IMPORTANT
+        })
       });
 
       const pj = await pr.json();
+
       if (!pj.ok) {
         showOverlayError(pj.message || "Payment could not be initiated.");
         return;
@@ -320,6 +383,7 @@ body{margin:0;background:var(--bg);color:var(--text);}
     }
   }
 
+  // ---------- polling ----------
   let pollTimer = null;
 
   async function pollStatus(transaction_id) {
@@ -363,6 +427,7 @@ body{margin:0;background:var(--bg);color:var(--text);}
     }, 4000);
   }
 
+  // ---------- overlay ----------
   function showOverlay(msg, sub) {
     document.getElementById("overlay").style.display = "flex";
     document.getElementById("overlayMsg").textContent = msg || "Please wait…";
@@ -386,6 +451,7 @@ body{margin:0;background:var(--bg);color:var(--text);}
     clearInterval(pollTimer);
   }
 
+  // ---------- helpers ----------
   function escapeHtml(str) {
     return String(str ?? "").replace(/[&<>"']/g, m => ({
       "&":"&amp;",
