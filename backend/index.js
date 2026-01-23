@@ -25,8 +25,26 @@ app.use(cors({
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// Sessions
+app.use(session({
+  secret: "edata_secret_key",
+  resave: false,
+  saveUninitialized: false
+}));
 
+app.use(cors());
 
+app.post("/logout", (req, res) => {
+  req.session.destroy(() => {
+    res.clearCookie("edata.sid", {
+      httpOnly: true,
+      secure: true,
+      sameSite: "lax",
+      path: "/",
+    });
+    res.json({ ok: true });
+  });
+});
 
 
 
