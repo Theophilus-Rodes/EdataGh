@@ -601,7 +601,7 @@ const pendingOrders = new Map();
 // POST /api/buy-data-theteller
 // body: { package_id, momo_number, recipient_number, vendor_id }
 app.post("/api/buy-data-theteller", async (req, res) => {
-  const { package_id, momo_number, recipient_number, vendor_id } = req.body;
+  const { package_id, momo_number, recipient_number, vendor_id, session_id } = req.body;
   const vid = Number(vendor_id || 1);
 
   if (!package_id || !momo_number || !recipient_number) {
