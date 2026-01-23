@@ -434,27 +434,54 @@ app.post("/api/send-momo-otp", async (req, res) => {
     const momoRaw = req.body?.momo_number;
     const momoE164 = normalizePhoneToE164Ghana(momoRaw);
 
-    if (!momoE164) return res.json({ ok: false, message: "Invalid MoMo number format." });
+    if (!momoE164) {
+      return res.json({ ok: false, message: "Invalid MoMo number format." });
+    }
+
+    // Optional: allow resend after a short cooldown (e.g. 20s) instead of full TTL
+    const COOLDOWN_MS = 20 * 1000;
 
     const existing = otpStore.get(momoE164);
-    if (existing && Date.now() < existing.expiresAt) {
-      return res.json({ ok: false, message: "OTP already sent. Please check your SMS." });
+    if (existing) {
+      const stillValid = Date.now() < existing.expiresAt;
+      const stillInCooldown = Date.now() - (existing.sentAt || 0) < COOLDOWN_MS;
+
+      if (stillValid && stillInCooldown) {
+        return res.json({
+          ok: false,
+          message: "OTP already sent. Please check your SMS (or wait a few seconds and try again).",
+        });
+      }
     }
 
     const otp = generateOtp(6);
     const sessionId = genSessionId();
     const expiresAt = Date.now() + OTP_TTL;
 
-    otpStore.set(momoE164, { otp, expiresAt, attempts: 0, sessionId, verifiedUntil: 0 });
-
+    // ✅ Send SMS FIRST
     await sendOtpSmsAfricaTalking(momoE164, otp);
+
+    // ✅ Store ONLY after successful send
+    otpStore.set(momoE164, {
+      otp,
+      expiresAt,
+      attempts: 0,
+      sessionId,
+      verifiedUntil: 0,
+      sentAt: Date.now(), // for cooldown logic
+    });
 
     return res.json({ ok: true, message: "OTP sent successfully.", session_id: sessionId });
   } catch (err) {
     console.error("❌ send-momo-otp error:", err?.response?.data || err);
+
+    // ✅ If you ever set before send elsewhere, make sure to clear on error
+    // (Not needed in this version because we store after send succeeds)
+
     return res.status(500).json({ ok: false, message: "Failed to send OTP." });
   }
 });
+
 
 // POST /api/verify-momo-otp  body: { momo_number, otp, session_id }
 app.post("/api/verify-momo-otp", (req, res) => {
