@@ -277,57 +277,41 @@
 
   // ✅ Improved sendOtp with cooldown + UI feedback + localStorage session saving
   async function sendOtp() {
-    hideError();
-    const momo = document.getElementById("momoNumber").value.trim();
-    if (!momo) return showError("Enter MoMo number.");
+  hideError();
+  const momo = document.getElementById("momoNumber").value.trim();
+  if (!momo) return showError("Enter MoMo number.");
 
-    const btn = document.getElementById("sendOtpBtn");
-    btn.disabled = true;
-    btn.textContent = "Sending...";
+  // ✅ disable pay until we get session_id
+  otpSessionId = "";
+  document.getElementById("payBtn").disabled = true;
 
-    try {
-      const res = await fetch(`${API_BASE}/api/send-momo-otp`, {
-        method:"POST",
-        headers:{ "Content-Type":"application/json" },
-        body: JSON.stringify({ momo_number: momo })
-      });
+  try {
+    document.getElementById("sendOtpBtn").disabled = true;
 
-      const json = await res.json();
+    const res = await fetch(`${API_BASE}/api/send-momo-otp`, {
+      method:"POST",
+      headers:{ "Content-Type":"application/json" },
+      body: JSON.stringify({ momo_number: momo })
+    });
 
-      if (!json.ok) {
-        btn.disabled = false;
-        btn.textContent = "Send OTP";
-        return showError(json.message || "Failed to send OTP.");
-      }
+    const json = await res.json();
 
-      otpSessionId = json.session_id || "";
-      localStorage.setItem("otp_session_id", otpSessionId);
-      localStorage.setItem("otp_momo", momo);
-
-      document.getElementById("otpField").style.display = "block";
-      document.getElementById("payBtn").disabled = false;
-
-      // cooldown UI (20s)
-      let seconds = 20;
-      btn.textContent = `Resend in ${seconds}s`;
-      const t = setInterval(() => {
-        seconds--;
-        if (seconds <= 0) {
-          clearInterval(t);
-          btn.disabled = false;
-          btn.textContent = "Resend OTP";
-        } else {
-          btn.textContent = `Resend in ${seconds}s`;
-        }
-      }, 1000);
-
-    } catch (e) {
-      console.error(e);
-      btn.disabled = false;
-      btn.textContent = "Send OTP";
-      showError("Network error sending OTP.");
+    if (!json.ok) {
+      document.getElementById("sendOtpBtn").disabled = false;
+      return showError(json.message || "Failed to send OTP.");
     }
+
+    // ✅ IMPORTANT: set session_id immediately
+    otpSessionId = json.session_id;
+
+    document.getElementById("otpField").style.display = "block";
+    document.getElementById("payBtn").disabled = false;  // ✅ enable only now
+  } catch (e) {
+    console.error(e);
+    document.getElementById("sendOtpBtn").disabled = false;
+    showError("Network error sending OTP.");
   }
+}
 
   async function verifyOtpAndPay() {
     hideError();
