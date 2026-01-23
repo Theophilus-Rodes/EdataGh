@@ -203,7 +203,8 @@
       }
 
       // ✅ go to dashboard
-      window.location.href = "admindashboard.html";
+     window.location.href = (data && data.redirect) ? data.redirect : "admindashboard.html";
+
 
     } catch (err) {
       errBox.style.display = "block";
