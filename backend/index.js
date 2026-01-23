@@ -25,32 +25,8 @@ app.use(cors({
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Sessions
-app.use(session({
-  name: "edata.sid",
-  secret: "edata_secret_key",
-  resave: false,
-  saveUninitialized: false,
-  proxy: true,
-  cookie: {
-    httpOnly: true,
-    secure: true,      // ✅ HTTPS only (you are on https)
-    sameSite: "lax",   // ✅ works for same-site (edatagh.com + /edatagh-backend)
-    maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
-  }
-}));
 
-app.post("/logout", (req, res) => {
-  req.session.destroy(() => {
-    res.clearCookie("edata.sid", {
-      httpOnly: true,
-      secure: true,
-      sameSite: "lax",
-      path: "/",
-    });
-    res.json({ ok: true });
-  });
-});
+
 
 
 
