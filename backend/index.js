@@ -400,12 +400,7 @@ const sms = at.SMS;
 // In-memory OTP store: momo -> { otp, expiresAt, attempts, sessionId, verifiedUntil }
 const otpStore = new Map();
 
-otpStore.set(momoE164, {
-  otp,
-  expiresAt,
-  attempts: 0,
-  verifiedUntil: 0
-});
+
 
 function normalizePhoneToE164Ghana(input = "") {
   const v = String(input).replace(/\s+/g, "").replace(/^\+/, "");
@@ -438,45 +433,42 @@ async function sendOtpSmsAfricaTalking(toE164, otp) {
 const otpSessionStore = new Map(); // sessionId -> record
 const COOLDOWN_MS = 20 * 1000;
 
-// POST /api/send-momo-otp  body: { momo_number }
 app.post("/api/send-momo-otp", async (req, res) => {
   try {
     const momoRaw = req.body?.momo_number;
     const momoE164 = normalizePhoneToE164Ghana(momoRaw);
-    if (!momoE164) return res.json({ ok: false, message: "Invalid MoMo number format." });
 
-    // cooldown per momo (optional)
-    // keep a small phone->lastSent map
-    app.locals.otpLastSent = app.locals.otpLastSent || new Map();
-    const lastSent = app.locals.otpLastSent.get(momoE164) || 0;
-    if (Date.now() - lastSent < COOLDOWN_MS) {
-      return res.json({ ok: false, message: "OTP already sent. Please wait a few seconds and try again." });
+    if (!momoE164) {
+      return res.json({ ok: false, message: "Invalid MoMo number format." });
+    }
+
+    const existing = otpStore.get(momoE164);
+    if (existing && Date.now() < existing.expiresAt) {
+      return res.json({
+        ok: false,
+        message: "OTP already sent. Please check your SMS."
+      });
     }
 
     const otp = generateOtp(6);
-    const sessionId = genSessionId();
-    const expiresAt = Date.now() + OTP_TTL;
+    const expiresAt = Date.now() + 5 * 60 * 1000;
 
-    // send first
     await sendOtpSmsAfricaTalking(momoE164, otp);
 
-    // save after successful send
-    otpSessionStore.set(sessionId, {
-      momoE164,
+    otpStore.set(momoE164, {
       otp,
       expiresAt,
       attempts: 0,
-      verifiedUntil: 0,
+      verifiedUntil: 0
     });
 
-    app.locals.otpLastSent.set(momoE164, Date.now());
-
-    return res.json({ ok: true, message: "OTP sent successfully.", session_id: sessionId, momo_e164: momoE164 });
+    return res.json({ ok: true, message: "OTP sent successfully." });
   } catch (err) {
-    console.error("❌ send-momo-otp error:", err?.response?.data || err);
+    console.error("❌ send-momo-otp error:", err);
     return res.status(500).json({ ok: false, message: "Failed to send OTP." });
   }
 });
+
 
 
 
