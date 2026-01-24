@@ -5,6 +5,7 @@ const session = require("express-session");
 const path = require("path");
 const cors = require("cors");
 const axios = require("axios");
+const crypto = require("crypto");
 
 const PORT = process.env.PORT || 3000;
 
@@ -389,29 +390,25 @@ app.get("/api/airteltigo-prices", (req, res) => {
 
 
 
-
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// ============================
-//  AFRICA'S TALKING OTP (SMS)
-// ============================
-// ============================
-//  AFRICA'S TALKING OTP (SMS)
-// ============================
-
+// =====================================================
+// ✅ YOUR EXISTING AFRICA'S TALKING CONFIG (KEPT)
+// =====================================================
 const AT_USERNAME = "EdataSell";
-const AT_API_KEY = process.env.AT_API_KEY || "PASTE_YOURS_IN_ENV";  // ✅ move to env
-const AT_SENDER_ID = process.env.AT_SENDER_ID || "";               // optional
+const AT_API_KEY = process.env.AT_API_KEY || "PASTE_YOURS_IN_ENV";
+const AT_SENDER_ID = process.env.AT_SENDER_ID || "";
 
-const OTP_TTL = 5 * 60 * 1000;      // 5 minutes
-const COOLDOWN_MS = 20 * 1000;      // 20 seconds
-const VERIFIED_WINDOW_MS = 10 * 60 * 1000; // 10 minutes after verify
+const OTP_TTL = 5 * 60 * 1000;                 // 5 minutes
+const COOLDOWN_MS = 20 * 1000;                 // 20 seconds
+const VERIFIED_WINDOW_MS = 10 * 60 * 1000;     // 10 minutes after verify
+const MAX_ATTEMPTS = 5;
+
+// IMPORTANT: set this in DigitalOcean env (Settings → App → Environment Variables)
+const OTP_SECRET = process.env.OTP_SECRET || "CHANGE_ME_IN_ENV_NOW";
 
 const at = AfricasTalking({ username: AT_USERNAME, apiKey: AT_API_KEY });
 const sms = at.SMS;
 
-// sessionId -> { momoE164, otp, expiresAt, attempts, verifiedUntil, sentAt }
-const otpSessionStore = new Map();
-
+// ✅ keep your normalizer
 function normalizePhoneToE164Ghana(input = "") {
   const v = String(input).replace(/\s+/g, "").replace(/^\+/, "");
   if (/^0\d{9}$/.test(v)) return "+233" + v.slice(1);
@@ -428,7 +425,12 @@ function generateOtp(len = 6) {
 }
 
 function genSessionId() {
-  return "otp_" + Date.now().toString(36) + "_" + Math.random().toString(36).slice(2, 9);
+  return crypto.randomBytes(24).toString("hex"); // stable unique id
+}
+
+function hashOtp(otp) {
+  // hash = sha256(secret:otp) so we never store OTP in plain text
+  return crypto.createHash("sha256").update(`${OTP_SECRET}:${otp}`).digest("hex");
 }
 
 async function sendOtpSmsAfricaTalking(toE164, otp) {
@@ -438,40 +440,68 @@ async function sendOtpSmsAfricaTalking(toE164, otp) {
   return sms.send(options);
 }
 
+// =====================================================
+// ✅ OPTIONAL: cleanup job to keep table small
+// =====================================================
+setInterval(async () => {
+  try {
+    await db.promise().query(
+      `DELETE FROM momo_otp_sessions
+       WHERE created_at < (NOW() - INTERVAL 2 DAY)`
+    );
+  } catch (e) {
+    console.error("OTP cleanup error:", e.message);
+  }
+}, 60 * 60 * 1000); // hourly
+
+
+// =====================================================
 // POST /api/send-momo-otp  body: { momo_number }
+// =====================================================
 app.post("/api/send-momo-otp", async (req, res) => {
   try {
     const momoRaw = req.body?.momo_number;
     const momoE164 = normalizePhoneToE164Ghana(momoRaw);
     if (!momoE164) return res.json({ ok: false, message: "Invalid MoMo number format." });
 
-    // ✅ simple cooldown per number (prevents spam)
-    // you can store lastSentByNumber in a Map
-    global.lastOtpSentByNumber = global.lastOtpSentByNumber || new Map();
-    const lastSent = global.lastOtpSentByNumber.get(momoE164) || 0;
-    if (Date.now() - lastSent < COOLDOWN_MS) {
-      return res.json({ ok: false, message: "Please wait a few seconds and try again." });
+    // ✅ DB-based cooldown (works on DigitalOcean / multiple instances)
+    const [cool] = await db.promise().query(
+      `SELECT last_sent_at
+       FROM momo_otp_sessions
+       WHERE momo_e164 = ?
+       ORDER BY created_at DESC
+       LIMIT 1`,
+      [momoE164]
+    );
+
+    if (cool.length) {
+      const lastSentAt = new Date(cool[0].last_sent_at).getTime();
+      if (Date.now() - lastSentAt < COOLDOWN_MS) {
+        return res.json({ ok: false, message: "Please wait a few seconds and try again." });
+      }
     }
 
     const otp = generateOtp(6);
     const session_id = genSessionId();
-    const expiresAt = Date.now() + OTP_TTL;
+    const expiresAt = new Date(Date.now() + OTP_TTL);
+    const otpHash = hashOtp(otp);
 
-    // ✅ send SMS first
-    await sendOtpSmsAfricaTalking(momoE164, otp);
+    // ✅ INSERT FIRST (so verify never complains)
+    await db.promise().query(
+      `INSERT INTO momo_otp_sessions
+        (session_id, momo_e164, otp_hash, attempts, expires_at, verified_until, consumed_at, last_sent_at)
+       VALUES (?, ?, ?, 0, ?, NULL, NULL, NOW())`,
+      [session_id, momoE164, otpHash, expiresAt]
+    );
 
-    // ✅ store by session_id (what verify uses)
-    otpSessionStore.set(session_id, {
-      momoE164,
-      otp,
-      expiresAt,
-      attempts: 0,
-      verifiedUntil: 0,
-      createdAt: Date.now(),
-    });
-
-    // track cooldown
-    global.lastOtpSentByNumber.set(momoE164, Date.now());
+    // ✅ THEN send SMS (if sms fails, remove DB row)
+    try {
+      await sendOtpSmsAfricaTalking(momoE164, otp);
+    } catch (smsErr) {
+      await db.promise().query(`DELETE FROM momo_otp_sessions WHERE session_id=?`, [session_id]);
+      console.error("❌ OTP SMS send failed:", smsErr?.response?.data || smsErr.message || smsErr);
+      return res.status(500).json({ ok: false, message: "Failed to send OTP." });
+    }
 
     return res.json({ ok: true, message: "OTP sent successfully.", session_id });
   } catch (err) {
@@ -480,71 +510,153 @@ app.post("/api/send-momo-otp", async (req, res) => {
   }
 });
 
+
+// =====================================================
 // POST /api/verify-momo-otp  body: { momo_number, otp, session_id }
-app.post("/api/verify-momo-otp", (req, res) => {
+// =====================================================
+app.post("/api/verify-momo-otp", async (req, res) => {
   try {
     const momoRaw = req.body?.momo_number;
-    const otp = String(req.body?.otp || "").trim();
-    const session_id = String(req.body?.session_id || "").trim();
-
     const momoE164 = normalizePhoneToE164Ghana(momoRaw);
+
+    const otp = String(req.body?.otp || "").trim();
+    let session_id = String(req.body?.session_id || "").trim();
+
     if (!momoE164) return res.json({ ok: false, message: "Invalid MoMo number." });
-    if (!session_id) return res.json({ ok: false, message: "Missing session_id. Please send OTP again." });
     if (!/^\d{4,8}$/.test(otp)) return res.json({ ok: false, message: "Invalid OTP code." });
 
-    const rec = otpSessionStore.get(session_id);
+    // ✅ load session by id; if missing or not found, fallback to latest active session for number
+    let rec = null;
+
+    if (session_id) {
+      const [rows] = await db.promise().query(
+        `SELECT *
+         FROM momo_otp_sessions
+         WHERE session_id = ?
+         LIMIT 1`,
+        [session_id]
+      );
+      rec = rows[0] || null;
+    }
+
+    if (!rec) {
+      const [rows2] = await db.promise().query(
+        `SELECT *
+         FROM momo_otp_sessions
+         WHERE momo_e164 = ?
+           AND expires_at > NOW()
+           AND otp_hash IS NOT NULL
+         ORDER BY created_at DESC
+         LIMIT 1`,
+        [momoE164]
+      );
+      rec = rows2[0] || null;
+      if (rec) session_id = rec.session_id;
+    }
+
     if (!rec) return res.json({ ok: false, message: "No OTP request found. Please send OTP again." });
 
-    if (rec.momoE164 !== momoE164) {
+    if (rec.momo_e164 !== momoE164) {
       return res.json({ ok: false, message: "OTP session mismatch. Please request a new OTP." });
     }
 
-    if (Date.now() > rec.expiresAt) {
-      otpSessionStore.delete(session_id);
+    if (new Date(rec.expires_at).getTime() < Date.now()) {
       return res.json({ ok: false, message: "OTP expired. Please request a new OTP." });
     }
 
-    rec.attempts = (rec.attempts || 0) + 1;
-    if (rec.attempts > 5) {
-      otpSessionStore.delete(session_id);
+    const attempts = Number(rec.attempts || 0) + 1;
+    if (attempts > MAX_ATTEMPTS) {
+      await db.promise().query(`DELETE FROM momo_otp_sessions WHERE session_id=?`, [session_id]);
       return res.json({ ok: false, message: "Too many attempts. Please request a new OTP." });
     }
 
-    if (otp !== rec.otp) {
-      otpSessionStore.set(session_id, rec);
+    const ok = hashOtp(otp) === rec.otp_hash;
+
+    if (!ok) {
+      await db.promise().query(
+        `UPDATE momo_otp_sessions SET attempts=? WHERE session_id=?`,
+        [attempts, session_id]
+      );
       return res.json({ ok: false, message: "Incorrect OTP." });
     }
 
-    // ✅ verified window
-    rec.verifiedUntil = Date.now() + VERIFIED_WINDOW_MS;
+    // ✅ verified window + invalidate OTP immediately (no reuse)
+    const verifiedUntil = new Date(Date.now() + VERIFIED_WINDOW_MS);
 
-    // ✅ remove otp so it can’t be reused
-    rec.otp = null;
-    rec.expiresAt = 0;
+    await db.promise().query(
+      `UPDATE momo_otp_sessions
+       SET verified_until=?, otp_hash=NULL, expires_at=NOW(), attempts=?
+       WHERE session_id=?`,
+      [verifiedUntil, attempts, session_id]
+    );
 
-    otpSessionStore.set(session_id, rec);
-
-    return res.json({ ok: true, message: "OTP verified." });
+    return res.json({
+      ok: true,
+      message: "OTP verified.",
+      session_id,
+      verified_until: verifiedUntil,
+    });
   } catch (err) {
-    console.error("❌ verify-momo-otp error:", err);
+    console.error("❌ verify-momo-otp error:", err?.response?.data || err);
     return res.status(500).json({ ok: false, message: "OTP verification failed." });
   }
 });
 
-function isOtpVerifiedNow(momoRaw, session_id) {
+
+// =====================================================
+// ✅ DB-based verification check (works on DO)
+// =====================================================
+async function isOtpVerifiedNow(momoRaw, session_id) {
   const momoE164 = normalizePhoneToE164Ghana(momoRaw);
-  if (!momoE164) return false;
+  if (!momoE164) return { ok: false };
 
   const sid = String(session_id || "").trim();
-  if (!sid) return false;
 
-  const rec = otpSessionStore.get(sid);
-  if (!rec) return false;
+  // If sid missing, fallback to latest verified session for number
+  if (!sid) {
+    const [rows] = await db.promise().query(
+      `SELECT session_id, verified_until, consumed_at
+       FROM momo_otp_sessions
+       WHERE momo_e164 = ?
+         AND verified_until IS NOT NULL
+         AND verified_until > NOW()
+       ORDER BY created_at DESC
+       LIMIT 1`,
+      [momoE164]
+    );
+    if (!rows.length) return { ok: false };
+    return { ok: true, session_id: rows[0].session_id, consumed_at: rows[0].consumed_at };
+  }
 
-  if (rec.momoE164 !== momoE164) return false;
+  const [rows] = await db.promise().query(
+    `SELECT session_id, verified_until, consumed_at, momo_e164
+     FROM momo_otp_sessions
+     WHERE session_id = ?
+     LIMIT 1`,
+    [sid]
+  );
+  if (!rows.length) return { ok: false };
 
-  return Date.now() < (rec.verifiedUntil || 0);
+  const rec = rows[0];
+  if (rec.momo_e164 !== momoE164) return { ok: false };
+
+  const verifiedOk = rec.verified_until && new Date(rec.verified_until).getTime() > Date.now();
+  if (!verifiedOk) return { ok: false };
+
+  return { ok: true, session_id: rec.session_id, consumed_at: rec.consumed_at };
 }
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 // =======================
@@ -631,18 +743,78 @@ const pendingOrders = new Map();
 
 
 
+// =====================================================
 // POST /api/buy-data-theteller
-// body: { package_id, momo_number, recipient_number, vendor_id }
+// body: { package_id, momo_number, recipient_number, vendor_id, otp_session_id }
+// =====================================================
 app.post("/api/buy-data-theteller", async (req, res) => {
-  const { package_id, momo_number, recipient_number, vendor_id, otp_session_id } = req.body;
+  const { package_id, momo_number, recipient_number, vendor_id } = req.body;
+
+  // ✅ accept both names to avoid frontend mismatch
+  const otp_session_id = req.body.otp_session_id || req.body.session_id;
+
   const vid = Number(vendor_id || 1);
 
-  if (!package_id || !momo_number || !recipient_number || !otp_session_id) {
-    return res.json({ ok:false, message:"Missing required fields." });
+  if (!package_id || !momo_number || !recipient_number) {
+    return res.json({ ok: false, message: "Missing required fields." });
   }
 
-  if (!isOtpVerifiedNow(momo_number, otp_session_id)) {
-    return res.json({ ok:false, message:"OTP not verified. Please verify OTP first." });
+  // ✅ verify OTP in DB
+  const otpCheck = await isOtpVerifiedNow(momo_number, otp_session_id);
+  if (!otpCheck.ok) {
+    return res.json({ ok: false, message: "OTP not verified. Please verify OTP first." });
+  }
+
+  // ✅ consume OTP session so it cannot be reused (prevents double prompts)
+  // (If you don’t want this, you can remove this block)
+  try {
+    const conn = await db.promise().getConnection();
+    try {
+      await conn.beginTransaction();
+
+      const [sessRows] = await conn.query(
+        `SELECT session_id, consumed_at, verified_until
+         FROM momo_otp_sessions
+         WHERE session_id=?
+         FOR UPDATE`,
+        [otpCheck.session_id]
+      );
+
+      if (!sessRows.length) {
+        await conn.rollback();
+        conn.release();
+        return res.json({ ok: false, message: "OTP session not found. Please verify again." });
+      }
+
+      const sess = sessRows[0];
+      if (!sess.verified_until || new Date(sess.verified_until).getTime() <= Date.now()) {
+        await conn.rollback();
+        conn.release();
+        return res.json({ ok: false, message: "OTP session expired. Please verify again." });
+      }
+
+      if (sess.consumed_at) {
+        await conn.rollback();
+        conn.release();
+        return res.json({ ok: false, message: "OTP already used. Please request a new OTP." });
+      }
+
+      await conn.query(
+        `UPDATE momo_otp_sessions SET consumed_at=NOW() WHERE session_id=?`,
+        [otpCheck.session_id]
+      );
+
+      await conn.commit();
+      conn.release();
+    } catch (e) {
+      await conn.rollback();
+      conn.release();
+      console.error("OTP consume tx error:", e.message);
+      return res.status(500).json({ ok: false, message: "Could not start payment." });
+    }
+  } catch (e) {
+    console.error("OTP consume error:", e.message);
+    return res.status(500).json({ ok: false, message: "Could not start payment." });
   }
 
   try {
@@ -660,7 +832,7 @@ app.post("/api/buy-data-theteller", async (req, res) => {
 
     const transactionId = makeTransactionId();
 
-    // ✅ 1) INSERT PENDING FIRST (so we never miss it)
+    // ✅ insert pending first
     await db.promise().query(
       `INSERT INTO orders
         (transaction_id, vendor_id, network, package_id, package_name, amount, recipient_number, momo_number, status)
@@ -677,7 +849,7 @@ app.post("/api/buy-data-theteller", async (req, res) => {
       ]
     );
 
-    // ✅ 2) NOW call TheTeller
+    // ✅ theteller init
     const payload = {
       amount: thetellerAmount12(pkg.price),
       processing_code: "000200",
@@ -686,7 +858,7 @@ app.post("/api/buy-data-theteller", async (req, res) => {
       merchant_id: THETELLER.merchantId,
       subscriber_number: formatMsisdnForTheTeller(momo_number),
       "r-switch": rSwitch,
-      redirect_url: "https://example.com/payment-callback",
+      redirect_url: process.env.THETELLER_REDIRECT_URL || "https://edatagh.com/payment-callback",
     };
 
     const tt = await axios.post(THETELLER.endpoint, payload, {
@@ -699,18 +871,15 @@ app.post("/api/buy-data-theteller", async (req, res) => {
     });
 
     if (!isInitAccepted(tt.data)) {
-      // ✅ mark failed if init rejected
       await db.promise().query(
         `UPDATE orders
          SET status='failed', raw_status=?
          WHERE transaction_id=? AND status='pending'`,
         [JSON.stringify(tt.data), transactionId]
       );
-
       return res.json({ ok: false, message: "Payment prompt not accepted.", theteller: tt.data });
     }
 
-    // optional: store init response
     await db.promise().query(
       `UPDATE orders
        SET raw_status=?
@@ -726,13 +895,9 @@ app.post("/api/buy-data-theteller", async (req, res) => {
     });
   } catch (err) {
     console.error("❌ TheTeller INIT error:", err.response?.data || err.message);
-
-    // If the error happened after insert, background job can still confirm later.
-    // If insert did not happen, you’ll see it in logs and can retry.
     return res.status(500).json({ ok: false, message: "Payment could not be initiated." });
   }
 });
-
 
 // GET /api/theteller-status?transaction_id=...
 app.get("/api/theteller-status", async (req, res) => {
@@ -804,20 +969,64 @@ app.get("/api/theteller-status", async (req, res) => {
   }
 });
 
-// ===========================================
-// BACKGROUND JOB: AUTO CONFIRM PENDING ORDERS
-// - Keeps working even if user closes the page
-// - Updates orders only when TheTeller confirms
-// - Expires old pending orders to avoid forever-pending
-// ===========================================
-const AUTO_CONFIRM_INTERVAL_MS = 30 * 1000; // 30 seconds
-const PENDING_LOOKBACK_HOURS = 6;           // only check recent pendings
-const PENDING_BATCH_SIZE = 25;              // how many to check per run
-const EXPIRE_AFTER_MINUTES = 15;            // pending older than this -> expired
+
+
+
+
+// =====================================================
+// ✅ BACKGROUND JOB (PROD): updates even if user closes page
+// =====================================================
+const AUTO_CONFIRM_INTERVAL_MS = 20 * 1000; // 20 seconds
+const PENDING_LOOKBACK_HOURS = 48;          // check pending up to 48 hours
+const PENDING_BATCH_SIZE = 60;              // per run
+const EXPIRE_AFTER_MINUTES = 360;           // 6 hours (adjust if you want)
+
+async function fetchTheTellerStatus(transaction_id) {
+  const url = `${THETELLER.statusBase}/${encodeURIComponent(transaction_id)}/status`;
+
+  const resp = await axios.get(url, {
+    headers: {
+      Authorization: `Basic ${THETELLER.basicToken}`,
+      "Merchant-Id": THETELLER.merchantId,
+      "Cache-Control": "no-cache",
+    },
+    timeout: 30000,
+  });
+
+  const raw = resp.data || {};
+  const statusRaw = raw.status ?? raw.Status ?? raw.transaction_status ?? raw.state ?? "";
+  const codeRaw = raw.code ?? raw.Code ?? raw.response_code ?? "";
+
+  const status = String(statusRaw).toLowerCase().trim();
+  const code = String(codeRaw).trim();
+
+  const approved =
+    ["000", "00", "0"].includes(code) ||
+    status.includes("approved") ||
+    status.includes("success") ||
+    status.includes("paid") ||
+    status.includes("complete");
+
+  const failed =
+    status.includes("fail") ||
+    status.includes("decline") ||
+    status.includes("cancel") ||
+    ["failed", "declined", "cancelled", "canceled", "reversed"].includes(status);
+
+  const pending =
+    status.includes("pending") ||
+    status.includes("processing") ||
+    status.includes("progress") ||
+    status.includes("initiated") ||
+    status.includes("queued") ||
+    code === "099";
+
+  return { raw, approved, failed, pending, status, code };
+}
 
 async function checkAndUpdatePendingOrders() {
   try {
-    // ✅ 1) Expire old pending orders (no approval after X minutes)
+    // expire very old pendings (optional safety)
     await db.promise().query(
       `UPDATE orders
        SET status='expired'
@@ -826,85 +1035,42 @@ async function checkAndUpdatePendingOrders() {
       [EXPIRE_AFTER_MINUTES]
     );
 
-    // ✅ 2) Fetch recent pending transactions to check with TheTeller
-    const [pending] = await db.promise().query(
-      `
-      SELECT transaction_id
-      FROM orders
-      WHERE status='pending'
-        AND created_at >= (NOW() - INTERVAL ? HOUR)
-      ORDER BY created_at DESC
-      LIMIT ?
-      `,
+    const [pendingRows] = await db.promise().query(
+      `SELECT transaction_id
+       FROM orders
+       WHERE status='pending'
+         AND created_at >= (NOW() - INTERVAL ? HOUR)
+       ORDER BY created_at DESC
+       LIMIT ?`,
       [PENDING_LOOKBACK_HOURS, PENDING_BATCH_SIZE]
     );
 
-    if (!pending.length) return;
+    if (!pendingRows.length) return;
 
-    // ✅ 3) Check each pending transaction status
-    for (const row of pending) {
+    for (const row of pendingRows) {
       const transaction_id = String(row.transaction_id || "").trim();
       if (!transaction_id) continue;
 
       try {
-        const url = `${THETELLER.statusBase}/${encodeURIComponent(transaction_id)}/status`;
+        const r = await fetchTheTellerStatus(transaction_id);
 
-        const resp = await axios.get(url, {
-          headers: {
-            Authorization: `Basic ${THETELLER.basicToken}`,
-            "Merchant-Id": THETELLER.merchantId,
-            "Cache-Control": "no-cache",
-          },
-          timeout: 30000,
-        });
-
-        const raw = resp.data || {};
-        const statusRaw = raw.status ?? raw.Status ?? raw.transaction_status ?? raw.state ?? "";
-        const codeRaw = raw.code ?? raw.Code ?? raw.response_code ?? "";
-
-        const status = String(statusRaw).toLowerCase().trim();
-        const code = String(codeRaw).trim();
-
-        // ✅ Strong confirmation checks
-        const approved =
-          ["000", "00", "0"].includes(code) ||
-          status.includes("approved") ||
-          status.includes("success") ||
-          status.includes("paid") ||
-          status.includes("complete");
-
-        const failed =
-          status.includes("fail") ||
-          status.includes("decline") ||
-          status.includes("cancel") ||
-          ["failed", "declined", "cancelled", "canceled", "reversed"].includes(status);
-
-        if (approved) {
-          // ✅ Mark approved only if still pending (prevents double updates)
+        if (r.approved) {
           await db.promise().query(
             `UPDATE orders
              SET status='approved', raw_status=?
              WHERE transaction_id=? AND status='pending'`,
-            [JSON.stringify(raw), transaction_id]
+            [JSON.stringify(r.raw), transaction_id]
           );
-        } else if (failed) {
-          // ✅ Mark failed only if still pending
+        } else if (r.failed) {
           await db.promise().query(
             `UPDATE orders
              SET status='failed', raw_status=?
              WHERE transaction_id=? AND status='pending'`,
-            [JSON.stringify(raw), transaction_id]
+            [JSON.stringify(r.raw), transaction_id]
           );
         }
-        // pending/unknown -> do nothing, next run will check again
-
       } catch (innerErr) {
-        // ignore this one and retry later
-        console.error(
-          "Auto-confirm status error:",
-          transaction_id,
-          innerErr?.response?.data || innerErr.message
-        );
+        console.error("Auto-confirm status error:", transaction_id, innerErr?.response?.data || innerErr.message);
       }
     }
   } catch (err) {
@@ -912,10 +1078,8 @@ async function checkAndUpdatePendingOrders() {
   }
 }
 
-// ✅ Start background auto-confirm
 setInterval(checkAndUpdatePendingOrders, AUTO_CONFIRM_INTERVAL_MS);
-console.log("✅ Auto-confirm job started.");
-
+console.log("✅ Auto-confirm job started (PROD).");
 
 
 
