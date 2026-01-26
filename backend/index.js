@@ -1530,8 +1530,8 @@ app.post("/api/afa/pay", async (req, res) => {
 
   try {
     // fetch registration
-   const [rows] = await db.promise().query(
-  `SELECT id, price, payment_status, phone_number
+const [rows] = await db.promise().query(
+  `SELECT id, price, payment_status, phone_number, transaction_id
    FROM afa_registrations
    WHERE id=? LIMIT 1`,
   [Number(registration_id)]
@@ -1560,7 +1560,7 @@ app.post("/api/afa/pay", async (req, res) => {
     );
 
     // store payment attempt
-   await db.promise().query(
+  await db.promise().query(
   `INSERT INTO afa_payments 
     (registration_id, transaction_id, amount, momo_number, phone_number, status)
    VALUES (?, ?, ?, ?, ?, 'pending')`,
@@ -1569,7 +1569,7 @@ app.post("/api/afa/pay", async (req, res) => {
     transactionId,
     amount,
     String(momo_number),     // payer MoMo number
-    String(registration.phone_number) // actual AFA receiving number
+    String(reg.phone_number) // ✅ actual AFA receiving number
   ]
 );
 
