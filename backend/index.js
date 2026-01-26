@@ -1876,6 +1876,29 @@ app.get("/api/admin/afa/batch/:package_id", async (req, res) => {
 });
 
 
+// DELETE admin price
+app.delete("/api/admin-prices/:id", async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    if (!id) return res.json({ ok: false, message: "Invalid ID" });
+
+    const [result] = await db.promise().query(
+      "DELETE FROM admin_prices WHERE id=? LIMIT 1",
+      [id]
+    );
+
+    if (!result.affectedRows) {
+      return res.json({ ok: false, message: "Price not found." });
+    }
+
+    return res.json({ ok: true, message: "Deleted." });
+  } catch (e) {
+    console.error("Delete admin price error:", e.message);
+    return res.status(500).json({ ok: false, message: "DB error" });
+  }
+});
+
+
 
 
 
