@@ -1703,6 +1703,157 @@ app.get("/api/afa/status", async (req, res) => {
 
 
 
+
+
+
+
+
+
+
+
+
+
+// ================================
+// GET approved count (badge)
+// ================================
+app.get("/api/admin/afa/approved-count", async (req, res) => {
+  try {
+    const [rows] = await db.promise().query(
+      `SELECT COUNT(*) AS total
+       FROM afa_payments
+       WHERE status='approved'`
+    );
+    return res.json({ ok: true, total: Number(rows[0]?.total || 0) });
+  } catch (e) {
+    console.error("AFA approved-count error:", e.message);
+    return res.status(500).json({ ok: false, message: "DB error" });
+  }
+});
+
+
+// ================================
+// GET batches (downloaded/delivered grouped by package_id)
+// ================================
+app.get("/api/admin/afa/batches", async (req, res) => {
+  try {
+    const [rows] = await db.promise().query(
+      `
+      SELECT
+        package_id,
+        status,
+        COUNT(*) AS count,
+        MIN(downloaded_at) AS downloaded_at,
+        MIN(delivered_at) AS delivered_at
+      FROM afa_payments
+      WHERE package_id IS NOT NULL
+        AND status IN ('downloaded','delivered')
+      GROUP BY package_id, status
+      ORDER BY downloaded_at DESC
+      `
+    );
+
+    return res.json({ ok: true, batches: rows });
+  } catch (e) {
+    console.error("AFA batches error:", e.message);
+    return res.status(500).json({ ok: false, message: "DB error" });
+  }
+});
+
+
+// ================================
+// DOWNLOAD approved orders as Excel
+// - selects all status='approved'
+// - assigns a package_id
+// - marks them status='downloaded'
+// - excel contains ONLY phone_number column
+// ================================
+app.get("/api/admin/afa/download", async (req, res) => {
+  try {
+    // ✅ fetch approved rows
+    const [rows] = await db.promise().query(
+      `SELECT id, phone_number
+       FROM afa_payments
+       WHERE status='approved'
+       ORDER BY created_at ASC`
+    );
+
+    if (!rows.length) {
+      return res.status(400).json({ ok: false, message: "No approved AFA orders to download." });
+    }
+
+    const packageId = "AFA_" + Date.now(); // batch id
+
+    // ✅ mark as downloaded in ONE query
+    const ids = rows.map(r => r.id);
+    await db.promise().query(
+      `UPDATE afa_payments
+       SET status='downloaded',
+           package_id=?,
+           downloaded_at=NOW()
+       WHERE id IN (?)`,
+      [packageId, ids]
+    );
+
+    // ✅ create excel (ONLY phone_number)
+    const wb = new ExcelJS.Workbook();
+    const ws = wb.addWorksheet("AFA Orders");
+
+    ws.columns = [
+      { header: "phone_number", key: "phone_number", width: 20 },
+    ];
+
+    rows.forEach(r => ws.addRow({ phone_number: String(r.phone_number || "") }));
+
+    // styling (simple)
+    ws.getRow(1).font = { bold: true };
+
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename="AFA_Orders_${packageId}.xlsx"`
+    );
+    res.setHeader(
+      "Content-Type",
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    );
+
+    await wb.xlsx.write(res);
+    res.end();
+
+  } catch (e) {
+    console.error("AFA download error:", e.message);
+    return res.status(500).json({ ok: false, message: "Failed to download AFA orders." });
+  }
+});
+
+
+// ================================
+// MARK batch as delivered
+// ================================
+app.post("/api/admin/afa/mark-delivered", async (req, res) => {
+  try {
+    const package_id = String(req.body?.package_id || "").trim();
+    if (!package_id) return res.json({ ok: false, message: "Missing package_id" });
+
+    const [r] = await db.promise().query(
+      `UPDATE afa_payments
+       SET status='delivered',
+           delivered_at=NOW()
+       WHERE package_id=?
+         AND status='downloaded'`,
+      [package_id]
+    );
+
+    return res.json({ ok: true, message: "Marked delivered.", updated: r.affectedRows });
+  } catch (e) {
+    console.error("AFA mark-delivered error:", e.message);
+    return res.status(500).json({ ok: false, message: "DB error" });
+  }
+});
+
+
+
+
+
 app.listen(PORT, () => {
   console.log(`EDATA server running on port ${PORT}`);
 });
