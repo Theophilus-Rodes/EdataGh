@@ -4,6 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Admin | AFA Orders</title>
+
   <style>
     :root{
       --primary:#0A3D62; --accent:#1DD1A1; --bg:#F5F7FA; --card:#fff;
@@ -12,15 +13,35 @@
     *{box-sizing:border-box;font-family:system-ui,Segoe UI,Roboto,Arial}
     body{margin:0;background:var(--bg);color:var(--text)}
     .wrap{max-width:1000px;margin:24px auto;padding:0 14px}
+
     .card{
-      background:var(--card);border:1px solid var(--line);border-radius:14px;
-      box-shadow:0 10px 24px rgba(15,23,42,.06);overflow:hidden
+      background:var(--card);
+      border:1px solid var(--line);
+      border-radius:14px;
+      box-shadow:0 10px 24px rgba(15,23,42,.06);
+      overflow:hidden
     }
     .top{
-      padding:16px;background:linear-gradient(90deg,var(--primary),#082f49);
-      color:#fff;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap
+      padding:16px;
+      background:linear-gradient(90deg,var(--primary),#082f49);
+      color:#fff;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+      flex-wrap:wrap
     }
     .title{font-size:18px;font-weight:900;margin:0}
+    .badge{
+      background:#fff;
+      border:1px solid rgba(255,255,255,.3);
+      color:#0f172a;
+      border-radius:999px;
+      padding:6px 10px;
+      font-weight:900
+    }
+    .body{padding:16px}
+
     .btn{
       border:0;cursor:pointer;border-radius:12px;padding:12px 14px;font-weight:900
     }
@@ -28,33 +49,115 @@
     .btn-muted{background:#eef2f7;color:#111827}
     .btn-danger{background:var(--danger);color:#fff}
     .btn:disabled{opacity:.6;cursor:not-allowed}
-    .body{padding:16px}
+    .smallBtn{padding:10px 12px;border-radius:10px;font-size:13px}
+
     .downloadBox{
-      border:1px solid var(--line);border-radius:14px;padding:14px;background:#fff;
-      display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap
-    }
-    .badge{
-      background:#fff;border:1px solid rgba(255,255,255,.3);
-      color:#0f172a;border-radius:999px;padding:6px 10px;font-weight:900
+      border:1px solid var(--line);
+      border-radius:14px;
+      padding:14px;
+      background:#fff;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+      flex-wrap:wrap
     }
     .countBig{
-      font-size:28px;font-weight:1000;color:#0f172a;line-height:1
+      font-size:28px;
+      font-weight:1000;
+      color:#0f172a;
+      line-height:1
     }
     .muted{color:var(--muted);font-size:13px}
-    table{width:100%;border-collapse:collapse;margin-top:14px;background:#fff;border:1px solid var(--line);border-radius:14px;overflow:hidden}
+    .statusLine{margin-top:10px;font-size:13px}
+
+    .tableWrap{
+      overflow:auto;
+      border-radius:14px;
+      border:1px solid var(--line);
+      background:#fff;
+      margin-top:12px;
+    }
+    table{width:100%;border-collapse:collapse;min-width:760px}
     th,td{padding:12px;border-bottom:1px solid var(--line);text-align:left;font-size:14px}
     th{background:#f1f5f9;color:#0f172a;font-weight:900}
     tr:last-child td{border-bottom:none}
+
     .pill{
-      display:inline-block;padding:6px 10px;border-radius:999px;font-weight:900;font-size:12px;
-      border:1px solid var(--line);background:#eef2f7;color:#111827
+      display:inline-block;
+      padding:6px 10px;
+      border-radius:999px;
+      font-weight:900;
+      font-size:12px;
+      border:1px solid var(--line);
+      background:#eef2f7;
+      color:#111827
     }
     .pill.ok{background:#ecfdf5;border-color:#bbf7d0;color:#166534}
     .pill.warn{background:#fff7ed;border-color:#fed7aa;color:#9a3412}
+
     .rowActions{display:flex;gap:8px;flex-wrap:wrap}
-    .statusLine{margin-top:10px;font-size:13px}
+
+    /* Expand row panel */
+    .expandRow td{background:#f8fafc}
+    .panel{
+      padding:12px;
+      border:1px solid var(--line);
+      border-radius:12px;
+      background:#fff;
+    }
+    .panelTop{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+      flex-wrap:wrap;
+      margin-bottom:10px
+    }
+    .numbersBox{
+      border:1px dashed var(--line);
+      border-radius:12px;
+      padding:10px;
+      max-height:260px;
+      overflow:auto;
+      background:#fcfcfd;
+    }
+    .numItem{
+      padding:8px 10px;
+      border:1px solid var(--line);
+      border-radius:10px;
+      margin-bottom:8px;
+      background:#fff;
+      font-weight:800;
+      font-size:13px;
+      display:flex;
+      justify-content:space-between;
+      gap:10px;
+      flex-wrap:wrap;
+    }
+    .copyBtn{
+      border:0;
+      background:#eef2f7;
+      border:1px solid var(--line);
+      padding:8px 10px;
+      border-radius:10px;
+      font-weight:900;
+      cursor:pointer;
+      font-size:12px;
+    }
+    .copyBtn:hover{filter:brightness(.98)}
+
+    /* Mobile tweaks */
+    @media (max-width: 520px){
+      .wrap{margin:14px auto}
+      .title{font-size:16px}
+      .btn{width:100%}
+      .downloadBox{gap:10px}
+      .countBig{font-size:26px}
+    }
   </style>
 </head>
+
 <body>
   <div class="wrap">
     <div class="card">
@@ -70,34 +173,39 @@
             <div class="muted">Approved AFA orders ready to download</div>
           </div>
 
-          <button class="btn btn-primary" id="downloadBtn">
-            Download AFA Orders
-          </button>
+          <button class="btn btn-primary" id="downloadBtn">Download AFA Orders</button>
         </div>
 
         <div class="statusLine" id="statusLine"></div>
 
         <h3 style="margin:16px 0 8px">Downloaded Batches</h3>
-        <table>
-          <thead>
-            <tr>
-              <th>Package ID</th>
-              <th>Status</th>
-              <th>Count</th>
-              <th>Downloaded At</th>
-              <th>Action</th>
-            </tr>
-          </thead>
-          <tbody id="batchesBody">
-            <tr><td colspan="5" class="muted">Loading…</td></tr>
-          </tbody>
-        </table>
+
+        <div class="tableWrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Package ID</th>
+                <th>Status</th>
+                <th>Count</th>
+                <th>Downloaded At</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody id="batchesBody">
+              <tr><td colspan="5" class="muted">Loading…</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="muted" style="margin-top:10px">
+          Tip: Tap <b>View</b> to expand and see all phone numbers in a batch.
+        </div>
       </div>
     </div>
   </div>
 
 <script>
-  // ✅ set base (same rule you used)
+  // ✅ backend base
   const API_BASE =
     location.hostname === "localhost"
       ? "http://localhost:8080"
@@ -115,7 +223,7 @@
     const r = await fetch(API_BASE + url);
     const text = await r.text();
     try { return JSON.parse(text); }
-    catch { return { ok:false, message:`Non-JSON response. ${text.slice(0,120)}...` }; }
+    catch { return { ok:false, message:`Non-JSON response. ${text.slice(0,160)}...` }; }
   }
 
   async function postJSON(url, body){
@@ -126,7 +234,7 @@
     });
     const text = await r.text();
     try { return JSON.parse(text); }
-    catch { return { ok:false, message:`Non-JSON response. ${text.slice(0,120)}...` }; }
+    catch { return { ok:false, message:`Non-JSON response. ${text.slice(0,160)}...` }; }
   }
 
   async function loadApprovedCount(){
@@ -148,6 +256,52 @@
     return `<span class="pill">${s.toUpperCase()}</span>`;
   }
 
+  let openPackageId = null;
+
+  async function loadBatchDetails(packageId){
+    return await getJSON(`/api/admin/afa/batch/${encodeURIComponent(packageId)}`);
+  }
+
+  function renderBatchNumbers(pkg, details) {
+    const panelCell = document.querySelector(`[data-panel="${pkg}"]`);
+    if (!panelCell) return;
+
+    panelCell.style.display = "table-cell";
+
+    const box = document.getElementById(`nums_${pkg}`);
+    if (!box) return;
+
+    if (!details || !details.ok) {
+      box.innerHTML = `<div class="muted">Failed to load numbers.</div>`;
+      return;
+    }
+
+    if (!details.numbers.length) {
+      box.innerHTML = `<div class="muted">No numbers in this batch.</div>`;
+      return;
+    }
+
+    box.innerHTML = details.numbers.map((n, idx) => `
+      <div class="numItem">
+        <div>#${idx + 1} — ${n}</div>
+        <button class="copyBtn" data-copy="${n}">Copy</button>
+      </div>
+    `).join("");
+
+    [...box.querySelectorAll("button[data-copy]")].forEach(btn => {
+      btn.onclick = async () => {
+        const num = btn.getAttribute("data-copy");
+        try {
+          await navigator.clipboard.writeText(num);
+          btn.textContent = "Copied";
+          setTimeout(() => (btn.textContent = "Copy"), 1200);
+        } catch {
+          alert("Copy failed. Number: " + num);
+        }
+      };
+    });
+  }
+
   async function loadBatches(){
     const r = await getJSON("/api/admin/afa/batches");
     const tb = $("batchesBody");
@@ -163,31 +317,82 @@
       return;
     }
 
-    r.batches.forEach(b=>{
+    for (const b of r.batches) {
+      const pkg = b.package_id;
       const canDeliver = String(b.status).toLowerCase() === "downloaded";
+
+      // main row
       const tr = document.createElement("tr");
       tr.innerHTML = `
-        <td style="font-weight:900">${b.package_id}</td>
+        <td style="font-weight:900">${pkg}</td>
         <td>${pill(b.status)}</td>
         <td style="font-weight:900">${b.count}</td>
         <td>${fmtDate(b.downloaded_at)}</td>
         <td>
           <div class="rowActions">
-            <button class="btn ${canDeliver ? "btn-primary" : "btn-muted"}"
+            <button class="btn btn-muted smallBtn" data-view="${pkg}">
+              ${openPackageId === pkg ? "Hide" : "View"}
+            </button>
+
+            <button class="btn ${canDeliver ? "btn-primary" : "btn-muted"} smallBtn"
               ${canDeliver ? "" : "disabled"}
-              data-pkg="${b.package_id}">
+              data-deliver="${pkg}">
               Delivered
             </button>
           </div>
         </td>
       `;
       tb.appendChild(tr);
+
+      // expandable row
+      const tr2 = document.createElement("tr");
+      tr2.className = "expandRow";
+      tr2.innerHTML = `
+        <td colspan="5" style="display:${openPackageId === pkg ? "table-cell" : "none"}" data-panel="${pkg}">
+          <div class="panel">
+            <div class="panelTop">
+              <div>
+                <div style="font-weight:1000">Batch: ${pkg}</div>
+                <div class="muted">Phone numbers in this batch</div>
+              </div>
+              <button class="btn btn-muted smallBtn" data-close="${pkg}">Close</button>
+            </div>
+            <div class="numbersBox" id="nums_${pkg}">
+              <div class="muted">Loading numbers…</div>
+            </div>
+          </div>
+        </td>
+      `;
+      tb.appendChild(tr2);
+
+      // auto-load if open
+      if (openPackageId === pkg) {
+        const details = await loadBatchDetails(pkg);
+        renderBatchNumbers(pkg, details);
+      }
+    }
+
+    // view handlers
+    [...tb.querySelectorAll("button[data-view]")].forEach(btn => {
+      btn.onclick = async () => {
+        const pkg = btn.getAttribute("data-view");
+        openPackageId = (openPackageId === pkg) ? null : pkg;
+        await loadBatches();
+      };
     });
 
-    // attach deliver handlers
-    [...tb.querySelectorAll("button[data-pkg]")].forEach(btn=>{
-      btn.onclick = async ()=>{
-        const pkg = btn.getAttribute("data-pkg");
+    // close handlers
+    [...tb.querySelectorAll("button[data-close]")].forEach(btn => {
+      btn.onclick = async () => {
+        openPackageId = null;
+        await loadBatches();
+      };
+    });
+
+    // delivered handlers
+    [...tb.querySelectorAll("button[data-deliver]")].forEach(btn => {
+      btn.onclick = async () => {
+        const pkg = btn.getAttribute("data-deliver");
         btn.disabled = true;
         btn.textContent = "Updating...";
 
@@ -198,7 +403,10 @@
           btn.textContent = "Delivered";
           return;
         }
+
         setStatus(`✅ Package ${pkg} marked delivered (${r.updated} rows).`, true);
+        openPackageId = null;
+        await loadApprovedCount();
         await loadBatches();
       };
     });
@@ -208,16 +416,15 @@
     $("downloadBtn").disabled = true;
     $("downloadBtn").textContent = "Preparing...";
 
-    // open file download in new navigation
-    // (browser will download Excel automatically)
+    // download excel
     window.location.href = API_BASE + "/api/admin/afa/download";
 
-    // Refresh counts & batches shortly after
     setTimeout(async ()=>{
       await loadApprovedCount();
       await loadBatches();
       $("downloadBtn").disabled = false;
       $("downloadBtn").textContent = "Download AFA Orders";
+      setStatus("✅ Download started. Batch saved.", true);
     }, 2500);
   };
 
