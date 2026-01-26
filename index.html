@@ -28,7 +28,7 @@
     .header{
       background:#fff;
       border-bottom:1px solid var(--border);
-      padding:16px 20px;
+      padding:14px 20px;
       position:sticky;
       top:0;
       z-index:10;
@@ -40,15 +40,23 @@
       display:flex;
       align-items:center;
       justify-content:space-between;
+      gap:12px;
     }
 
     .contact-btn{
       border:1px solid var(--border);
       background:#fff;
+      color:var(--text);
       padding:10px 14px;
       border-radius:12px;
       font-weight:700;
       cursor:pointer;
+      transition:.2s ease;
+    }
+    .contact-btn:hover{
+      border-color:var(--primary);
+      box-shadow:0 10px 20px rgba(0,0,0,.06);
+      transform:translateY(-1px);
     }
 
     /* HERO */
@@ -95,8 +103,12 @@
       width:56px;height:56px;border-radius:14px;
       background:var(--primary-soft);
       display:flex;align-items:center;justify-content:center;
+      flex-shrink:0;
     }
-    .icon img{width:34px;height:34px}
+    .icon img{width:34px;height:34px;object-fit:contain}
+
+    .card h3{margin:0;font-size:18px}
+    .card p{margin:6px 0 0;font-size:13px;color:var(--muted)}
 
     .action{
       margin-top:22px;
@@ -105,6 +117,113 @@
       justify-content:space-between;
       color:var(--primary);
       font-weight:600;
+      font-size:14px;
+    }
+
+    /* CONTACT MODAL */
+    .overlay{
+      position:fixed;
+      inset:0;
+      background:rgba(15,23,42,.55);
+      display:none;
+      align-items:center;
+      justify-content:center;
+      padding:18px;
+      z-index:1000;
+    }
+
+    .modal{
+      width:min(520px, 100%);
+      background:#fff;
+      border-radius:18px;
+      border:1px solid var(--border);
+      box-shadow:0 20px 50px rgba(0,0,0,.18);
+      overflow:hidden;
+      animation:pop .16s ease;
+    }
+
+    @keyframes pop{
+      from{transform:scale(.97); opacity:.6}
+      to{transform:scale(1); opacity:1}
+    }
+
+    .modal-head{
+      padding:14px 16px;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      border-bottom:1px solid var(--border);
+      background:linear-gradient(90deg, var(--primary-soft), #fff);
+    }
+
+    .modal-title{
+      font-weight:800;
+      font-size:15px;
+      margin:0;
+    }
+
+    .close-btn{
+      border:0;
+      background:#fff;
+      border:1px solid var(--border);
+      width:36px;height:36px;
+      border-radius:12px;
+      cursor:pointer;
+      font-weight:900;
+    }
+
+    .modal-body{padding:16px}
+
+    .contact-row{
+      display:flex;
+      gap:10px;
+      align-items:flex-start;
+      justify-content:space-between;
+      border:1px solid var(--border);
+      border-radius:14px;
+      padding:12px;
+      margin-bottom:10px;
+      background:#fff;
+    }
+
+    .contact-row b{
+      display:block;
+      margin-bottom:4px;
+      font-size:13px;
+    }
+    .contact-row span{
+      font-size:13px;
+      color:var(--muted);
+    }
+
+    .linkbtn{
+      border:0;
+      background:var(--primary);
+      color:#fff;
+      padding:10px 12px;
+      border-radius:12px;
+      font-weight:800;
+      cursor:pointer;
+      white-space:nowrap;
+      text-decoration:none;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+    }
+    .linkbtn:hover{filter:brightness(.98)}
+    .linkbtn.ghost{
+      background:#fff;
+      color:var(--text);
+      border:1px solid var(--border);
+    }
+
+    .modal-footer{
+      padding:14px 16px;
+      border-top:1px solid var(--border);
+      display:flex;
+      gap:10px;
+      justify-content:flex-end;
+      background:#fafafa;
     }
 
     /* FOOTER */
@@ -162,6 +281,9 @@
     @media(max-width:600px){
       .hero h1{font-size:24px}
       .card{padding:20px}
+      .contact-row{flex-direction:column; align-items:stretch}
+      .linkbtn{width:100%}
+      .modal-footer{flex-direction:column}
     }
   </style>
 </head>
@@ -170,20 +292,20 @@
 
 <header class="header">
   <div class="brand">
-    <img src="EDATA-LOGO.png" style="height:40px">
-    <button class="contact-btn">Contact</button>
+    <img src="EDATA-LOGO.png" alt="EDATA Logo" style="height:40px;object-fit:contain;">
+    <button class="contact-btn" id="contactBtn">Contact</button>
   </div>
 </header>
 
 <section class="hero">
   <h1>Choose Your Network</h1>
-  <p>Select a mobile network to view available data bundles.</p>
+  <p>Select a mobile network to view available data bundles. Fast activation and reliable service.</p>
 </section>
 
 <section class="grid">
   <div class="card" onclick="go('mtn.html')">
     <div class="top">
-      <div class="icon"><img src="MTN.png"></div>
+      <div class="icon"><img src="MTN.png" alt="MTN"></div>
       <div><h3>MTN</h3><p>Browse MTN data packages</p></div>
     </div>
     <div class="action"><span>View Bundles</span><span>→</span></div>
@@ -191,7 +313,7 @@
 
   <div class="card" onclick="go('telecel.html')">
     <div class="top">
-      <div class="icon"><img src="TL.png"></div>
+      <div class="icon"><img src="TL.png" alt="Telecel"></div>
       <div><h3>Telecel</h3><p>View Telecel internet bundles</p></div>
     </div>
     <div class="action"><span>View Bundles</span><span>→</span></div>
@@ -199,7 +321,7 @@
 
   <div class="card" onclick="go('airteltigo.html')">
     <div class="top">
-      <div class="icon"><img src="AT.png"></div>
+      <div class="icon"><img src="AT.png" alt="AirtelTigo"></div>
       <div><h3>AirtelTigo</h3><p>Access AirtelTigo packages</p></div>
     </div>
     <div class="action"><span>View Bundles</span><span>→</span></div>
@@ -207,17 +329,58 @@
 
   <div class="card" onclick="go('afa.html')">
     <div class="top">
-      <div class="icon"><img src="afa.png"></div>
+      <div class="icon"><img src="afa.png" alt="AFA"></div>
       <div><h3>AFA</h3><p>View AFA Page</p></div>
     </div>
     <div class="action"><span>View Page</span><span>→</span></div>
   </div>
 </section>
 
+<!-- ✅ Contact Modal -->
+<div class="overlay" id="overlay">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="contactTitle">
+    <div class="modal-head">
+      <div class="modal-title" id="contactTitle">Contact Support</div>
+      <button class="close-btn" id="closeModal" aria-label="Close">✕</button>
+    </div>
+
+    <div class="modal-body">
+      <div class="contact-row">
+        <div>
+          <b>Click to join WhatsApp group</b>
+          <span>Join our official support group.</span>
+        </div>
+        <a class="linkbtn" target="_blank" rel="noopener"
+           href="https://chat.whatsapp.com/G6IOmDB9WLgGhhhOvoVcZB">Join Group</a>
+      </div>
+
+      <div class="contact-row">
+        <div>
+          <b>Call line</b>
+          <span>024xxxxxx2</span>
+        </div>
+        <a class="linkbtn ghost" href="tel:024xxxxxx2">Call</a>
+      </div>
+
+      <div class="contact-row">
+        <div>
+          <b>Chat on WhatsApp</b>
+          <span>024xxxxxx2</span>
+        </div>
+        <a class="linkbtn ghost" target="_blank" rel="noopener"
+           href="https://wa.me/23324xxxxxx2">Chat</a>
+      </div>
+    </div>
+
+    <div class="modal-footer">
+      <button class="linkbtn ghost" id="doneBtn">Done</button>
+    </div>
+  </div>
+</div>
+
 <!-- ✅ FOOTER SECTION -->
 <footer class="footer">
   <div class="footer-wrap">
-
     <div class="footer-card">
       <h3>Our DATA REQUEST DOESN’T support:</h3>
       <ul>
@@ -241,7 +404,6 @@
         secure and data is delivered instantly to your phone number.
       </p>
     </div>
-
   </div>
 
   <div class="footer-bottom">
@@ -250,9 +412,23 @@
 </footer>
 
 <script>
-  function go(page){
-    window.location.href = page;
-  }
+  function go(page){ window.location.href = page; }
+
+  // ✅ Contact Modal logic
+  const overlay = document.getElementById("overlay");
+  const contactBtn = document.getElementById("contactBtn");
+  const closeModal = document.getElementById("closeModal");
+  const doneBtn = document.getElementById("doneBtn");
+
+  function openContact(){ overlay.style.display = "flex"; }
+  function closeContact(){ overlay.style.display = "none"; }
+
+  contactBtn.addEventListener("click", openContact);
+  closeModal.addEventListener("click", closeContact);
+  doneBtn.addEventListener("click", closeContact);
+
+  overlay.addEventListener("click", (e) => { if(e.target === overlay) closeContact(); });
+  window.addEventListener("keydown", (e) => { if(e.key === "Escape") closeContact(); });
 </script>
 
 </body>
