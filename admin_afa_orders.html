@@ -83,4 +83,149 @@
             <tr>
               <th>Package ID</th>
               <th>Status</th>
-              <th>Count<
+              <th>Count</th>
+              <th>Downloaded At</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody id="batchesBody">
+            <tr><td colspan="5" class="muted">Loading…</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+<script>
+  // ✅ set base (same rule you used)
+  const API_BASE =
+    location.hostname === "localhost"
+      ? "http://localhost:8080"
+      : "https://edatagh.com/edatagh-backend";
+
+  const $ = (id)=>document.getElementById(id);
+
+  function setStatus(msg, ok=true){
+    $("statusLine").innerHTML = ok
+      ? `<span style="color:#16a34a;font-weight:900">${msg}</span>`
+      : `<span style="color:#ef4444;font-weight:900">${msg}</span>`;
+  }
+
+  async function getJSON(url){
+    const r = await fetch(API_BASE + url);
+    const text = await r.text();
+    try { return JSON.parse(text); }
+    catch { return { ok:false, message:`Non-JSON response. ${text.slice(0,120)}...` }; }
+  }
+
+  async function postJSON(url, body){
+    const r = await fetch(API_BASE + url, {
+      method:"POST",
+      headers:{ "Content-Type":"application/json" },
+      body: JSON.stringify(body)
+    });
+    const text = await r.text();
+    try { return JSON.parse(text); }
+    catch { return { ok:false, message:`Non-JSON response. ${text.slice(0,120)}...` }; }
+  }
+
+  async function loadApprovedCount(){
+    const r = await getJSON("/api/admin/afa/approved-count");
+    if(r.ok) $("approvedCount").textContent = r.total;
+  }
+
+  function fmtDate(x){
+    if(!x) return "-";
+    const d = new Date(x);
+    if(isNaN(d.getTime())) return String(x);
+    return d.toLocaleString();
+  }
+
+  function pill(status){
+    const s = String(status||"").toLowerCase();
+    if(s === "delivered") return `<span class="pill ok">DELIVERED</span>`;
+    if(s === "downloaded") return `<span class="pill warn">DOWNLOADED</span>`;
+    return `<span class="pill">${s.toUpperCase()}</span>`;
+  }
+
+  async function loadBatches(){
+    const r = await getJSON("/api/admin/afa/batches");
+    const tb = $("batchesBody");
+    tb.innerHTML = "";
+
+    if(!r.ok){
+      tb.innerHTML = `<tr><td colspan="5" class="muted">Failed to load batches</td></tr>`;
+      return;
+    }
+
+    if(!r.batches.length){
+      tb.innerHTML = `<tr><td colspan="5" class="muted">No downloaded batches yet.</td></tr>`;
+      return;
+    }
+
+    r.batches.forEach(b=>{
+      const canDeliver = String(b.status).toLowerCase() === "downloaded";
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td style="font-weight:900">${b.package_id}</td>
+        <td>${pill(b.status)}</td>
+        <td style="font-weight:900">${b.count}</td>
+        <td>${fmtDate(b.downloaded_at)}</td>
+        <td>
+          <div class="rowActions">
+            <button class="btn ${canDeliver ? "btn-primary" : "btn-muted"}"
+              ${canDeliver ? "" : "disabled"}
+              data-pkg="${b.package_id}">
+              Delivered
+            </button>
+          </div>
+        </td>
+      `;
+      tb.appendChild(tr);
+    });
+
+    // attach deliver handlers
+    [...tb.querySelectorAll("button[data-pkg]")].forEach(btn=>{
+      btn.onclick = async ()=>{
+        const pkg = btn.getAttribute("data-pkg");
+        btn.disabled = true;
+        btn.textContent = "Updating...";
+
+        const r = await postJSON("/api/admin/afa/mark-delivered", { package_id: pkg });
+        if(!r.ok){
+          setStatus(r.message || "Failed to mark delivered.", false);
+          btn.disabled = false;
+          btn.textContent = "Delivered";
+          return;
+        }
+        setStatus(`✅ Package ${pkg} marked delivered (${r.updated} rows).`, true);
+        await loadBatches();
+      };
+    });
+  }
+
+  $("downloadBtn").onclick = async ()=>{
+    $("downloadBtn").disabled = true;
+    $("downloadBtn").textContent = "Preparing...";
+
+    // open file download in new navigation
+    // (browser will download Excel automatically)
+    window.location.href = API_BASE + "/api/admin/afa/download";
+
+    // Refresh counts & batches shortly after
+    setTimeout(async ()=>{
+      await loadApprovedCount();
+      await loadBatches();
+      $("downloadBtn").disabled = false;
+      $("downloadBtn").textContent = "Download AFA Orders";
+    }, 2500);
+  };
+
+  // init
+  (async ()=>{
+    await loadApprovedCount();
+    await loadBatches();
+  })();
+</script>
+</body>
+</html>
