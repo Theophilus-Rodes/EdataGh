@@ -12,7 +12,7 @@
     }
     *{box-sizing:border-box;font-family:system-ui,Segoe UI,Roboto,Arial}
     body{margin:0;background:var(--bg);color:var(--text)}
-    .wrap{max-width:1000px;margin:24px auto;padding:0 14px}
+    .wrap{max-width:1100px;margin:24px auto;padding:0 14px}
 
     .card{
       background:var(--card);
@@ -78,8 +78,8 @@
       background:#fff;
       margin-top:12px;
     }
-    table{width:100%;border-collapse:collapse;min-width:760px}
-    th,td{padding:12px;border-bottom:1px solid var(--line);text-align:left;font-size:14px}
+    table{width:100%;border-collapse:collapse;min-width:860px}
+    th,td{padding:12px;border-bottom:1px solid var(--line);text-align:left;font-size:14px;vertical-align:top}
     th{background:#f1f5f9;color:#0f172a;font-weight:900}
     tr:last-child td{border-bottom:none}
 
@@ -98,7 +98,7 @@
 
     .rowActions{display:flex;gap:8px;flex-wrap:wrap}
 
-    /* Expand row panel */
+    /* Expanded details */
     .expandRow td{background:#f8fafc}
     .panel{
       padding:12px;
@@ -114,46 +114,30 @@
       flex-wrap:wrap;
       margin-bottom:10px
     }
-    .numbersBox{
-      border:1px dashed var(--line);
-      border-radius:12px;
-      padding:10px;
-      max-height:260px;
+    .panelTitle{font-weight:1000}
+    .detailWrap{
       overflow:auto;
-      background:#fcfcfd;
-    }
-    .numItem{
-      padding:8px 10px;
       border:1px solid var(--line);
-      border-radius:10px;
-      margin-bottom:8px;
+      border-radius:12px;
       background:#fff;
-      font-weight:800;
-      font-size:13px;
-      display:flex;
-      justify-content:space-between;
-      gap:10px;
-      flex-wrap:wrap;
     }
+    .detailTable{width:100%;border-collapse:collapse;min-width:820px}
+    .detailTable th,.detailTable td{padding:10px;border-bottom:1px solid var(--line);font-size:13px}
+    .detailTable th{background:#f8fafc;font-weight:900}
+
     .copyBtn{
-      border:0;
-      background:#eef2f7;
-      border:1px solid var(--line);
-      padding:8px 10px;
-      border-radius:10px;
-      font-weight:900;
-      cursor:pointer;
-      font-size:12px;
+      border:0;background:#eef2f7;border:1px solid var(--line);
+      padding:8px 10px;border-radius:10px;font-weight:900;cursor:pointer;font-size:12px;
+      white-space:nowrap;
     }
     .copyBtn:hover{filter:brightness(.98)}
 
-    /* Mobile tweaks */
     @media (max-width: 520px){
       .wrap{margin:14px auto}
       .title{font-size:16px}
       .btn{width:100%}
-      .downloadBox{gap:10px}
       .countBig{font-size:26px}
+      table{min-width:720px}
     }
   </style>
 </head>
@@ -188,7 +172,7 @@
                 <th>Status</th>
                 <th>Count</th>
                 <th>Downloaded At</th>
-                <th>Action</th>
+                <th>Actions</th>
               </tr>
             </thead>
             <tbody id="batchesBody">
@@ -198,14 +182,13 @@
         </div>
 
         <div class="muted" style="margin-top:10px">
-          Tip: Tap <b>View</b> to expand and see all phone numbers in a batch.
+          Tap <b>View</b> to see full details: package_id, phone_number, momo_number, amount, status.
         </div>
       </div>
     </div>
   </div>
 
 <script>
-  // ✅ backend base
   const API_BASE =
     location.hostname === "localhost"
       ? "http://localhost:8080"
@@ -257,49 +240,13 @@
   }
 
   let openPackageId = null;
+  const detailsCache = new Map();
 
-  async function loadBatchDetails(packageId){
-    return await getJSON(`/api/admin/afa/batch/${encodeURIComponent(packageId)}`);
-  }
-
-  function renderBatchNumbers(pkg, details) {
-    const panelCell = document.querySelector(`[data-panel="${pkg}"]`);
-    if (!panelCell) return;
-
-    panelCell.style.display = "table-cell";
-
-    const box = document.getElementById(`nums_${pkg}`);
-    if (!box) return;
-
-    if (!details || !details.ok) {
-      box.innerHTML = `<div class="muted">Failed to load numbers.</div>`;
-      return;
-    }
-
-    if (!details.numbers.length) {
-      box.innerHTML = `<div class="muted">No numbers in this batch.</div>`;
-      return;
-    }
-
-    box.innerHTML = details.numbers.map((n, idx) => `
-      <div class="numItem">
-        <div>#${idx + 1} — ${n}</div>
-        <button class="copyBtn" data-copy="${n}">Copy</button>
-      </div>
-    `).join("");
-
-    [...box.querySelectorAll("button[data-copy]")].forEach(btn => {
-      btn.onclick = async () => {
-        const num = btn.getAttribute("data-copy");
-        try {
-          await navigator.clipboard.writeText(num);
-          btn.textContent = "Copied";
-          setTimeout(() => (btn.textContent = "Copy"), 1200);
-        } catch {
-          alert("Copy failed. Number: " + num);
-        }
-      };
-    });
+  async function fetchBatchDetails(pkg){
+    if(detailsCache.has(pkg)) return detailsCache.get(pkg);
+    const r = await getJSON(`/api/admin/afa/batch/${encodeURIComponent(pkg)}`);
+    detailsCache.set(pkg, r);
+    return r;
   }
 
   async function loadBatches(){
@@ -321,7 +268,6 @@
       const pkg = b.package_id;
       const canDeliver = String(b.status).toLowerCase() === "downloaded";
 
-      // main row
       const tr = document.createElement("tr");
       tr.innerHTML = `
         <td style="font-weight:900">${pkg}</td>
@@ -344,7 +290,6 @@
       `;
       tb.appendChild(tr);
 
-      // expandable row
       const tr2 = document.createElement("tr");
       tr2.className = "expandRow";
       tr2.innerHTML = `
@@ -352,36 +297,56 @@
           <div class="panel">
             <div class="panelTop">
               <div>
-                <div style="font-weight:1000">Batch: ${pkg}</div>
-                <div class="muted">Phone numbers in this batch</div>
+                <div class="panelTitle">Batch: ${pkg}</div>
+                <div class="muted">Full details inside this batch</div>
               </div>
               <button class="btn btn-muted smallBtn" data-close="${pkg}">Close</button>
             </div>
-            <div class="numbersBox" id="nums_${pkg}">
-              <div class="muted">Loading numbers…</div>
+
+            <div class="detailWrap">
+              <table class="detailTable">
+                <thead>
+                  <tr>
+                    <th>Package ID</th>
+                    <th>Phone Number</th>
+                    <th>MoMo Number</th>
+                    <th>Amount</th>
+                    <th>Status</th>
+                    <th>Copy</th>
+                  </tr>
+                </thead>
+                <tbody id="detail_${pkg}">
+                  <tr><td colspan="6" class="muted">Loading…</td></tr>
+                </tbody>
+              </table>
             </div>
           </div>
         </td>
       `;
       tb.appendChild(tr2);
 
-      // auto-load if open
       if (openPackageId === pkg) {
-        const details = await loadBatchDetails(pkg);
-        renderBatchNumbers(pkg, details);
+        const details = await fetchBatchDetails(pkg);
+        renderDetails(pkg, details);
       }
     }
 
-    // view handlers
+    // View
     [...tb.querySelectorAll("button[data-view]")].forEach(btn => {
       btn.onclick = async () => {
         const pkg = btn.getAttribute("data-view");
         openPackageId = (openPackageId === pkg) ? null : pkg;
+
         await loadBatches();
+
+        if (openPackageId === pkg) {
+          const details = await fetchBatchDetails(pkg);
+          renderDetails(pkg, details);
+        }
       };
     });
 
-    // close handlers
+    // Close
     [...tb.querySelectorAll("button[data-close]")].forEach(btn => {
       btn.onclick = async () => {
         openPackageId = null;
@@ -389,7 +354,7 @@
       };
     });
 
-    // delivered handlers
+    // Delivered
     [...tb.querySelectorAll("button[data-deliver]")].forEach(btn => {
       btn.onclick = async () => {
         const pkg = btn.getAttribute("data-deliver");
@@ -406,8 +371,50 @@
 
         setStatus(`✅ Package ${pkg} marked delivered (${r.updated} rows).`, true);
         openPackageId = null;
+        detailsCache.clear();
         await loadApprovedCount();
         await loadBatches();
+      };
+    });
+  }
+
+  function renderDetails(pkg, details){
+    const tbody = document.getElementById(`detail_${pkg}`);
+    if(!tbody) return;
+
+    if(!details || !details.ok){
+      tbody.innerHTML = `<tr><td colspan="6" class="muted">Failed to load details (check backend route).</td></tr>`;
+      return;
+    }
+
+    if(!details.items || !details.items.length){
+      tbody.innerHTML = `<tr><td colspan="6" class="muted">No records in this batch.</td></tr>`;
+      return;
+    }
+
+    tbody.innerHTML = details.items.map((x) => `
+      <tr>
+        <td>${x.package_id || ""}</td>
+        <td style="font-weight:900">${x.phone_number || ""}</td>
+        <td>${x.momo_number || ""}</td>
+        <td>${x.amount || ""}</td>
+        <td>${pill(x.status)}</td>
+        <td>
+          <button class="copyBtn" data-copy="${x.phone_number || ""}">Copy</button>
+        </td>
+      </tr>
+    `).join("");
+
+    [...tbody.querySelectorAll("button[data-copy]")].forEach(btn => {
+      btn.onclick = async ()=>{
+        const num = btn.getAttribute("data-copy");
+        try{
+          await navigator.clipboard.writeText(num);
+          btn.textContent = "Copied";
+          setTimeout(()=> btn.textContent = "Copy", 1000);
+        }catch{
+          alert("Copy failed. Number: " + num);
+        }
       };
     });
   }
@@ -416,10 +423,11 @@
     $("downloadBtn").disabled = true;
     $("downloadBtn").textContent = "Preparing...";
 
-    // download excel
+    // start download
     window.location.href = API_BASE + "/api/admin/afa/download";
 
     setTimeout(async ()=>{
+      detailsCache.clear();
       await loadApprovedCount();
       await loadBatches();
       $("downloadBtn").disabled = false;
@@ -428,7 +436,6 @@
     }, 2500);
   };
 
-  // init
   (async ()=>{
     await loadApprovedCount();
     await loadBatches();
