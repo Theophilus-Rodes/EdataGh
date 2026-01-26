@@ -1530,12 +1530,13 @@ app.post("/api/afa/pay", async (req, res) => {
 
   try {
     // fetch registration
-    const [rows] = await db.promise().query(
-      `SELECT id, price, payment_status
-       FROM afa_registrations
-       WHERE id=? LIMIT 1`,
-      [Number(registration_id)]
-    );
+   const [rows] = await db.promise().query(
+  `SELECT id, price, payment_status, phone_number
+   FROM afa_registrations
+   WHERE id=? LIMIT 1`,
+  [Number(registration_id)]
+);
+
     if (!rows.length) return res.json({ ok:false, message:"Registration not found." });
 
     const reg = rows[0];
@@ -1559,11 +1560,19 @@ app.post("/api/afa/pay", async (req, res) => {
     );
 
     // store payment attempt
-    await db.promise().query(
-      `INSERT INTO afa_payments (registration_id, transaction_id, amount, momo_number, status)
-       VALUES (?, ?, ?, ?, 'pending')`,
-      [Number(registration_id), transactionId, amount, String(momo_number)]
-    );
+   await db.promise().query(
+  `INSERT INTO afa_payments 
+    (registration_id, transaction_id, amount, momo_number, phone_number, status)
+   VALUES (?, ?, ?, ?, ?, 'pending')`,
+  [
+    Number(registration_id),
+    transactionId,
+    amount,
+    String(momo_number),     // payer MoMo number
+    String(registration.phone_number) // actual AFA receiving number
+  ]
+);
+
 
     // theteller init
     const payload = {
