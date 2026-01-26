@@ -16,18 +16,13 @@
       --text:#0F172A;
       --muted:#64748B;
       --border:#E5E7EB;
+      --dark:#0B1220;
+      --dark-soft:#111827;
+      --gold:#FACC15;
     }
 
-    *{
-      box-sizing:border-box;
-      font-family:Inter,system-ui,Segoe UI,Roboto,Arial;
-    }
-
-    body{
-      margin:0;
-      background:var(--bg);
-      color:var(--text);
-    }
+    *{box-sizing:border-box;font-family:Inter,system-ui,Segoe UI,Roboto,Arial}
+    body{margin:0;background:var(--bg);color:var(--text)}
 
     /* HEADER */
     .header{
@@ -47,13 +42,13 @@
       justify-content:space-between;
     }
 
-    .logo{
-      font-size:20px;
+    .contact-btn{
+      border:1px solid var(--border);
+      background:#fff;
+      padding:10px 14px;
+      border-radius:12px;
       font-weight:700;
-    }
-
-    .logo span{
-      color:var(--primary);
+      cursor:pointer;
     }
 
     /* HERO */
@@ -64,18 +59,8 @@
       text-align:center;
     }
 
-    .hero h1{
-      margin:0 0 10px;
-      font-size:30px;
-      font-weight:700;
-    }
-
-    .hero p{
-      margin:0;
-      color:var(--muted);
-      font-size:15px;
-      line-height:1.6;
-    }
+    .hero h1{margin:0 0 10px;font-size:30px;font-weight:700}
+    .hero p{margin:0;color:var(--muted);font-size:15px;line-height:1.6}
 
     /* GRID */
     .grid{
@@ -105,39 +90,13 @@
       border-color:var(--primary);
     }
 
-    .top{
-      display:flex;
-      align-items:center;
-      gap:14px;
-    }
-
+    .top{display:flex;align-items:center;gap:14px}
     .icon{
-      width:56px;
-      height:56px;
-      border-radius:14px;
+      width:56px;height:56px;border-radius:14px;
       background:var(--primary-soft);
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      flex-shrink:0;
+      display:flex;align-items:center;justify-content:center;
     }
-
-    .icon img{
-      width:34px;
-      height:34px;
-      object-fit:contain;
-    }
-
-    .card h3{
-      margin:0;
-      font-size:18px;
-    }
-
-    .card p{
-      margin:6px 0 0;
-      font-size:13px;
-      color:var(--muted);
-    }
+    .icon img{width:34px;height:34px}
 
     .action{
       margin-top:22px;
@@ -146,112 +105,155 @@
       justify-content:space-between;
       color:var(--primary);
       font-weight:600;
-      font-size:14px;
     }
 
-    /* MOBILE TWEAKS */
-    @media(max-width:600px){
-      .hero h1{
-        font-size:24px;
-      }
+    /* FOOTER */
+    .footer{
+      background:linear-gradient(180deg,var(--dark),var(--dark-soft));
+      padding:50px 20px;
+      margin-top:60px;
+    }
 
-      .card{
-        padding:20px;
-      }
+    .footer-wrap{
+      max-width:1100px;
+      margin:auto;
+      display:grid;
+      grid-template-columns:repeat(auto-fit,minmax(260px,1fr));
+      gap:24px;
+    }
+
+    .footer-card{
+      background:rgba(255,255,255,.03);
+      border:1px solid rgba(255,255,255,.08);
+      border-radius:18px;
+      padding:22px;
+      color:#fff;
+    }
+
+    .footer-card h3{
+      margin:0 0 12px;
+      font-size:15px;
+      font-weight:700;
+      color:var(--gold);
+    }
+
+    .footer-card ul{
+      margin:0;
+      padding-left:18px;
+      font-size:13px;
+      line-height:1.7;
+      color:#E5E7EB;
+    }
+
+    .footer-card p{
+      font-size:13px;
+      line-height:1.7;
+      color:#E5E7EB;
+      margin:0;
+    }
+
+    .footer-bottom{
+      margin-top:30px;
+      text-align:center;
+      font-size:12px;
+      color:#9CA3AF;
+    }
+
+    @media(max-width:600px){
+      .hero h1{font-size:24px}
+      .card{padding:20px}
     }
   </style>
 </head>
 
 <body>
 
- <header class="header">
+<header class="header">
   <div class="brand">
-    <img src="EDATA-LOGO.png" alt="EDATA Logo" style="height:40px; object-fit:contain;">
+    <img src="EDATA-LOGO.png" style="height:40px">
+    <button class="contact-btn">Contact</button>
   </div>
 </header>
 
-  <section class="hero">
-    <h1>Choose Your Network</h1>
-    <p>
-      Select a mobile network to view available data bundles.
-      Fast activation and reliable service.
-    </p>
-  </section>
+<section class="hero">
+  <h1>Choose Your Network</h1>
+  <p>Select a mobile network to view available data bundles.</p>
+</section>
 
-  <section class="grid">
+<section class="grid">
+  <div class="card" onclick="go('mtn.html')">
+    <div class="top">
+      <div class="icon"><img src="MTN.png"></div>
+      <div><h3>MTN</h3><p>Browse MTN data packages</p></div>
+    </div>
+    <div class="action"><span>View Bundles</span><span>→</span></div>
+  </div>
 
-    <div class="card" onclick="go('mtn.html')">
-      <div class="top">
-        <div class="icon">
-          <img src="MTN.png" alt="MTN">
-        </div>
-        <div>
-          <h3>MTN</h3>
-          <p>Browse MTN data packages</p>
-        </div>
-      </div>
-      <div class="action">
-        <span>View Bundles</span>
-        <span>→</span>
-      </div>
+  <div class="card" onclick="go('telecel.html')">
+    <div class="top">
+      <div class="icon"><img src="TL.png"></div>
+      <div><h3>Telecel</h3><p>View Telecel internet bundles</p></div>
+    </div>
+    <div class="action"><span>View Bundles</span><span>→</span></div>
+  </div>
+
+  <div class="card" onclick="go('airteltigo.html')">
+    <div class="top">
+      <div class="icon"><img src="AT.png"></div>
+      <div><h3>AirtelTigo</h3><p>Access AirtelTigo packages</p></div>
+    </div>
+    <div class="action"><span>View Bundles</span><span>→</span></div>
+  </div>
+
+  <div class="card" onclick="go('afa.html')">
+    <div class="top">
+      <div class="icon"><img src="afa.png"></div>
+      <div><h3>AFA</h3><p>View AFA Page</p></div>
+    </div>
+    <div class="action"><span>View Page</span><span>→</span></div>
+  </div>
+</section>
+
+<!-- ✅ FOOTER SECTION -->
+<footer class="footer">
+  <div class="footer-wrap">
+
+    <div class="footer-card">
+      <h3>Our DATA REQUEST DOESN’T support:</h3>
+      <ul>
+        <li>Turbonet SIM</li>
+        <li>Merchant SIM</li>
+        <li>EVD SIM</li>
+        <li>Broadband SIM</li>
+        <li>Blacklisted SIM</li>
+        <li>Roaming SIM</li>
+        <li>Different Network</li>
+        <li>Wrong Number</li>
+        <li>Inactive Number</li>
+      </ul>
     </div>
 
-    <div class="card" onclick="go('telecel.html')">
-      <div class="top">
-        <div class="icon">
-          <img src="TL.png" alt="Telecel">
-        </div>
-        <div>
-          <h3>Telecel</h3>
-          <p>View Telecel internet bundles</p>
-        </div>
-      </div>
-      <div class="action">
-        <span>View Bundles</span>
-        <span>→</span>
-      </div>
+    <div class="footer-card">
+      <h3>About This Store</h3>
+      <p>
+        This is a public data bundle store where you can purchase affordable
+        data packages for all major networks in Ghana. All transactions are
+        secure and data is delivered instantly to your phone number.
+      </p>
     </div>
 
-    <div class="card" onclick="go('airteltigo.html')">
-      <div class="top">
-        <div class="icon">
-          <img src="AT.png" alt="AirtelTigo">
-        </div>
-        <div>
-          <h3>AirtelTigo</h3>
-          <p>Access AirtelTigo packages</p>
-        </div>
-      </div>
-      <div class="action">
-        <span>View Bundles</span>
-        <span>→</span>
-      </div>
-    </div>
+  </div>
 
+  <div class="footer-bottom">
+    © 2026 EDATA Ghana • Fast • Secure • Reliable
+  </div>
+</footer>
 
-     <div class="card" onclick="go('afa.html')">
-      <div class="top">
-        <div class="icon">
-          <img src="afa.png" alt="AFA">
-        </div>
-        <div>
-          <h3>Afa</h3>
-          <p>View Afa Page</p>
-        </div>
-      </div>
-      <div class="action">
-        <span>View Page</span>
-        <span>→</span>
-      </div>
-    </div>
-
-  </section>
-
-  <script>
-    function go(page){
-      window.location.href = page;
-    }
-  </script>
+<script>
+  function go(page){
+    window.location.href = page;
+  }
+</script>
 
 </body>
 </html>
