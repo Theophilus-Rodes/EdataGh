@@ -204,6 +204,36 @@ const API_BASE =
   let otpSessionId = null;
   let transactionId = null;
 
+  const OTP_COOLDOWN_MS = 20000; // match backend cooldown (20s)
+
+function resetAfaForm() {
+  // reset inputs
+  ["full_name","phone_number","id_number","date_of_birth","town","occupation","email","momo_number","otp_code"]
+    .forEach(id => { const el = $(id); if(el) el.value = ""; });
+
+  // reset state
+  registrationId = null;
+  otpSessionId = null;
+  transactionId = null;
+
+  // reset buttons + UI
+  $("paySection").classList.add("hidden");
+  $("payNowBtn").classList.add("hidden");
+  $("payNowBtn").disabled = false;
+
+  $("sendOtpBtn").disabled = false;
+  $("sendOtpBtn").textContent = "Send OTP";
+
+  $("verifyOtpBtn").disabled = false;
+  $("verifyOtpBtn").textContent = "Verify OTP";
+
+  $("startPayBtn").disabled = false;
+
+  setStep("Form");
+  setStatus("Fill the form and click Complete Payment.", true);
+}
+
+
   const $ = (id)=>document.getElementById(id);
 
  function openOverlay({ title, msg, loading=true, closable=false, doneBtn=false, loaderText="Please wait…" }) {
@@ -298,29 +328,70 @@ async function getJSON(url) {
     showOverlay("Payment", `AFA price is GHS ${AFA_PRICE}. Enter MoMo number to continue.`);
   };
 
-  $("sendOtpBtn").onclick = async ()=>{
-    const momo = $("momo_number").value.trim();
-    if(!momo) return showOverlay("MoMo Number", "Please enter MoMo number.");
+  $("sendOtpBtn").onclick = async () => {
+  const momo = $("momo_number").value.trim();
+  if (!momo) return openOverlay({ title: "MoMo Number", msg: "Please enter MoMo number.", loading: false, closable: true, doneBtn: true });
 
+  // ✅ Disable immediately to prevent spam-clicking
+  $("sendOtpBtn").disabled = true;
+  $("sendOtpBtn").textContent = "Sending...";
+
+  try {
     // create draft registration first (so we have an ID in DB)
-    if(!registrationId){
+    if (!registrationId) {
       const d = getFormData();
       const err = validateForm(d);
-      if(err) return showOverlay("Form Required", err);
+      if (err) {
+        $("sendOtpBtn").disabled = false;
+        $("sendOtpBtn").textContent = "Send OTP";
+        return openOverlay({ title: "Form Required", msg: err, loading: false, closable: true, doneBtn: true });
+      }
 
       const create = await postJSON("/api/afa/create-draft", { ...d, price: AFA_PRICE });
-      if(!create.ok) return setStatus(create.message || "Failed to create registration.", false);
+      if (!create.ok) {
+        $("sendOtpBtn").disabled = false;
+        $("sendOtpBtn").textContent = "Send OTP";
+        openOverlay({ title: "Create Draft Failed", msg: create.message || "Backend rejected request.", loading: false, closable: true, doneBtn: true });
+        return setStatus("Draft creation failed. Check API_BASE / backend route.", false);
+      }
       registrationId = create.registration_id;
     }
 
     setStatus("Sending OTP...", true);
+
     const r = await postJSON("/api/send-momo-otp", { momo_number: momo });
-    if(!r.ok) return setStatus(r.message || "Failed to send OTP.", false);
+    if (!r.ok) {
+      $("sendOtpBtn").disabled = false;
+      $("sendOtpBtn").textContent = "Send OTP";
+      return setStatus(r.message || "Failed to send OTP.", false);
+    }
 
     otpSessionId = r.session_id;
     setStep("OTP");
     setStatus("OTP sent. Enter OTP and click Verify OTP.", true);
-  };
+
+    // ✅ Keep disabled for cooldown
+    let remaining = Math.ceil(OTP_COOLDOWN_MS / 1000);
+    $("sendOtpBtn").textContent = `Resend in ${remaining}s`;
+
+    const t = setInterval(() => {
+      remaining -= 1;
+      if (remaining <= 0) {
+        clearInterval(t);
+        $("sendOtpBtn").disabled = false;
+        $("sendOtpBtn").textContent = "Send OTP";
+      } else {
+        $("sendOtpBtn").textContent = `Resend in ${remaining}s`;
+      }
+    }, 1000);
+
+  } catch (e) {
+    $("sendOtpBtn").disabled = false;
+    $("sendOtpBtn").textContent = "Send OTP";
+    setStatus("Network error. Try again.", false);
+  }
+};
+
 
   $("verifyOtpBtn").onclick = async ()=>{
     const momo = $("momo_number").value.trim();
@@ -390,12 +461,25 @@ async function pollPaymentStatus(txid){
 
   while(Date.now() - started < timeoutMs){
     const s = await getJSON(`/api/afa/status?transaction_id=${encodeURIComponent(txid)}`);
-    if(s.ok && s.status === "approved"){
-      setStatus("✅ Payment approved and registration saved.", true);
-      openOverlay({ title:"Success", msg:"Payment approved. Registration completed.", loading:false, closable:true, doneBtn:true });
-      $("payNowBtn").disabled = true;
-      return;
-    }
+  if (s.ok && s.status === "approved") {
+  setStatus("✅ Payment approved and registration saved.", true);
+
+  openOverlay({
+    title: "Payment Successful",
+    msg: "✅ Payment approved. Your AFA registration is completed.",
+    loading: false,
+    closable: true,
+    doneBtn: true
+  });
+
+  // ✅ Reset everything after a short moment
+  setTimeout(() => {
+    resetAfaForm();
+  }, 800);
+
+  return;
+}
+
     if(s.ok && s.status === "failed"){
       setStatus("❌ Payment failed.", false);
       openOverlay({ title:"Failed", msg:"Payment failed or was cancelled.", loading:false, closable:true, doneBtn:true });
