@@ -1471,6 +1471,229 @@ app.get("/api/orders/error-count", async (req, res) => {
 
 
 
+
+
+
+/////////////////////////////////////////////////////////////////////////////////////////////////////////
+// ================================
+// AFA: CREATE DRAFT
+// ================================
+app.post("/api/afa/create-draft", async (req, res) => {
+  try {
+    const {
+      full_name, phone_number, id_number,
+      date_of_birth, town, occupation, email,
+      price
+    } = req.body;
+
+    if (!full_name || !phone_number || !id_number || !date_of_birth || !town || !occupation || !email) {
+      return res.json({ ok:false, message:"All fields are required." });
+    }
+
+    const emailOk = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(email));
+    if (!emailOk) return res.json({ ok:false, message:"Invalid email address." });
+
+    const p = Number(price || 15);
+    if (!Number.isFinite(p) || p <= 0) return res.json({ ok:false, message:"Invalid price." });
+
+    const [ins] = await db.promise().query(
+      `INSERT INTO afa_registrations
+        (full_name, phone_number, id_number, date_of_birth, town, occupation, email, price, payment_status)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'draft')`,
+      [full_name, phone_number, id_number, date_of_birth, town, occupation, email, p]
+    );
+
+    return res.json({ ok:true, registration_id: ins.insertId, price: p });
+  } catch (e) {
+    console.error("AFA create-draft error:", e.message);
+    return res.status(500).json({ ok:false, message:"Server error creating draft." });
+  }
+});
+
+
+// ================================
+// AFA: PAY (OTP must be verified)
+// ================================
+app.post("/api/afa/pay", async (req, res) => {
+  const { registration_id, momo_number } = req.body;
+  const otp_session_id = req.body.otp_session_id || req.body.session_id;
+
+  if (!registration_id || !momo_number || !otp_session_id) {
+    return res.json({ ok:false, message:"Missing required fields." });
+  }
+
+  // ✅ OTP verified?
+  const otpCheck = await isOtpVerifiedNow(momo_number, otp_session_id);
+  if (!otpCheck.ok) {
+    return res.json({ ok:false, message:"OTP not verified. Please verify OTP first." });
+  }
+
+  try {
+    // fetch registration
+    const [rows] = await db.promise().query(
+      `SELECT id, price, payment_status
+       FROM afa_registrations
+       WHERE id=? LIMIT 1`,
+      [Number(registration_id)]
+    );
+    if (!rows.length) return res.json({ ok:false, message:"Registration not found." });
+
+    const reg = rows[0];
+    if (reg.payment_status === "approved") {
+      return res.json({ ok:true, message:"Already approved.", transaction_id: reg.transaction_id });
+    }
+
+    const payerNet = detectMomoNetwork(momo_number);
+    const rSwitch = getSwitchCode(payerNet);
+    if (!rSwitch) return res.json({ ok:false, message:"Unsupported payer network." });
+
+    const transactionId = makeTransactionId();
+    const amount = Number(reg.price || 15);
+
+    // mark pending + save momo
+    await db.promise().query(
+      `UPDATE afa_registrations
+       SET momo_number=?, transaction_id=?, payment_status='pending'
+       WHERE id=?`,
+      [String(momo_number), transactionId, Number(registration_id)]
+    );
+
+    // store payment attempt
+    await db.promise().query(
+      `INSERT INTO afa_payments (registration_id, transaction_id, amount, momo_number, status)
+       VALUES (?, ?, ?, ?, 'pending')`,
+      [Number(registration_id), transactionId, amount, String(momo_number)]
+    );
+
+    // theteller init
+    const payload = {
+      amount: thetellerAmount12(amount),
+      processing_code: "000200",
+      transaction_id: transactionId,
+      desc: `EDATA AFA Registration`,
+      merchant_id: THETELLER.merchantId,
+      subscriber_number: formatMsisdnForTheTeller(momo_number),
+      "r-switch": rSwitch,
+      redirect_url: process.env.THETELLER_REDIRECT_URL || "https://edatagh.com/payment-callback",
+    };
+
+    const tt = await axios.post(THETELLER.endpoint, payload, {
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Basic ${THETELLER.basicToken}`,
+        "Cache-Control": "no-cache",
+      },
+      timeout: 30000,
+    });
+
+    if (!isInitAccepted(tt.data)) {
+      await db.promise().query(
+        `UPDATE afa_registrations SET payment_status='failed', raw_status=? WHERE id=?`,
+        [JSON.stringify(tt.data), Number(registration_id)]
+      );
+      await db.promise().query(
+        `UPDATE afa_payments SET status='failed', raw_status=? WHERE transaction_id=?`,
+        [JSON.stringify(tt.data), transactionId]
+      );
+
+      return res.json({ ok:false, message:"Payment prompt not accepted.", theteller: tt.data });
+    }
+
+    // save init response
+    await db.promise().query(
+      `UPDATE afa_payments SET raw_status=? WHERE transaction_id=?`,
+      [JSON.stringify(tt.data), transactionId]
+    );
+
+    return res.json({
+      ok:true,
+      message:"✅ Prompt sent. Please approve on your phone.",
+      transaction_id: transactionId
+    });
+  } catch (e) {
+    console.error("AFA pay error:", e.response?.data || e.message);
+    return res.status(500).json({ ok:false, message:"Payment could not be initiated." });
+  }
+});
+
+
+// ================================
+// AFA: STATUS (checks payment + updates if approved)
+// ================================
+app.get("/api/afa/status", async (req, res) => {
+  const transaction_id = String(req.query.transaction_id || "").trim();
+  if (!transaction_id) return res.json({ ok:false, status:"unknown" });
+
+  try {
+    const url = `${THETELLER.statusBase}/${encodeURIComponent(transaction_id)}/status`;
+    const resp = await axios.get(url, {
+      headers: {
+        Authorization: `Basic ${THETELLER.basicToken}`,
+        "Merchant-Id": THETELLER.merchantId,
+        "Cache-Control": "no-cache",
+      },
+      timeout: 30000,
+    });
+
+    const raw = resp.data || {};
+    const statusRaw = raw.status ?? raw.Status ?? raw.transaction_status ?? raw.state ?? "";
+    const codeRaw = raw.code ?? raw.Code ?? raw.response_code ?? "";
+
+    const status = String(statusRaw).toLowerCase().trim();
+    const code = String(codeRaw).trim();
+
+    const approved =
+      ["000", "00", "0"].includes(code) ||
+      status.includes("success") ||
+      status.includes("approved") ||
+      status.includes("paid") ||
+      status.includes("complete");
+
+    const failed =
+      status.includes("fail") || status.includes("decline") || status.includes("cancel") ||
+      ["failed","declined","cancelled","canceled","reversed"].includes(status);
+
+    if (approved) {
+      // update both tables to approved
+      await db.promise().query(
+        `UPDATE afa_payments SET status='approved', raw_status=? WHERE transaction_id=?`,
+        [JSON.stringify(raw), transaction_id]
+      );
+      await db.promise().query(
+        `UPDATE afa_registrations
+         SET payment_status='approved', raw_status=?
+         WHERE transaction_id=?`,
+        [JSON.stringify(raw), transaction_id]
+      );
+
+      return res.json({ ok:true, status:"approved", raw });
+    }
+
+    if (failed) {
+      await db.promise().query(
+        `UPDATE afa_payments SET status='failed', raw_status=? WHERE transaction_id=?`,
+        [JSON.stringify(raw), transaction_id]
+      );
+      await db.promise().query(
+        `UPDATE afa_registrations
+         SET payment_status='failed', raw_status=?
+         WHERE transaction_id=?`,
+        [JSON.stringify(raw), transaction_id]
+      );
+
+      return res.json({ ok:true, status:"failed", raw });
+    }
+
+    return res.json({ ok:true, status:"pending", raw });
+  } catch (e) {
+    console.error("AFA status error:", e.response?.data || e.message);
+    return res.json({ ok:false, status:"unknown" });
+  }
+});
+
+
+
+
 app.listen(PORT, () => {
   console.log(`EDATA server running on port ${PORT}`);
 });
