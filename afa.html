@@ -150,7 +150,11 @@
 
 <script>
   // ✅ Set this to your live backend base URL if different
-  const API_BASE = ""; // same domain
+const API_BASE =
+  location.hostname === "localhost"
+    ? "http://localhost:8080"
+    : "https://edatagh.com/edatagh-backend";
+
   const AFA_PRICE = 15;
 
   // State
@@ -195,20 +199,30 @@
     return null;
   }
 
-  async function postJSON(url, body){
-    const r = await fetch(API_BASE + url, {
-      method:"POST",
-      headers:{ "Content-Type":"application/json" },
-      body: JSON.stringify(body)
-    });
-    return r.json();
-  }
+  async function postJSON(url, body) {
+  const r = await fetch(API_BASE + url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
 
-  async function getJSON(url){
-    const r = await fetch(API_BASE + url);
-    return r.json();
+  const text = await r.text(); // ✅ allow html/xml too
+  try {
+    return JSON.parse(text);
+  } catch {
+    return { ok: false, message: `Server did not return JSON. Status ${r.status}. ${text.slice(0, 160)}...` };
   }
+}
 
+async function getJSON(url) {
+  const r = await fetch(API_BASE + url);
+  const text = await r.text();
+  try {
+    return JSON.parse(text);
+  } catch {
+    return { ok: false, message: `Server did not return JSON. Status ${r.status}. ${text.slice(0, 160)}...` };
+  }
+}
   $("cancelBtn").onclick = ()=>{
     // simple reset (or redirect)
     location.reload();
