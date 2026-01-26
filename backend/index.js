@@ -1850,6 +1850,33 @@ app.post("/api/admin/afa/mark-delivered", async (req, res) => {
   }
 });
 
+// ================================
+// GET phone numbers in a batch
+// ================================
+// GET full details in a batch
+// ================================
+app.get("/api/admin/afa/batch/:package_id", async (req, res) => {
+  try {
+    const package_id = String(req.params.package_id || "").trim();
+    if (!package_id) return res.json({ ok: false, message: "Missing package_id" });
+
+    const [rows] = await db.promise().query(
+      `SELECT package_id, phone_number, momo_number, amount, status
+       FROM afa_payments
+       WHERE package_id=?
+       ORDER BY id ASC`,
+      [package_id]
+    );
+
+    return res.json({ ok: true, package_id, total: rows.length, items: rows });
+  } catch (e) {
+    console.error("AFA batch details error:", e.message);
+    return res.status(500).json({ ok: false, message: "DB error" });
+  }
+});
+
+
+
 
 
 
