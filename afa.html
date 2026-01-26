@@ -56,6 +56,37 @@
     .overlay h3{margin:0 0 8px;font-size:16px}
     .overlay p{margin:0 0 12px;color:var(--muted);font-size:13px;line-height:1.45}
     .overlay .actions{display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap}
+
+
+    /* ===== Overlay Upgrades ===== */
+.overlay{display:none;align-items:center;justify-content:center}
+.overlay .box{position:relative}
+.overlay-head{
+  display:flex;align-items:center;justify-content:space-between;gap:10px;
+  margin-bottom:10px;
+}
+.xbtn{
+  border:0;background:#eef2f7;border:1px solid var(--line);
+  width:36px;height:36px;border-radius:10px;
+  font-weight:900;cursor:pointer;
+}
+.xbtn:hover{filter:brightness(.98)}
+.overlay-msg{margin-top:10px}
+.loader-wrap{
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:10px;padding:10px 0;
+}
+.spinner{
+  width:64px;height:64px;border-radius:50%;
+  border:6px solid #e5e7eb;          /* light ring */
+  border-top-color: var(--accent);    /* spinning color */
+  animation: spin 0.9s linear infinite;
+}
+.loader-text{
+  font-size:13px;color:var(--muted);font-weight:800;text-align:center;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
   </style>
 </head>
 <body>
@@ -138,15 +169,26 @@
   </div>
 
   <!-- Overlay -->
-  <div class="overlay" id="overlay">
-    <div class="box">
-      <h3 id="overlayTitle">Message</h3>
-      <p id="overlayMsg">...</p>
-      <div class="actions">
-        <button class="btn btn-muted" id="overlayClose">OK</button>
-      </div>
+<div class="overlay" id="overlay">
+  <div class="box">
+    <div class="overlay-head">
+      <h3 id="overlayTitle">Processing</h3>
+      <button class="xbtn" id="overlayClose" title="Close">✕</button>
+    </div>
+
+    <div class="loader-wrap" id="loaderWrap">
+      <div class="spinner"></div>
+      <div class="loader-text" id="loaderText">Please wait…</div>
+    </div>
+
+    <p id="overlayMsg" class="overlay-msg">...</p>
+
+    <div class="actions" id="overlayActions">
+      <button class="btn btn-primary hidden" id="overlayDone">Done</button>
     </div>
   </div>
+</div>
+
 
 <script>
   // ✅ Set this to your live backend base URL if different
@@ -164,12 +206,28 @@ const API_BASE =
 
   const $ = (id)=>document.getElementById(id);
 
-  function showOverlay(title, msg){
-    $("overlayTitle").textContent = title;
-    $("overlayMsg").textContent = msg;
-    $("overlay").style.display = "flex";
-  }
-  $("overlayClose").onclick = ()=> $("overlay").style.display = "none";
+ function openOverlay({ title, msg, loading=true, closable=false, doneBtn=false, loaderText="Please wait…" }) {
+  $("overlayTitle").textContent = title || "Message";
+  $("overlayMsg").textContent = msg || "";
+  $("overlay").style.display = "flex";
+
+  $("loaderWrap").style.display = loading ? "flex" : "none";
+  $("loaderText").textContent = loaderText;
+
+  // closable?
+  $("overlayClose").style.display = closable ? "inline-flex" : "none";
+
+  // done button?
+  $("overlayDone").classList.toggle("hidden", !doneBtn);
+}
+
+function closeOverlay() {
+  $("overlay").style.display = "none";
+}
+
+$("overlayClose").onclick = closeOverlay;
+$("overlayDone").onclick = closeOverlay;
+
 
   function setStatus(msg, ok=true){
     $("statusLine").innerHTML = ok ? `<span class="ok">${msg}</span>` : `<span class="bad">${msg}</span>`;
@@ -287,51 +345,80 @@ async function getJSON(url) {
     setStatus("OTP verified. Click Pay Now to receive MoMo prompt.", true);
   };
 
-  $("payNowBtn").onclick = async ()=>{
-    if(!registrationId) return setStatus("Registration missing. Start again.", false);
+$("payNowBtn").onclick = async () => {
+  if (!registrationId) return setStatus("Registration missing. Start again.", false);
 
-    const momo = $("momo_number").value.trim();
-    if(!momo) return showOverlay("MoMo Number", "Please enter MoMo number.");
-
-    setStatus("Initiating payment prompt...", true);
-
-    const r = await postJSON("/api/afa/pay", {
-      registration_id: registrationId,
-      momo_number: momo,
-      otp_session_id: otpSessionId
-    });
-
-    if(!r.ok) return setStatus(r.message || "Payment init failed.", false);
-
-    transactionId = r.transaction_id;
-    setStatus("✅ Prompt sent. Please approve on your phone. Checking payment...", true);
-
-    // Poll status (user can close the page; server background job will still update)
-    await pollPaymentStatus(transactionId);
-  };
-
-  async function pollPaymentStatus(txid){
-    const started = Date.now();
-    const timeoutMs = 3 * 60 * 1000; // 3 minutes
-
-    while(Date.now() - started < timeoutMs){
-      const s = await getJSON(`/api/afa/status?transaction_id=${encodeURIComponent(txid)}`);
-      if(s.ok && s.status === "approved"){
-        setStatus("✅ Payment approved and registration saved.", true);
-        showOverlay("Success", "Payment approved. Registration completed.");
-        $("payNowBtn").disabled = true;
-        return;
-      }
-      if(s.ok && s.status === "failed"){
-        setStatus("❌ Payment failed.", false);
-        showOverlay("Failed", "Payment failed or was cancelled.");
-        return;
-      }
-      await new Promise(r=>setTimeout(r, 4000));
-    }
-    setStatus("Still pending. If you already approved, the system will update shortly.", true);
-    showOverlay("Pending", "If you already approved on your phone, the server will still update even if you close this page.");
+  const momo = $("momo_number").value.trim();
+  if (!momo) {
+    openOverlay({ title: "MoMo Number", msg: "Please enter MoMo number.", loading: false, closable: true, doneBtn: true });
+    return;
   }
+
+  // ✅ Show processing alert + spinner
+  openOverlay({
+    title: "Processing Payment",
+    msg: "A payment prompt has been sent to your phone. Please enter your MoMo PIN to approve.",
+    loading: true,
+    closable: false,
+    doneBtn: false,
+    loaderText: "Waiting for approval…"
+  });
+
+  $("payNowBtn").disabled = true;
+
+  const r = await postJSON("/api/afa/pay", {
+    registration_id: registrationId,
+    momo_number: momo,
+    otp_session_id: otpSessionId
+  });
+
+  if (!r.ok) {
+    $("payNowBtn").disabled = false;
+    openOverlay({ title: "Payment Error", msg: r.message || "Payment init failed.", loading: false, closable: true, doneBtn: true });
+    return setStatus(r.message || "Payment init failed.", false);
+  }
+
+  transactionId = r.transaction_id;
+
+  // ✅ Start polling until approved/failed
+  await pollPaymentStatus(transactionId);
+};
+
+async function pollPaymentStatus(txid){
+  const started = Date.now();
+  const timeoutMs = 3 * 60 * 1000;
+
+  while(Date.now() - started < timeoutMs){
+    const s = await getJSON(`/api/afa/status?transaction_id=${encodeURIComponent(txid)}`);
+    if(s.ok && s.status === "approved"){
+      setStatus("✅ Payment approved and registration saved.", true);
+      openOverlay({ title:"Success", msg:"Payment approved. Registration completed.", loading:false, closable:true, doneBtn:true });
+      $("payNowBtn").disabled = true;
+      return;
+    }
+    if(s.ok && s.status === "failed"){
+      setStatus("❌ Payment failed.", false);
+      openOverlay({ title:"Failed", msg:"Payment failed or was cancelled.", loading:false, closable:true, doneBtn:true });
+      $("payNowBtn").disabled = false;
+      return;
+    }
+
+    // keep the loader text changing slightly so user feels progress
+    $("loaderText").textContent = "Waiting for approval…";
+    await new Promise(r=>setTimeout(r, 4000));
+  }
+
+  setStatus("Still pending. If you already approved, the system will update shortly.", true);
+  openOverlay({
+    title:"Pending",
+    msg:"If you already approved on your phone, your payment will still be confirmed shortly even if you close this page.",
+    loading:false,
+    closable:true,
+    doneBtn:true
+  });
+  $("payNowBtn").disabled = false;
+}
+
 
   // init price
   $("priceText").textContent = AFA_PRICE;
