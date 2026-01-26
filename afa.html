@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>EDATA | AFA Registration</title>
+  <style>
+    :root{
+      --primary:#0A3D62; --accent:#1DD1A1; --bg:#F5F7FA; --card:#fff;
+      --text:#0f172a; --muted:#64748b; --line:#e2e8f0; --danger:#ef4444;
+    }
+    *{box-sizing:border-box;font-family:system-ui,Segoe UI,Roboto,Arial}
+    body{margin:0;background:var(--bg);color:var(--text)}
+    .wrap{max-width:900px;margin:24px auto;padding:0 14px}
+    .card{background:var(--card);border:1px solid var(--line);border-radius:14px;box-shadow:0 10px 24px rgba(15,23,42,.06);overflow:hidden}
+    .top{
+      padding:16px 16px;
+      background:linear-gradient(90deg,var(--primary),#082f49);
+      color:#fff;
+      display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap
+    }
+    .top h1{font-size:18px;margin:0;font-weight:800}
+    .price{background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.24);padding:8px 12px;border-radius:999px;font-weight:800}
+    .body{padding:16px}
+    .grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
+    @media (max-width:720px){.grid{grid-template-columns:1fr}}
+    label{display:block;font-size:12px;color:var(--muted);margin-bottom:6px;font-weight:700}
+    input{
+      width:100%;padding:12px 12px;border:1px solid var(--line);border-radius:10px;font-size:14px;outline:none
+    }
+    input:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(29,209,161,.18)}
+    .section{margin-top:14px;border-top:1px dashed var(--line);padding-top:14px}
+    .hint{font-size:13px;color:var(--muted);margin:8px 0 0}
+    .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+    .btn{
+      border:0;cursor:pointer;border-radius:10px;padding:12px 14px;font-weight:800
+    }
+    .btn-primary{background:var(--accent);color:#053b2a}
+    .btn-muted{background:#eef2f7;color:#111827}
+    .btn-danger{background:var(--danger);color:#fff}
+    .btn:disabled{opacity:.55;cursor:not-allowed}
+    .status{margin-top:10px;font-size:13px}
+    .ok{color:#16a34a;font-weight:800}
+    .bad{color:var(--danger);font-weight:800}
+    .pill{display:inline-block;padding:6px 10px;border-radius:999px;background:#eef2f7;border:1px solid var(--line);font-size:12px;font-weight:800}
+    .hidden{display:none}
+    .overlay{
+      position:fixed;inset:0;background:rgba(15,23,42,.55);
+      display:none;align-items:center;justify-content:center;padding:16px;z-index:9999
+    }
+    .overlay .box{
+      width:min(520px,100%);
+      background:#fff;border-radius:14px;border:1px solid var(--line);
+      padding:16px;box-shadow:0 18px 50px rgba(0,0,0,.25)
+    }
+    .overlay h3{margin:0 0 8px;font-size:16px}
+    .overlay p{margin:0 0 12px;color:var(--muted);font-size:13px;line-height:1.45}
+    .overlay .actions{display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <div class="top">
+        <h1>AFA Registration</h1>
+        <div class="price">Price: GHS <span id="priceText">15</span></div>
+      </div>
+
+      <div class="body">
+        <div class="grid">
+          <div>
+            <label>Full Name</label>
+            <input id="full_name" placeholder="Enter full name" />
+          </div>
+          <div>
+            <label>Phone Number</label>
+            <input id="phone_number" placeholder="e.g. 024xxxxxxx" />
+          </div>
+
+          <div>
+            <label>ID Number</label>
+            <input id="id_number" placeholder="Enter ID number" />
+          </div>
+          <div>
+            <label>Date of Birth</label>
+            <input id="date_of_birth" type="date" />
+          </div>
+
+          <div>
+            <label>Town</label>
+            <input id="town" placeholder="Enter town" />
+          </div>
+          <div>
+            <label>Occupation</label>
+            <input id="occupation" placeholder="Enter occupation" />
+          </div>
+
+          <div style="grid-column:1/-1">
+            <label>Email Address</label>
+            <input id="email" placeholder="example@email.com" />
+          </div>
+        </div>
+
+        <div class="section">
+          <div class="row">
+            <button class="btn btn-danger" id="cancelBtn">Cancel</button>
+            <button class="btn btn-primary" id="startPayBtn">Complete Payment</button>
+            <span class="pill" id="stepPill">Step: Form</span>
+          </div>
+          <div class="status" id="statusLine"></div>
+
+          <!-- MoMo + OTP section -->
+          <div id="paySection" class="hidden" style="margin-top:14px">
+            <div class="grid">
+              <div>
+                <label>MoMo Number (to receive OTP + prompt)</label>
+                <input id="momo_number" placeholder="e.g. 024xxxxxxx or +233..." />
+              </div>
+              <div>
+                <label>OTP Code</label>
+                <input id="otp_code" placeholder="Enter OTP here" />
+              </div>
+            </div>
+
+            <div class="row" style="margin-top:10px">
+              <button class="btn btn-muted" id="sendOtpBtn">Send OTP</button>
+              <button class="btn btn-muted" id="verifyOtpBtn">Verify OTP</button>
+              <button class="btn btn-primary hidden" id="payNowBtn">Pay Now (GHS 15)</button>
+            </div>
+
+            <p class="hint">
+              Flow: Send OTP → Verify OTP → Pay Now → Approve prompt on your phone.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Overlay -->
+  <div class="overlay" id="overlay">
+    <div class="box">
+      <h3 id="overlayTitle">Message</h3>
+      <p id="overlayMsg">...</p>
+      <div class="actions">
+        <button class="btn btn-muted" id="overlayClose">OK</button>
+      </div>
+    </div>
+  </div>
+
+<script>
+  // ✅ Set this to your live backend base URL if different
+  const API_BASE = ""; // same domain
+  const AFA_PRICE = 15;
+
+  // State
+  let registrationId = null;
+  let otpSessionId = null;
+  let transactionId = null;
+
+  const $ = (id)=>document.getElementById(id);
+
+  function showOverlay(title, msg){
+    $("overlayTitle").textContent = title;
+    $("overlayMsg").textContent = msg;
+    $("overlay").style.display = "flex";
+  }
+  $("overlayClose").onclick = ()=> $("overlay").style.display = "none";
+
+  function setStatus(msg, ok=true){
+    $("statusLine").innerHTML = ok ? `<span class="ok">${msg}</span>` : `<span class="bad">${msg}</span>`;
+  }
+
+  function setStep(name){
+    $("stepPill").textContent = "Step: " + name;
+  }
+
+  function getFormData(){
+    return {
+      full_name: $("full_name").value.trim(),
+      phone_number: $("phone_number").value.trim(),
+      id_number: $("id_number").value.trim(),
+      date_of_birth: $("date_of_birth").value,
+      town: $("town").value.trim(),
+      occupation: $("occupation").value.trim(),
+      email: $("email").value.trim()
+    };
+  }
+
+  function validateForm(d){
+    if(!d.full_name || !d.phone_number || !d.id_number || !d.date_of_birth || !d.town || !d.occupation || !d.email){
+      return "Please fill all fields.";
+    }
+    if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(d.email)) return "Invalid email format.";
+    return null;
+  }
+
+  async function postJSON(url, body){
+    const r = await fetch(API_BASE + url, {
+      method:"POST",
+      headers:{ "Content-Type":"application/json" },
+      body: JSON.stringify(body)
+    });
+    return r.json();
+  }
+
+  async function getJSON(url){
+    const r = await fetch(API_BASE + url);
+    return r.json();
+  }
+
+  $("cancelBtn").onclick = ()=>{
+    // simple reset (or redirect)
+    location.reload();
+  };
+
+  $("startPayBtn").onclick = async ()=>{
+    const d = getFormData();
+    const err = validateForm(d);
+    if(err) return showOverlay("Form Required", err);
+
+    // Ask for momo number next
+    $("paySection").classList.remove("hidden");
+    setStep("MoMo");
+    setStatus("Enter MoMo number, then click Send OTP.", true);
+    showOverlay("Payment", `AFA price is GHS ${AFA_PRICE}. Enter MoMo number to continue.`);
+  };
+
+  $("sendOtpBtn").onclick = async ()=>{
+    const momo = $("momo_number").value.trim();
+    if(!momo) return showOverlay("MoMo Number", "Please enter MoMo number.");
+
+    // create draft registration first (so we have an ID in DB)
+    if(!registrationId){
+      const d = getFormData();
+      const err = validateForm(d);
+      if(err) return showOverlay("Form Required", err);
+
+      const create = await postJSON("/api/afa/create-draft", { ...d, price: AFA_PRICE });
+      if(!create.ok) return setStatus(create.message || "Failed to create registration.", false);
+      registrationId = create.registration_id;
+    }
+
+    setStatus("Sending OTP...", true);
+    const r = await postJSON("/api/send-momo-otp", { momo_number: momo });
+    if(!r.ok) return setStatus(r.message || "Failed to send OTP.", false);
+
+    otpSessionId = r.session_id;
+    setStep("OTP");
+    setStatus("OTP sent. Enter OTP and click Verify OTP.", true);
+  };
+
+  $("verifyOtpBtn").onclick = async ()=>{
+    const momo = $("momo_number").value.trim();
+    const otp = $("otp_code").value.trim();
+    if(!momo) return showOverlay("MoMo Number", "Please enter MoMo number.");
+    if(!otp) return showOverlay("OTP", "Please enter OTP.");
+
+    setStatus("Verifying OTP...", true);
+    const r = await postJSON("/api/verify-momo-otp", {
+      momo_number: momo,
+      otp,
+      session_id: otpSessionId
+    });
+
+    if(!r.ok) return setStatus(r.message || "OTP verify failed.", false);
+
+    // refresh real session id returned (important)
+    otpSessionId = r.session_id || otpSessionId;
+
+    $("payNowBtn").classList.remove("hidden");
+    setStep("Pay");
+    setStatus("OTP verified. Click Pay Now to receive MoMo prompt.", true);
+  };
+
+  $("payNowBtn").onclick = async ()=>{
+    if(!registrationId) return setStatus("Registration missing. Start again.", false);
+
+    const momo = $("momo_number").value.trim();
+    if(!momo) return showOverlay("MoMo Number", "Please enter MoMo number.");
+
+    setStatus("Initiating payment prompt...", true);
+
+    const r = await postJSON("/api/afa/pay", {
+      registration_id: registrationId,
+      momo_number: momo,
+      otp_session_id: otpSessionId
+    });
+
+    if(!r.ok) return setStatus(r.message || "Payment init failed.", false);
+
+    transactionId = r.transaction_id;
+    setStatus("✅ Prompt sent. Please approve on your phone. Checking payment...", true);
+
+    // Poll status (user can close the page; server background job will still update)
+    await pollPaymentStatus(transactionId);
+  };
+
+  async function pollPaymentStatus(txid){
+    const started = Date.now();
+    const timeoutMs = 3 * 60 * 1000; // 3 minutes
+
+    while(Date.now() - started < timeoutMs){
+      const s = await getJSON(`/api/afa/status?transaction_id=${encodeURIComponent(txid)}`);
+      if(s.ok && s.status === "approved"){
+        setStatus("✅ Payment approved and registration saved.", true);
+        showOverlay("Success", "Payment approved. Registration completed.");
+        $("payNowBtn").disabled = true;
+        return;
+      }
+      if(s.ok && s.status === "failed"){
+        setStatus("❌ Payment failed.", false);
+        showOverlay("Failed", "Payment failed or was cancelled.");
+        return;
+      }
+      await new Promise(r=>setTimeout(r, 4000));
+    }
+    setStatus("Still pending. If you already approved, the system will update shortly.", true);
+    showOverlay("Pending", "If you already approved on your phone, the server will still update even if you close this page.");
+  }
+
+  // init price
+  $("priceText").textContent = AFA_PRICE;
+</script>
+</body>
+</html>
