@@ -353,7 +353,7 @@ body{margin:0;background:var(--bg);color:var(--text);}
     if (!otpSessionId) return showError("Session missing. Please send OTP again.");
 
     closeModal();
-    showOverlay("Please wait for prompt on your phone", "Approve the payment using your MoMo PIN");
+    showOverlay("Please wait for prompt on your phone", "AFTER PAYMENT WAIT TILL THE PAGE CLOSES IT SELF");
 
     try {
   const pr = await fetch(`${API_BASE}/api/buy-data-theteller`, {
