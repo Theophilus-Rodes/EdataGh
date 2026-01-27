@@ -1908,7 +1908,7 @@ app.post("/api/admin/delete-selected-errors", (req, res) => {
     return res.json({ ok: false, message: "No IDs provided." });
   }
 
-  const sql = `DELETE FROM admin_orders WHERE id IN (?) AND status IN ('failed','pending')`;
+  const sql = `DELETE FROM orders WHERE id IN (?) AND status IN ('failed','pending')`;
 
   db.query(sql, [ids], (err, result) => {
     if (err) return res.status(500).json({ ok: false, message: "DB error" });
