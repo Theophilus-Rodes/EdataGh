@@ -1901,6 +1901,24 @@ app.delete("/api/admin-prices/:id", async (req, res) => {
 
 
 
+app.post("/api/admin/delete-selected-errors", (req, res) => {
+  const ids = req.body.ids;
+
+  if (!Array.isArray(ids) || !ids.length) {
+    return res.json({ ok: false, message: "No IDs provided." });
+  }
+
+  const sql = `DELETE FROM admin_orders WHERE id IN (?) AND status IN ('failed','pending')`;
+
+  db.query(sql, [ids], (err, result) => {
+    if (err) return res.status(500).json({ ok: false, message: "DB error" });
+    return res.json({ ok: true, deleted: result.affectedRows });
+  });
+});
+
+
+
+
 
 
 
