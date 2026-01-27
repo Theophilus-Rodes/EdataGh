@@ -72,13 +72,18 @@
         <button class="btn ghost" onclick="load()">Search</button>
         <button class="btn ghost" onclick="clearSearch()">Clear</button>
       </div>
+<div class="rowline">
+  <button class="btn primary" id="downloadBtn" onclick="downloadSelected()" disabled>
+    Download Selected (Excel)
+  </button>
 
-      <div class="rowline">
-        <button class="btn primary" id="downloadBtn" onclick="downloadSelected()" disabled>
-          Download Selected (Excel)
-        </button>
-        <span class="small" id="selInfo">0 selected</span>
-      </div>
+  <button class="btn danger" id="deleteBtn" onclick="deleteSelected()" disabled>
+    Delete Selected
+  </button>
+
+  <span class="small" id="selInfo">0 selected</span>
+</div>
+
 
       <div class="rowline">
         <button class="btn ghost" onclick="toggleSelectAll(true)">Select All</button>
@@ -193,7 +198,9 @@
   function updateSelectedUI(){
     const n = selected.size;
     document.getElementById("selInfo").textContent = `${n} selected`;
-    document.getElementById("downloadBtn").disabled = n === 0;
+   document.getElementById("downloadBtn").disabled = n === 0;
+   document.getElementById("deleteBtn").disabled = n === 0;
+
   }
 
   async function downloadSelected(){
@@ -235,6 +242,36 @@
       alert("Network error downloading.");
     }
   }
+
+  async function deleteSelected(){
+  const ids = Array.from(selected);
+  if(!ids.length) return;
+
+  if(!confirm(`Delete ${ids.length} selected orders? This cannot be undone.`)) return;
+
+  try{
+    const r = await fetch(`${API_BASE}/api/admin/delete-selected-errors`, {
+      method:"POST",
+      headers:{ "Content-Type":"application/json" },
+      body: JSON.stringify({ ids })
+    });
+
+    const j = await r.json().catch(() => ({}));
+
+    if(!r.ok || !j.ok){
+      alert(j.message || "Delete failed.");
+      return;
+    }
+
+    alert(`Deleted ${j.deleted || ids.length} orders successfully.`);
+    load();
+
+  }catch(e){
+    console.error(e);
+    alert("Network error deleting orders.");
+  }
+}
+
 
   function clearSearch(){
     document.getElementById("search").value = "";
