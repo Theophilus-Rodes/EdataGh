@@ -143,6 +143,132 @@ app.post("/login", (req, res) => {
   );
 });
 
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+app.post("/api/agent/register", async (req, res) => {
+  try {
+    const {
+      first_name,
+      last_name,
+      phone,
+      email,
+      gender,
+      address,
+      pin,
+      confirm_pin
+    } = req.body || {};
+
+    if (!first_name || !last_name || !phone || !email || !gender || !address || !pin || !confirm_pin) {
+      return res.status(422).json({ ok: false, error: "All fields are required." });
+    }
+
+    const cleanPhone = normalizePhone(phone);
+    const cleanEmail = String(email).trim().toLowerCase();
+    const cleanGender = String(gender).trim();
+
+    const allowedGender = ["Male", "Female", "Other"];
+    if (!allowedGender.includes(cleanGender)) {
+      return res.status(422).json({ ok: false, error: "Invalid gender." });
+    }
+
+    if (!isValidPin(pin)) {
+      return res.status(422).json({ ok: false, error: "PIN must be exactly 4 digits." });
+    }
+
+    if (String(pin) !== String(confirm_pin)) {
+      return res.status(422).json({ ok: false, error: "PINs do not match." });
+    }
+
+    // check existing
+    const [exists] = await db.query(
+      "SELECT id FROM agents WHERE phone = ? OR email = ? LIMIT 1",
+      [cleanPhone, cleanEmail]
+    );
+
+    if (exists.length > 0) {
+      return res.status(409).json({ ok: false, error: "Phone number or email already exists." });
+    }
+
+    const hash = await bcrypt.hash(String(pin), 10);
+
+    await db.query(
+      `INSERT INTO agents (first_name, last_name, phone, email, gender, address, pin_hash, status)
+       VALUES (?, ?, ?, ?, ?, ?, ?, 'active')`,
+      [first_name.trim(), last_name.trim(), cleanPhone, cleanEmail, cleanGender, address.trim(), hash]
+    );
+
+    return res.json({ ok: true, message: "Account created successfully." });
+
+  } catch (err) {
+    console.error("REGISTER ERROR:", err);
+    return res.status(500).json({ ok: false, error: "Server error." });
+  }
+});
+
+
+
+app.post("/api/agent/login", async (req, res) => {
+  try {
+    const { phone, pin } = req.body || {};
+
+    if (!phone || !pin) {
+      return res.status(422).json({ ok: false, error: "Phone and PIN are required." });
+    }
+
+    const cleanPhone = normalizePhone(phone);
+
+    const [rows] = await db.query(
+      "SELECT id, first_name, last_name, phone, email, pin_hash, status FROM agents WHERE phone = ? LIMIT 1",
+      [cleanPhone]
+    );
+
+    if (!rows.length) {
+      return res.status(401).json({ ok: false, error: "Invalid login details." });
+    }
+
+    const agent = rows[0];
+
+    if (agent.status !== "active") {
+      return res.status(403).json({ ok: false, error: "Account is inactive." });
+    }
+
+    const ok = await bcrypt.compare(String(pin), agent.pin_hash);
+    if (!ok) {
+      return res.status(401).json({ ok: false, error: "Invalid login details." });
+    }
+
+    // ✅ return data to frontend
+    return res.json({
+      ok: true,
+      message: "Login successful",
+      agent: {
+        id: agent.id,
+        name: `${agent.first_name} ${agent.last_name}`,
+        phone: agent.phone,
+        email: agent.email
+      }
+    });
+
+  } catch (err) {
+    console.error("LOGIN ERROR:", err);
+    return res.status(500).json({ ok: false, error: "Server error." });
+  }
+});
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+
+
+
+
+
+
+
+
+
+
 // ADD NEW PRICE
 app.post("/api/admin-prices", (req, res) => {
   const { network, package_name, price } = req.body;
@@ -247,6 +373,9 @@ app.get("/api/admin/me", (req, res) => {
   );
 });
 
+
+
+/////////////////////////////////////////////////////////////////////////////////////
 
 
 // UPDATE current admin info (NO HASHING)
