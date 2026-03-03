@@ -163,7 +163,7 @@ app.post("/api/agent/register", async (req, res) => {
       return res.status(422).json({ ok: false, error: "All fields are required." });
     }
 
-    const cleanPhone = normalizePhone(phone);
+    const cleanPhone = normalizePhoneToE164Ghana(phone);
     const cleanEmail = String(email).trim().toLowerCase();
     const cleanGender = String(gender).trim();
 
@@ -216,7 +216,7 @@ app.post("/api/agent/login", async (req, res) => {
       return res.status(422).json({ ok: false, error: "Phone and PIN are required." });
     }
 
-    const cleanPhone = normalizePhone(phone);
+    const cleanPhone = normalizePhoneToE164Ghana(phone);
 
     const [rows] = await db.query(
       "SELECT id, first_name, last_name, phone, email, pin_hash, status FROM agents WHERE phone = ? LIMIT 1",
