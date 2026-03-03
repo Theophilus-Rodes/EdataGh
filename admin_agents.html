@@ -116,7 +116,10 @@
   // ✅ Set your real backend base here:
   // Local: "http://localhost:5000"
   // Live:  "https://api.edatagh.com"  (example)
-  const API_BASE = "http://localhost:5000";
+  const API_BASE =
+      location.hostname === "localhost"
+        ? "http://localhost:8080"
+        : "https://edatagh.com/edatagh-backend";
 
   const $rows = document.getElementById("rows");
   const $empty = document.getElementById("empty");
