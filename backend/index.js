@@ -163,7 +163,7 @@ app.post("/api/agent/register", async (req, res) => {
       return res.status(422).json({ ok: false, error: "All fields are required." });
     }
 
-    const cleanPhone = normalizePhoneToE164Ghana(phone);
+    const cleanPhone = normalizePhone(phone);
     const cleanEmail = String(email).trim().toLowerCase();
     const cleanGender = String(gender).trim();
 
@@ -216,7 +216,7 @@ app.post("/api/agent/login", async (req, res) => {
       return res.status(422).json({ ok: false, error: "Phone and PIN are required." });
     }
 
-    const cleanPhone = normalizePhoneToE164Ghana(phone);
+    const cleanPhone = normalizePhone(phone);
 
     const [rows] = await db.query(
       "SELECT id, first_name, last_name, phone, email, pin_hash, status FROM agents WHERE phone = ? LIMIT 1",
@@ -545,6 +545,26 @@ function normalizePhoneToE164Ghana(input = "") {
   if (/^\d{9}$/.test(v)) return "+233" + v;
   if (/^\d{10,15}$/.test(v)) return "+" + v;
   return null;
+}
+
+// ✅ Helpers (place ABOVE routes)
+function normalizePhone(input = "") {
+  let p = String(input).trim().replace(/\s+/g, "");
+  p = p.replace(/[^0-9+]/g, "");
+
+  // remove leading +
+  if (p.startsWith("+")) p = p.slice(1);
+
+  // 054xxxxxxx -> 23354xxxxxxx
+  if (p.startsWith("0") && p.length === 10) {
+    p = "233" + p.slice(1);
+  }
+
+  return p;
+}
+
+function isValidPin(pin) {
+  return /^\d{4}$/.test(String(pin || ""));
 }
 
 function generateOtp(len = 6) {
