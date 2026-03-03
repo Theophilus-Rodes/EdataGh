@@ -145,8 +145,7 @@ app.post("/login", (req, res) => {
 
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-app.post("/api/agent/register", async (req, res) => {
+app.post("/api/agent/register", (req, res) => {
   try {
     const {
       first_name,
@@ -180,35 +179,53 @@ app.post("/api/agent/register", async (req, res) => {
       return res.status(422).json({ ok: false, error: "PINs do not match." });
     }
 
-    // check existing
-    const [exists] = await db.query(
+    // 1) check existing
+    db.query(
       "SELECT id FROM agents WHERE phone = ? OR email = ? LIMIT 1",
-      [cleanPhone, cleanEmail]
+      [cleanPhone, cleanEmail],
+      (err, existsRows) => {
+        if (err) {
+          console.error("REGISTER DB CHECK ERROR:", err);
+          return res.status(500).json({ ok: false, error: "Database error." });
+        }
+
+        if (existsRows && existsRows.length > 0) {
+          return res.status(409).json({ ok: false, error: "Phone number or email already exists." });
+        }
+
+        // 2) hash pin
+        bcrypt.hash(String(pin), 10, (hashErr, hash) => {
+          if (hashErr) {
+            console.error("REGISTER HASH ERROR:", hashErr);
+            return res.status(500).json({ ok: false, error: "Server error." });
+          }
+
+          // 3) insert
+          db.query(
+            `INSERT INTO agents (first_name, last_name, phone, email, gender, address, pin_hash, status)
+             VALUES (?, ?, ?, ?, ?, ?, ?, 'active')`,
+            [String(first_name).trim(), String(last_name).trim(), cleanPhone, cleanEmail, cleanGender, String(address).trim(), hash],
+            (insErr, result) => {
+              if (insErr) {
+                console.error("REGISTER INSERT ERROR:", insErr);
+                return res.status(500).json({ ok: false, error: "Database insert failed." });
+              }
+
+              return res.json({ ok: true, message: "Account created successfully." });
+            }
+          );
+        });
+      }
     );
 
-    if (exists.length > 0) {
-      return res.status(409).json({ ok: false, error: "Phone number or email already exists." });
-    }
-
-    const hash = await bcrypt.hash(String(pin), 10);
-
-    await db.query(
-      `INSERT INTO agents (first_name, last_name, phone, email, gender, address, pin_hash, status)
-       VALUES (?, ?, ?, ?, ?, ?, ?, 'active')`,
-      [first_name.trim(), last_name.trim(), cleanPhone, cleanEmail, cleanGender, address.trim(), hash]
-    );
-
-    return res.json({ ok: true, message: "Account created successfully." });
-
-  } catch (err) {
-    console.error("REGISTER ERROR:", err);
+  } catch (e) {
+    console.error("REGISTER ERROR:", e);
     return res.status(500).json({ ok: false, error: "Server error." });
   }
 });
 
 
-
-app.post("/api/agent/login", async (req, res) => {
+app.post("/api/agent/login", (req, res) => {
   try {
     const { phone, pin } = req.body || {};
 
@@ -218,40 +235,51 @@ app.post("/api/agent/login", async (req, res) => {
 
     const cleanPhone = normalizePhone(phone);
 
-    const [rows] = await db.query(
+    db.query(
       "SELECT id, first_name, last_name, phone, email, pin_hash, status FROM agents WHERE phone = ? LIMIT 1",
-      [cleanPhone]
+      [cleanPhone],
+      (err, rows) => {
+        if (err) {
+          console.error("LOGIN DB ERROR:", err);
+          return res.status(500).json({ ok: false, error: "Database error." });
+        }
+
+        if (!rows || rows.length === 0) {
+          return res.status(401).json({ ok: false, error: "Invalid login details." });
+        }
+
+        const agent = rows[0];
+
+        if (agent.status !== "active") {
+          return res.status(403).json({ ok: false, error: "Account is inactive." });
+        }
+
+        bcrypt.compare(String(pin), String(agent.pin_hash), (cmpErr, ok) => {
+          if (cmpErr) {
+            console.error("LOGIN COMPARE ERROR:", cmpErr);
+            return res.status(500).json({ ok: false, error: "Server error." });
+          }
+
+          if (!ok) {
+            return res.status(401).json({ ok: false, error: "Invalid login details." });
+          }
+
+          return res.json({
+            ok: true,
+            message: "Login successful",
+            agent: {
+              id: agent.id,
+              name: `${agent.first_name} ${agent.last_name}`,
+              phone: agent.phone,
+              email: agent.email
+            }
+          });
+        });
+      }
     );
 
-    if (!rows.length) {
-      return res.status(401).json({ ok: false, error: "Invalid login details." });
-    }
-
-    const agent = rows[0];
-
-    if (agent.status !== "active") {
-      return res.status(403).json({ ok: false, error: "Account is inactive." });
-    }
-
-    const ok = await bcrypt.compare(String(pin), agent.pin_hash);
-    if (!ok) {
-      return res.status(401).json({ ok: false, error: "Invalid login details." });
-    }
-
-    // ✅ return data to frontend
-    return res.json({
-      ok: true,
-      message: "Login successful",
-      agent: {
-        id: agent.id,
-        name: `${agent.first_name} ${agent.last_name}`,
-        phone: agent.phone,
-        email: agent.email
-      }
-    });
-
-  } catch (err) {
-    console.error("LOGIN ERROR:", err);
+  } catch (e) {
+    console.error("LOGIN ERROR:", e);
     return res.status(500).json({ ok: false, error: "Server error." });
   }
 });
