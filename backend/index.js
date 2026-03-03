@@ -145,6 +145,8 @@ app.post("/login", (req, res) => {
 
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
 app.post("/api/agent/register", (req, res) => {
   try {
     const {
@@ -179,7 +181,7 @@ app.post("/api/agent/register", (req, res) => {
       return res.status(422).json({ ok: false, error: "PINs do not match." });
     }
 
-    // 1) check existing
+    // ✅ 1) Check phone/email exists
     db.query(
       "SELECT id FROM agents WHERE phone = ? OR email = ? LIMIT 1",
       [cleanPhone, cleanEmail],
@@ -193,28 +195,79 @@ app.post("/api/agent/register", (req, res) => {
           return res.status(409).json({ ok: false, error: "Phone number or email already exists." });
         }
 
-        // 2) hash pin
-        bcrypt.hash(String(pin), 10, (hashErr, hash) => {
-          if (hashErr) {
-            console.error("REGISTER HASH ERROR:", hashErr);
-            return res.status(500).json({ ok: false, error: "Server error." });
-          }
+        // ✅ 2) Check if PIN has been used by any agent (compare against hashed pins)
+        db.query(
+          "SELECT pin_hash FROM agents WHERE pin_hash IS NOT NULL",
+          [],
+          (pinErr, pinRows) => {
+            if (pinErr) {
+              console.error("REGISTER PIN LIST ERROR:", pinErr);
+              return res.status(500).json({ ok: false, error: "Database error." });
+            }
 
-          // 3) insert
-          db.query(
-            `INSERT INTO agents (first_name, last_name, phone, email, gender, address, pin_hash, status)
-             VALUES (?, ?, ?, ?, ?, ?, ?, 'active')`,
-            [String(first_name).trim(), String(last_name).trim(), cleanPhone, cleanEmail, cleanGender, String(address).trim(), hash],
-            (insErr, result) => {
-              if (insErr) {
-                console.error("REGISTER INSERT ERROR:", insErr);
-                return res.status(500).json({ ok: false, error: "Database insert failed." });
+            // Compare pin with each pin_hash
+            let i = 0;
+
+            const checkNext = () => {
+              if (!pinRows || i >= pinRows.length) {
+                // ✅ PIN not used -> hash and create account
+                return bcrypt.hash(String(pin), 10, (hashErr, hash) => {
+                  if (hashErr) {
+                    console.error("REGISTER HASH ERROR:", hashErr);
+                    return res.status(500).json({ ok: false, error: "Server error." });
+                  }
+
+                  db.query(
+                    `INSERT INTO agents
+                     (first_name, last_name, phone, email, gender, address, pin_hash, status)
+                     VALUES (?, ?, ?, ?, ?, ?, ?, 'pending')`,
+                    [
+                      String(first_name).trim(),
+                      String(last_name).trim(),
+                      cleanPhone,
+                      cleanEmail,
+                      cleanGender,
+                      String(address).trim(),
+                      hash
+                    ],
+                    (insErr) => {
+                      if (insErr) {
+                        console.error("REGISTER INSERT ERROR:", insErr);
+                        return res.status(500).json({ ok: false, error: "Database insert failed." });
+                      }
+
+                      return res.json({
+                        ok: true,
+                        message: "Account created successfully. Await admin approval."
+                      });
+                    }
+                  );
+                });
               }
 
-              return res.json({ ok: true, message: "Account created successfully." });
-            }
-          );
-        });
+              const currentHash = String(pinRows[i].pin_hash || "");
+              i++;
+
+              bcrypt.compare(String(pin), currentHash, (cmpErr, same) => {
+                if (cmpErr) {
+                  console.error("REGISTER PIN COMPARE ERROR:", cmpErr);
+                  return res.status(500).json({ ok: false, error: "Server error." });
+                }
+
+                if (same) {
+                  return res.status(409).json({
+                    ok: false,
+                    error: "PIN already used. Choose a different PIN."
+                  });
+                }
+
+                checkNext();
+              });
+            };
+
+            checkNext();
+          }
+        );
       }
     );
 
@@ -225,12 +278,17 @@ app.post("/api/agent/register", (req, res) => {
 });
 
 
+
 app.post("/api/agent/login", (req, res) => {
   try {
     const { phone, pin } = req.body || {};
 
     if (!phone || !pin) {
       return res.status(422).json({ ok: false, error: "Phone and PIN are required." });
+    }
+
+    if (!isValidPin(pin)) {
+      return res.status(422).json({ ok: false, error: "PIN must be exactly 4 digits." });
     }
 
     const cleanPhone = normalizePhone(phone);
@@ -250,11 +308,15 @@ app.post("/api/agent/login", (req, res) => {
 
         const agent = rows[0];
 
+        if (agent.status === "pending") {
+          return res.status(403).json({ ok: false, error: "Contact admin to activate your account." });
+        }
+
         if (agent.status !== "active") {
           return res.status(403).json({ ok: false, error: "Account is inactive." });
         }
 
-        bcrypt.compare(String(pin), String(agent.pin_hash), (cmpErr, ok) => {
+        bcrypt.compare(String(pin), String(agent.pin_hash || ""), (cmpErr, ok) => {
           if (cmpErr) {
             console.error("LOGIN COMPARE ERROR:", cmpErr);
             return res.status(500).json({ ok: false, error: "Server error." });
