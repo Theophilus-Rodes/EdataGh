@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>EDATA Admin | Agent Details</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+  <style>
+    :root{
+      --primary:#1FAF6B; --bg:#F6F7FB; --card:#fff; --text:#0F172A; --muted:#64748B; --line:#E5E7EB;
+      --shadow:0 14px 30px rgba(15,23,42,.08); --radius:16px;
+      --ok:#16A34A; --warn:#F59E0B; --danger:#DC2626;
+    }
+    *{box-sizing:border-box}
+    body{margin:0;font-family:Inter,system-ui,Arial;background:var(--bg);color:var(--text)}
+    .wrap{max-width:980px;margin:24px auto;padding:0 16px}
+    a.back{display:inline-block;margin:6px 0 14px;color:#2563EB;font-weight:900;text-decoration:none}
+    a.back:hover{text-decoration:underline}
+    .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow)}
+    .head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;padding:16px;border-bottom:1px solid var(--line)}
+    .title{font-weight:900;font-size:18px}
+    .sub{color:var(--muted);font-size:13px;margin-top:4px}
+    .badge{
+      display:inline-flex;align-items:center;padding:6px 10px;border-radius:999px;font-weight:800;font-size:12px;
+      border:1px solid var(--line);background:#fff;text-transform:uppercase;
+    }
+    .b-pending{border-color:rgba(245,158,11,.25);background:rgba(245,158,11,.12);color:#B45309}
+    .b-active{border-color:rgba(22,163,74,.25);background:rgba(22,163,74,.10);color:var(--ok)}
+    .b-inactive{border-color:rgba(220,38,38,.20);background:rgba(220,38,38,.08);color:var(--danger)}
+    .grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;padding:16px}
+    .field{border:1px solid var(--line);border-radius:14px;padding:12px}
+    .label{color:var(--muted);font-size:12px;font-weight:900;text-transform:uppercase;letter-spacing:.06em}
+    .value{margin-top:6px;font-weight:700;word-break:break-word}
+    .actions{display:flex;gap:10px;flex-wrap:wrap;padding:0 16px 16px}
+    .btn{
+      border:1px solid var(--line);background:#fff;color:var(--text);
+      padding:10px 12px;border-radius:12px;font-weight:900;font-size:13px;cursor:pointer;
+    }
+    .btn-approve{border-color:rgba(22,163,74,.25);background:rgba(22,163,74,.10);color:var(--ok)}
+    .btn-unapprove{border-color:rgba(220,38,38,.20);background:rgba(220,38,38,.08);color:var(--danger)}
+    .btn-pending{border-color:rgba(245,158,11,.25);background:rgba(245,158,11,.12);color:#B45309}
+    .btn-delete{border-color:rgba(220,38,38,.25);background:rgba(220,38,38,.10);color:var(--danger)}
+    @media (max-width:760px){ .grid{grid-template-columns:1fr} }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <a class="back" href="admin_agents.html">← Back to Agents</a>
+
+    <div class="card">
+      <div class="head">
+        <div>
+          <div class="title" id="t">Agent Details</div>
+          <div class="sub" id="sub">Loading...</div>
+        </div>
+        <span class="badge b-pending" id="badge">pending</span>
+      </div>
+
+      <div class="grid" id="grid"></div>
+
+      <div class="actions">
+        <button class="btn btn-approve" onclick="setStatus('active')">Approve</button>
+        <button class="btn btn-unapprove" onclick="setStatus('inactive')">Unapprove</button>
+        <button class="btn btn-pending" onclick="setStatus('pending')">Pending</button>
+        <button class="btn btn-delete" onclick="deleteAgent()">Delete</button>
+      </div>
+    </div>
+  </div>
+
+<script>
+  const API_BASE = "http://localhost:5000"; // change to live base when needed
+  const params = new URLSearchParams(location.search);
+  const id = params.get("id");
+
+  const $t = document.getElementById("t");
+  const $sub = document.getElementById("sub");
+  const $badge = document.getElementById("badge");
+  const $grid = document.getElementById("grid");
+
+  let agent = null;
+
+  function esc(s){
+    return String(s ?? "").replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));
+  }
+
+  function setBadge(status){
+    const st = String(status || "pending").toLowerCase();
+    $badge.className = "badge " + (st === "active" ? "b-active" : st === "inactive" ? "b-inactive" : "b-pending");
+    $badge.textContent = st;
+  }
+
+  async function load(){
+    if(!id){ $sub.textContent = "No id provided"; return; }
+
+    try{
+      const res = await fetch(`${API_BASE}/api/admin/agents/${encodeURIComponent(id)}`);
+      const data = await res.json();
+      if(!res.ok) throw new Error(data.error || "Failed");
+
+      agent = data;
+
+      $t.textContent = `Agent Details (ID: ${agent.id})`;
+      $sub.textContent = `${agent.first_name || ""} ${agent.last_name || ""}`.trim() || "—";
+      setBadge(agent.status);
+
+      $grid.innerHTML = "";
+      Object.keys(agent).forEach(k => {
+        // Optional: hide pin_hash from view if you want:
+        // if(k === "pin_hash") return;
+
+        $grid.innerHTML += `
+          <div class="field">
+            <div class="label">${esc(k)}</div>
+            <div class="value">${esc(agent[k])}</div>
+          </div>
+        `;
+      });
+    }catch(e){
+      console.error(e);
+      $sub.textContent = "Failed to load agent.";
+    }
+  }
+
+  async function setStatus(status){
+    if(!agent) return;
+    if(!confirm(`Set status to "${status}"?`)) return;
+
+    const res = await fetch(`${API_BASE}/api/admin/agents/${agent.id}/status`, {
+      method:"PUT",
+      headers: {"Content-Type":"application/json"},
+      body: JSON.stringify({ status })
+    });
+    const out = await res.json();
+    if(!res.ok){ alert(out.error || "Failed"); return; }
+
+    agent.status = status;
+    setBadge(status);
+    alert("Status updated.");
+  }
+
+  async function deleteAgent(){
+    if(!agent) return;
+    if(!confirm("Delete this agent permanently?")) return;
+
+    const res = await fetch(`${API_BASE}/api/admin/agents/${agent.id}`, { method:"DELETE" });
+    const out = await res.json();
+    if(!res.ok){ alert(out.error || "Failed"); return; }
+
+    alert("Deleted.");
+    location.href = "admin_agents.html";
+  }
+
+  load();
+</script>
+</body>
+</html>

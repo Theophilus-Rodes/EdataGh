@@ -1,0 +1,248 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>EDATA Admin | Agents</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+  <style>
+    :root{
+      --primary:#1FAF6B;
+      --bg:#F6F7FB;
+      --card:#fff;
+      --text:#0F172A;
+      --muted:#64748B;
+      --line:#E5E7EB;
+      --shadow:0 14px 30px rgba(15,23,42,.08);
+      --radius:16px;
+
+      --ok:#16A34A;
+      --warn:#F59E0B;
+      --danger:#DC2626;
+      --dark:#0F172A;
+    }
+    *{box-sizing:border-box}
+    body{margin:0;font-family:Inter,system-ui,Arial;background:var(--bg);color:var(--text)}
+    .wrap{max-width:1150px;margin:24px auto;padding:0 16px}
+    .top{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;margin-bottom:12px}
+    .title{font-weight:900;font-size:20px}
+    .sub{color:var(--muted);font-size:13px;margin-top:4px}
+    .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow)}
+    .bar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;justify-content:space-between;padding:12px 12px;border-bottom:1px solid var(--line)}
+    .search{display:flex;gap:10px;align-items:center}
+    input{
+      border:1px solid var(--line);border-radius:12px;padding:10px 12px;outline:none;
+      min-width:260px;
+    }
+    .small{font-size:12px;color:var(--muted);font-weight:700}
+    .tableWrap{overflow:auto}
+    table{width:100%;border-collapse:collapse;min-width:980px}
+    th,td{padding:12px;border-bottom:1px solid var(--line);text-align:left;white-space:nowrap}
+    th{font-size:12px;color:#334155;text-transform:uppercase;letter-spacing:.06em}
+    td{font-size:14px}
+    .badge{
+      display:inline-flex;align-items:center;
+      padding:6px 10px;border-radius:999px;font-weight:800;font-size:12px;
+      border:1px solid var(--line);background:#fff;
+      text-transform:uppercase;
+    }
+    .b-pending{border-color:rgba(245,158,11,.25);background:rgba(245,158,11,.12);color:#B45309}
+    .b-active{border-color:rgba(22,163,74,.25);background:rgba(22,163,74,.10);color:var(--ok)}
+    .b-inactive{border-color:rgba(220,38,38,.20);background:rgba(220,38,38,.08);color:var(--danger)}
+    .actions{display:flex;gap:8px;flex-wrap:wrap}
+    .btn{
+      border:1px solid var(--line);background:#fff;color:var(--text);
+      padding:8px 10px;border-radius:12px;font-weight:800;font-size:12px;cursor:pointer;
+    }
+    .btn:hover{filter:brightness(.98)}
+    .btn-view{border-color:rgba(15,23,42,.18);background:#0F172A;color:#fff}
+    .btn-approve{border-color:rgba(22,163,74,.25);background:rgba(22,163,74,.10);color:var(--ok)}
+    .btn-unapprove{border-color:rgba(220,38,38,.20);background:rgba(220,38,38,.08);color:var(--danger)}
+    .btn-pending{border-color:rgba(245,158,11,.25);background:rgba(245,158,11,.12);color:#B45309}
+    .btn-delete{border-color:rgba(220,38,38,.25);background:rgba(220,38,38,.10);color:var(--danger)}
+    .empty{padding:18px;color:var(--muted)}
+    @media (max-width:720px){
+      input{min-width:180px;width:100%}
+      .bar{gap:12px}
+      .search{width:100%}
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="top">
+      <div>
+        <div class="title">EDATA Admin — Agents</div>
+        <div class="sub">Approve (active), Unapprove (inactive), or leave as pending.</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="bar">
+        <div class="search">
+          <input id="q" placeholder="Search by name / phone / email..." />
+          <div class="small" id="count">0 agents</div>
+        </div>
+        <div class="small" id="msg"></div>
+      </div>
+
+      <div class="tableWrap">
+        <table>
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Full Name</th>
+              <th>Phone</th>
+              <th>Email</th>
+              <th>Gender</th>
+              <th>Status</th>
+              <th>Created</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="rows"></tbody>
+        </table>
+      </div>
+
+      <div id="empty" class="empty" style="display:none;">No agents found.</div>
+    </div>
+  </div>
+
+<script>
+  // ✅ Set your real backend base here:
+  // Local: "http://localhost:5000"
+  // Live:  "https://api.edatagh.com"  (example)
+  const API_BASE = "http://localhost:5000";
+
+  const $rows = document.getElementById("rows");
+  const $empty = document.getElementById("empty");
+  const $q = document.getElementById("q");
+  const $count = document.getElementById("count");
+  const $msg = document.getElementById("msg");
+
+  let agents = [];
+
+  function esc(s){
+    return String(s ?? "").replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));
+  }
+
+  function badge(status){
+    const st = String(status || "pending").toLowerCase();
+    if (st === "active") return `<span class="badge b-active">active</span>`;
+    if (st === "inactive") return `<span class="badge b-inactive">inactive</span>`;
+    return `<span class="badge b-pending">pending</span>`;
+  }
+
+  function fmtDate(dt){
+    if(!dt) return "—";
+    try{
+      const d = new Date(dt);
+      return d.toLocaleString();
+    }catch(e){
+      return dt;
+    }
+  }
+
+  function render(){
+    const query = $q.value.trim().toLowerCase();
+    const filtered = agents.filter(a => {
+      const hay = `${a.first_name||""} ${a.last_name||""} ${a.phone||""} ${a.email||""}`.toLowerCase();
+      return hay.includes(query);
+    });
+
+    $count.textContent = `${filtered.length} agent${filtered.length === 1 ? "" : "s"}`;
+
+    $rows.innerHTML = "";
+    if(filtered.length === 0){
+      $empty.style.display = "block";
+      return;
+    }
+    $empty.style.display = "none";
+
+    filtered.forEach(a => {
+      const full = `${a.first_name || ""} ${a.last_name || ""}`.trim() || "—";
+      $rows.innerHTML += `
+        <tr>
+          <td>${esc(a.id)}</td>
+          <td>${esc(full)}</td>
+          <td>${esc(a.phone)}</td>
+          <td>${esc(a.email)}</td>
+          <td>${esc(a.gender)}</td>
+          <td>${badge(a.status)}</td>
+          <td>${esc(fmtDate(a.created_at))}</td>
+          <td>
+            <div class="actions">
+              <button class="btn btn-view" onclick="viewAgent(${a.id})">View</button>
+              <button class="btn btn-approve" onclick="setStatus(${a.id}, 'active')">Approve</button>
+              <button class="btn btn-unapprove" onclick="setStatus(${a.id}, 'inactive')">Unapprove</button>
+              <button class="btn btn-pending" onclick="setStatus(${a.id}, 'pending')">Pending</button>
+              <button class="btn btn-delete" onclick="deleteAgent(${a.id})">Delete</button>
+            </div>
+          </td>
+        </tr>
+      `;
+    });
+  }
+
+  async function loadAgents(){
+    $msg.textContent = "Loading...";
+    try{
+      const res = await fetch(`${API_BASE}/api/admin/agents`);
+      const data = await res.json();
+      if(!Array.isArray(data)) throw new Error("Bad response");
+      agents = data;
+      render();
+      $msg.textContent = "";
+    }catch(e){
+      console.error(e);
+      $msg.textContent = "Failed to load agents.";
+    }
+  }
+
+  function viewAgent(id){
+    window.location.href = `admin_agent_view.html?id=${encodeURIComponent(id)}`;
+  }
+
+  async function setStatus(id, status){
+    if(!confirm(`Set status to "${status}"?`)) return;
+    $msg.textContent = "Updating...";
+    try{
+      const res = await fetch(`${API_BASE}/api/admin/agents/${id}/status`, {
+        method: "PUT",
+        headers: {"Content-Type":"application/json"},
+        body: JSON.stringify({ status })
+      });
+      const out = await res.json();
+      if(!res.ok) throw new Error(out.error || "Failed");
+      await loadAgents();
+      $msg.textContent = "";
+    }catch(e){
+      console.error(e);
+      $msg.textContent = "Update failed.";
+    }
+  }
+
+  async function deleteAgent(id){
+    if(!confirm("Delete this account permanently?")) return;
+    $msg.textContent = "Deleting...";
+    try{
+      const res = await fetch(`${API_BASE}/api/admin/agents/${id}`, { method:"DELETE" });
+      const out = await res.json();
+      if(!res.ok) throw new Error(out.error || "Failed");
+      await loadAgents();
+      $msg.textContent = "";
+    }catch(e){
+      console.error(e);
+      $msg.textContent = "Delete failed.";
+    }
+  }
+
+  $q.addEventListener("input", render);
+  loadAgents();
+</script>
+</body>
+</html>
