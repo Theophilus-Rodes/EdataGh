@@ -346,6 +346,87 @@ app.post("/api/agent/login", (req, res) => {
   }
 });
 
+
+
+
+
+
+
+
+// ✅ GET all agents
+app.get("/api/admin/agents", async (req, res) => {
+  try {
+    const [rows] = await db.query(
+      "SELECT id, first_name, last_name, phone, email, gender, address, status, created_at FROM agents ORDER BY id DESC"
+    );
+    res.json(rows);
+  } catch (err) {
+    console.error("GET /api/admin/agents error:", err);
+    res.status(500).json({ error: "Failed to fetch agents" });
+  }
+});
+
+
+
+// ✅ GET single agent by id
+app.get("/api/admin/agents/:id", async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    if (!id) return res.status(400).json({ error: "Invalid id" });
+
+    const [rows] = await db.query("SELECT * FROM agents WHERE id = ? LIMIT 1", [id]);
+    if (rows.length === 0) return res.status(404).json({ error: "Agent not found" });
+
+    res.json(rows[0]);
+  } catch (err) {
+    console.error("GET /api/admin/agents/:id error:", err);
+    res.status(500).json({ error: "Failed to fetch agent" });
+  }
+});
+
+
+
+// ✅ UPDATE agent status: pending | active | inactive
+app.put("/api/admin/agents/:id/status", async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    const status = String(req.body.status || "").toLowerCase().trim();
+
+    if (!id) return res.status(400).json({ error: "Invalid id" });
+
+    const allowed = new Set(["pending", "active", "inactive"]);
+    if (!allowed.has(status)) {
+      return res.status(400).json({ error: "Invalid status. Use pending, active, inactive" });
+    }
+
+    const [result] = await db.query("UPDATE agents SET status = ? WHERE id = ?", [status, id]);
+
+    if (result.affectedRows === 0) return res.status(404).json({ error: "Agent not found" });
+
+    res.json({ success: true, id, status });
+  } catch (err) {
+    console.error("PUT /api/admin/agents/:id/status error:", err);
+    res.status(500).json({ error: "Failed to update status" });
+  }
+});
+
+
+// ✅ DELETE agent
+app.delete("/api/admin/agents/:id", async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    if (!id) return res.status(400).json({ error: "Invalid id" });
+
+    const [result] = await db.query("DELETE FROM agents WHERE id = ?", [id]);
+    if (result.affectedRows === 0) return res.status(404).json({ error: "Agent not found" });
+
+    res.json({ success: true });
+  } catch (err) {
+    console.error("DELETE /api/admin/agents/:id error:", err);
+    res.status(500).json({ error: "Failed to delete agent" });
+  }
+});
+
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
