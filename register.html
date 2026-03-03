@@ -183,8 +183,12 @@
   <script>
     // ✅ Set your backend base URL if needed:
     // const BASE = "https://yourdomain.com";
-    const BASE = "";
-    const API_REGISTER = BASE + "/api/agent/register";
+   const API_BASE =
+  location.hostname === "localhost"
+    ? "http://localhost:8080"
+    : "https://edatagh.com/edatagh-backend";
+
+const API_REGISTER = API_BASE + "/api/agent/register";
 
     const form = document.getElementById("registerForm");
     const msg = document.getElementById("msg");
