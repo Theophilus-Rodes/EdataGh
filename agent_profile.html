@@ -159,7 +159,7 @@
       : "https://edatagh.com/edatagh-backend";
 
   const params = new URLSearchParams(location.search);
-  const agentId = params.get("id");
+  const agentId = localStorage.getItem("EDATA_AGENT_ID");
 
   const el = (id) => document.getElementById(id);
 
