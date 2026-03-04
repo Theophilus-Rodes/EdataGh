@@ -428,6 +428,114 @@ app.delete("/api/admin/agents/:id", (req, res) => {
     return res.json({ success: true });
   });
 });
+
+
+
+
+// ✅ GET agent profile
+app.get("/api/agent/profile/:id", (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  if (!id) return res.status(400).json({ error: "Invalid agent id" });
+
+  const sql = `
+    SELECT id, first_name, last_name, phone, email, gender, address, status, created_at
+    FROM agents
+    WHERE id = ?
+    LIMIT 1
+  `;
+
+  db.query(sql, [id], (err, rows) => {
+    if (err) {
+      console.error("GET /api/agent/profile/:id error:", err);
+      return res.status(500).json({ error: "Failed to load profile" });
+    }
+    if (!rows || rows.length === 0) return res.status(404).json({ error: "Agent not found" });
+    return res.json(rows[0]);
+  });
+});
+
+
+
+// ✅ UPDATE agent profile
+app.put("/api/agent/profile/:id", (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  if (!id) return res.status(400).json({ error: "Invalid agent id" });
+
+  const first_name = String(req.body.first_name || "").trim();
+  const last_name  = String(req.body.last_name || "").trim();
+  const phone      = String(req.body.phone || "").trim();
+  const email      = String(req.body.email || "").trim();
+  const gender     = String(req.body.gender || "").trim();  // "Male" / "Female" etc
+  const address    = String(req.body.address || "").trim();
+
+  if (!first_name || !last_name || !phone) {
+    return res.status(400).json({ error: "First name, last name and phone are required." });
+  }
+
+  const sql = `
+    UPDATE agents
+    SET first_name=?, last_name=?, phone=?, email=?, gender=?, address=?
+    WHERE id=?
+  `;
+
+  db.query(sql, [first_name, last_name, phone, email, gender, address, id], (err, result) => {
+    if (err) {
+      console.error("PUT /api/agent/profile/:id error:", err);
+      return res.status(500).json({ error: "Failed to update profile" });
+    }
+    if (!result || result.affectedRows === 0) return res.status(404).json({ error: "Agent not found" });
+    return res.json({ success: true });
+  });
+});
+
+
+// ✅ CHANGE agent password/PIN
+app.put("/api/agent/profile/:id/change-pin", (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  if (!id) return res.status(400).json({ error: "Invalid agent id" });
+
+  const old_pin = String(req.body.old_pin || "").trim();
+  const new_pin = String(req.body.new_pin || "").trim();
+  const confirm = String(req.body.confirm || "").trim();
+
+  if (!old_pin || !new_pin || !confirm) {
+    return res.status(400).json({ error: "Old PIN, new PIN and confirm PIN are required." });
+  }
+  if (new_pin !== confirm) {
+    return res.status(400).json({ error: "New PIN and Confirm PIN do not match." });
+  }
+  if (new_pin.length < 4) {
+    return res.status(400).json({ error: "New PIN must be at least 4 characters." });
+  }
+
+  // Get current hash
+  db.query("SELECT pin_hash FROM agents WHERE id=? LIMIT 1", [id], (err, rows) => {
+    if (err) {
+      console.error("SELECT pin_hash error:", err);
+      return res.status(500).json({ error: "Failed to change PIN" });
+    }
+    if (!rows || rows.length === 0) return res.status(404).json({ error: "Agent not found" });
+
+    const currentHash = rows[0].pin_hash || "";
+
+    // Compare old pin with hash
+    const ok = bcrypt.compareSync(old_pin, currentHash);
+    if (!ok) return res.status(400).json({ error: "Old PIN is incorrect." });
+
+    // Hash new pin
+    const newHash = bcrypt.hashSync(new_pin, 10);
+
+    db.query("UPDATE agents SET pin_hash=? WHERE id=?", [newHash, id], (err2, result) => {
+      if (err2) {
+        console.error("UPDATE pin_hash error:", err2);
+        return res.status(500).json({ error: "Failed to change PIN" });
+      }
+      if (!result || result.affectedRows === 0) return res.status(404).json({ error: "Agent not found" });
+
+      return res.json({ success: true });
+    });
+  });
+});
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
