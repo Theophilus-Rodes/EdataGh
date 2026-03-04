@@ -112,8 +112,8 @@
 
       $grid.innerHTML = "";
       Object.keys(agent).forEach(k => {
-        // Optional: hide pin_hash from view if you want:
-        // if(k === "pin_hash") return;
+        //Optional: hide pin_hash from view if you want:
+        if(k === "pin_hash") return;
 
         $grid.innerHTML += `
           <div class="field">
