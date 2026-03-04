@@ -1,0 +1,263 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>EDATA Agent | Profile</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+  <style>
+    :root{
+      --primary:#1FAF6B;
+      --bg:#F6F7FB;
+      --card:#fff;
+      --text:#0F172A;
+      --muted:#64748B;
+      --line:#E5E7EB;
+      --shadow:0 14px 30px rgba(15,23,42,.08);
+      --radius:18px;
+      --danger:#DC2626;
+    }
+    *{box-sizing:border-box}
+    body{margin:0;font-family:Inter,system-ui,Arial;background:var(--bg);color:var(--text)}
+    .wrap{max-width:980px;margin:24px auto;padding:0 16px}
+    .top{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;margin-bottom:12px}
+    .title{font-weight:900;font-size:20px}
+    .sub{color:var(--muted);font-size:13px;margin-top:4px}
+    .grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+    .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow)}
+    .card h3{margin:0;padding:16px 16px 10px;font-size:16px}
+    .card .inner{padding:0 16px 16px}
+    label{display:block;font-size:12px;color:var(--muted);font-weight:800;text-transform:uppercase;letter-spacing:.05em;margin:12px 0 6px}
+    input, select, textarea{
+      width:100%;padding:12px 12px;border:1px solid var(--line);border-radius:12px;outline:none;
+      font-family:inherit;font-size:14px;background:#fff;
+    }
+    textarea{min-height:92px;resize:vertical}
+    .row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+    .btns{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}
+    button{
+      border:none;border-radius:12px;padding:12px 14px;font-weight:900;cursor:pointer;font-family:inherit
+    }
+    .btn-primary{background:var(--primary);color:#fff}
+    .btn-dark{background:#0F172A;color:#fff}
+    .note{font-size:12px;color:var(--muted);margin-top:8px}
+    .msg{margin-top:10px;font-weight:800;font-size:13px}
+    .err{color:var(--danger)}
+    .ok{color:var(--primary)}
+    .toggle{
+      display:flex;gap:10px;align-items:center;margin-top:10px;font-size:13px;color:var(--muted);font-weight:700
+    }
+    @media (max-width:820px){
+      .grid{grid-template-columns:1fr}
+      .row{grid-template-columns:1fr}
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="top">
+      <div>
+        <div class="title">My Profile</div>
+        <div class="sub" id="sub">Loading your information...</div>
+      </div>
+    </div>
+
+    <div class="grid">
+      <!-- PROFILE -->
+      <div class="card">
+        <h3>Update Information</h3>
+        <div class="inner">
+          <div class="row">
+            <div>
+              <label>First Name</label>
+              <input id="first_name" />
+            </div>
+            <div>
+              <label>Last Name</label>
+              <input id="last_name" />
+            </div>
+          </div>
+
+          <div class="row">
+            <div>
+              <label>Phone</label>
+              <input id="phone" />
+            </div>
+            <div>
+              <label>Email</label>
+              <input id="email" />
+            </div>
+          </div>
+
+          <div class="row">
+            <div>
+              <label>Gender</label>
+              <select id="gender">
+                <option value="">Select</option>
+                <option value="Male">Male</option>
+                <option value="Female">Female</option>
+              </select>
+            </div>
+            <div>
+              <label>Status</label>
+              <input id="status" readonly />
+            </div>
+          </div>
+
+          <label>Address</label>
+          <textarea id="address"></textarea>
+
+          <div class="btns">
+            <button class="btn-primary" onclick="saveProfile()">Save Changes</button>
+          </div>
+
+          <div class="msg" id="msgProfile"></div>
+          <div class="note">Tip: Make sure your phone and email are correct.</div>
+        </div>
+      </div>
+
+      <!-- CHANGE PIN -->
+      <div class="card">
+        <h3>Change Password / PIN</h3>
+        <div class="inner">
+          <label>Old PIN</label>
+          <input id="old_pin" type="password" placeholder="Enter old PIN" />
+
+          <label>New PIN</label>
+          <input id="new_pin" type="password" placeholder="Enter new PIN" />
+
+          <label>Confirm New PIN</label>
+          <input id="confirm_pin" type="password" placeholder="Confirm new PIN" />
+
+          <div class="toggle">
+            <input type="checkbox" id="showPins" onchange="togglePins()"/>
+            <span>Show PINs</span>
+          </div>
+
+          <div class="btns">
+            <button class="btn-dark" onclick="changePin()">Change PIN</button>
+          </div>
+
+          <div class="msg" id="msgPin"></div>
+          <div class="note">Your PIN is stored securely (hashed) in the database.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<script>
+  // ✅ Change this to your backend URL
+  // Local: http://localhost:5000
+  // Live:  https://YOUR-DO-APP-URL
+  const API_BASE = "http://localhost:5000";
+
+  const params = new URLSearchParams(location.search);
+  const agentId = params.get("id");
+
+  const el = (id) => document.getElementById(id);
+
+  function setMsg(which, text, ok=false){
+    const box = el(which);
+    box.className = "msg " + (ok ? "ok" : "err");
+    box.textContent = text;
+  }
+
+  function togglePins(){
+    const type = el("showPins").checked ? "text" : "password";
+    el("old_pin").type = type;
+    el("new_pin").type = type;
+    el("confirm_pin").type = type;
+  }
+
+  async function loadProfile(){
+    if(!agentId){
+      el("sub").textContent = "Missing agent id in URL. Use ?id=2";
+      return;
+    }
+    try{
+      const res = await fetch(`${API_BASE}/api/agent/profile/${encodeURIComponent(agentId)}`);
+      const data = await res.json();
+      if(!res.ok) throw new Error(data.error || "Failed");
+
+      el("first_name").value = data.first_name || "";
+      el("last_name").value  = data.last_name || "";
+      el("phone").value      = data.phone || "";
+      el("email").value      = data.email || "";
+      el("gender").value     = data.gender || "";
+      el("address").value    = data.address || "";
+      el("status").value     = data.status || "pending";
+
+      el("sub").textContent = `${data.first_name || ""} ${data.last_name || ""}`.trim() || "Agent";
+    }catch(e){
+      console.error(e);
+      el("sub").textContent = "Failed to load profile.";
+    }
+  }
+
+  async function saveProfile(){
+    setMsg("msgProfile", "Saving...", true);
+
+    const payload = {
+      first_name: el("first_name").value.trim(),
+      last_name: el("last_name").value.trim(),
+      phone: el("phone").value.trim(),
+      email: el("email").value.trim(),
+      gender: el("gender").value.trim(),
+      address: el("address").value.trim()
+    };
+
+    try{
+      const res = await fetch(`${API_BASE}/api/agent/profile/${encodeURIComponent(agentId)}`, {
+        method:"PUT",
+        headers:{ "Content-Type":"application/json" },
+        body: JSON.stringify(payload)
+      });
+      const out = await res.json();
+      if(!res.ok) throw new Error(out.error || "Update failed");
+
+      setMsg("msgProfile", "Profile updated successfully.", true);
+      await loadProfile();
+    }catch(e){
+      console.error(e);
+      setMsg("msgProfile", e.message || "Update failed", false);
+    }
+  }
+
+  async function changePin(){
+    setMsg("msgPin", "Updating PIN...", true);
+
+    const payload = {
+      old_pin: el("old_pin").value.trim(),
+      new_pin: el("new_pin").value.trim(),
+      confirm: el("confirm_pin").value.trim()
+    };
+
+    try{
+      const res = await fetch(`${API_BASE}/api/agent/profile/${encodeURIComponent(agentId)}/change-pin`, {
+        method:"PUT",
+        headers:{ "Content-Type":"application/json" },
+        body: JSON.stringify(payload)
+      });
+      const out = await res.json();
+      if(!res.ok) throw new Error(out.error || "PIN update failed");
+
+      setMsg("msgPin", "PIN changed successfully.", true);
+      el("old_pin").value = "";
+      el("new_pin").value = "";
+      el("confirm_pin").value = "";
+      el("showPins").checked = false;
+      togglePins();
+    }catch(e){
+      console.error(e);
+      setMsg("msgPin", e.message || "PIN update failed", false);
+    }
+  }
+
+  loadProfile();
+</script>
+</body>
+</html>
