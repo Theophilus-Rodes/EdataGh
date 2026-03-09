@@ -548,7 +548,7 @@ app.get("/api/admin-price", (req, res) => {
   const params = [];
 
   if (network) {
-    sql += ` WHERE LOWER(network) = ? AND LOWER(status) = 'active'`;
+    sql += ` WHERE LOWER(network) = ?`;
     params.push(network);
   }
 
@@ -569,6 +569,7 @@ app.get("/api/admin-price", (req, res) => {
     });
   });
 });
+
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
