@@ -536,42 +536,6 @@ app.put("/api/agent/profile/:id/change-pin", (req, res) => {
     });
   });
 });
-
-
-app.get("/api/prices", (req, res) => {
-  const network = (req.query.network || "").trim().toLowerCase();
-
-  if (!network) {
-    return res.status(400).json({
-      success: false,
-      message: "Network is required"
-    });
-  }
-
-  const sql = `
-    SELECT id, network, package_name, price, status
-    FROM admin_prices
-    WHERE LOWER(network) = ?
-      AND LOWER(status) = 'active'
-    ORDER BY id DESC
-  `;
-
-  db.query(sql, [network], (err, results) => {
-    if (err) {
-      console.error("Error fetching prices:", err);
-      return res.status(500).json({
-        success: false,
-        message: "Database error"
-      });
-    }
-
-    res.json({
-      success: true,
-      data: results
-    });
-  });
-});
-
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 
