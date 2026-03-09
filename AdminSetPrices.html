@@ -158,7 +158,7 @@
     setMsg("Loading prices...");
     tbody.innerHTML = `<tr><td colspan="6" style="color:#64748b">Loading...</td></tr>`;
     try{
-      const r = await fetch(`${API_BASE}/api/admin-prices`);
+      const r = await fetch(`${API_BASE}/api/admin-price`);
       const data = await r.json();
       if(!data.ok) throw new Error(data.message || "Failed to load");
 
