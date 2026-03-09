@@ -539,7 +539,7 @@ app.put("/api/agent/profile/:id/change-pin", (req, res) => {
 
 
 
-app.get("/api/admin-prices", (req, res) => {
+app.get("/api/admin-price", (req, res) => {
   const network = (req.query.network || "").trim().toLowerCase();
 
   if (!network) {
