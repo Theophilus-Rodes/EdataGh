@@ -9,11 +9,8 @@
 
   <style>
     :root{
-      /* ✅ Brand */
       --primary:#1FAF6B;
       --primary-soft:#E9F9F1;
-
-      /* ✅ LIGHT (White + Green) */
       --bg:#F8FAF9;
       --panel:#FFFFFF;
       --card:#FFFFFF;
@@ -24,16 +21,12 @@
       --shadow: 0 18px 40px rgba(2,6,23,.10);
       --btn:#F3F4F6;
       --btnText:#0F172A;
-
-      /* Accents for network buttons */
       --mtn:#F5B400;
       --telecel:#E54545;
       --atl:#3B82F6;
-
       --radius:18px;
     }
 
-    /* ✅ DARK theme (toggle) */
     html[data-theme="dark"]{
       --bg:#0B1220;
       --panel:#0F172A;
@@ -57,9 +50,6 @@
       color:var(--text);
     }
 
-    /* =========================
-       TOP BAR
-       ========================= */
     .topbar{
       position:sticky;
       top:0;
@@ -68,6 +58,7 @@
       border-bottom:1px solid var(--border);
       backdrop-filter: blur(10px);
     }
+
     html[data-theme="dark"] .topbar{
       background:rgba(15,23,42,.72);
     }
@@ -101,11 +92,13 @@
       transition:.2s ease;
       color:var(--text);
     }
+
     .hamburger:hover{
       transform:translateY(-1px);
       border-color:rgba(31,175,107,.55);
       box-shadow:0 10px 20px rgba(2,6,23,.08);
     }
+
     html[data-theme="dark"] .hamburger{
       background:rgba(255,255,255,.06);
       box-shadow:none;
@@ -117,6 +110,7 @@
       letter-spacing:.2px;
       font-size:20px;
     }
+
     .title small{
       display:block;
       font-size:20px;
@@ -142,11 +136,13 @@
       transition:.2s ease;
       color:var(--text);
     }
+
     .iconbtn:hover{
       transform:translateY(-1px);
       border-color:rgba(31,175,107,.55);
       box-shadow:0 10px 20px rgba(2,6,23,.10);
     }
+
     html[data-theme="dark"] .iconbtn{
       background:rgba(255,255,255,.06);
       box-shadow:none;
@@ -167,9 +163,6 @@
       border:2px solid var(--bg);
     }
 
-    /* =========================
-       PAGE CONTENT
-       ========================= */
     .container{
       max-width:1100px;
       margin:0 auto;
@@ -195,16 +188,19 @@
       cursor:pointer;
       transition:.2s ease;
     }
+
     .qbtn.primary{
       background: var(--primary);
       color:#fff;
       border-color: transparent;
       box-shadow: 0 14px 28px rgba(31,175,107,.20);
     }
+
     .qbtn:hover{
       transform:translateY(-1px);
       box-shadow:0 12px 26px rgba(2,6,23,.10);
     }
+
     html[data-theme="dark"] .qbtn:hover{
       box-shadow:0 12px 26px rgba(0,0,0,.18);
     }
@@ -215,6 +211,7 @@
       font-weight:1000;
       letter-spacing:.3px;
     }
+
     .section-sub{
       margin:0 0 18px;
       color:var(--muted);
@@ -244,14 +241,17 @@
       transition:.2s ease;
       user-select:none;
     }
+
     .netbtn:hover{
       transform:translateY(-1px);
       box-shadow:0 14px 30px rgba(2,6,23,.10);
     }
+
     html[data-theme="dark"] .netbtn{
       background:rgba(255,255,255,.06);
       box-shadow:none;
     }
+
     html[data-theme="dark"] .netbtn:hover{
       box-shadow:0 14px 30px rgba(0,0,0,.18);
     }
@@ -260,10 +260,12 @@
       background: rgba(245,180,0,.18);
       border-color: rgba(245,180,0,.55);
     }
+
     .netbtn.atl{
       background: rgba(59,130,246,.12);
       border-color: rgba(59,130,246,.55);
     }
+
     .netbtn.telecel{
       background: rgba(229,69,69,.12);
       border-color: rgba(229,69,69,.55);
@@ -277,16 +279,45 @@
 
     .phoneIcon{ width:18px;height:18px; opacity:.9; }
 
-    /* product card */
-    .product{
+    .offers-grid{
       margin-top:18px;
+      display:grid;
+      grid-template-columns:repeat(auto-fit, minmax(300px, 1fr));
+      gap:18px;
+    }
+
+    .empty-state{
+      background:var(--panel);
+      border:1px solid var(--border);
+      border-radius:18px;
+      padding:22px;
+      color:var(--muted);
+      font-weight:700;
+      text-align:center;
+      box-shadow:var(--shadow);
+    }
+
+    .loading-state{
+      text-align:center;
+      padding:20px;
+      color:var(--muted);
+      font-weight:800;
+      background:var(--panel);
+      border:1px solid var(--border);
+      border-radius:18px;
+      box-shadow:var(--shadow);
+    }
+
+    .product{
+      margin-top:0;
       background:#fff;
       border:1px solid var(--border);
       border-radius:22px;
       box-shadow:var(--shadow);
       padding:18px;
-      max-width:420px;
+      max-width:100%;
     }
+
     html[data-theme="dark"] .product{
       background:linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.03));
     }
@@ -303,10 +334,15 @@
       color:var(--muted);
       font-size:12px;
     }
-    html[data-theme="dark"] .pill{ background:rgba(255,255,255,.06); }
+
+    html[data-theme="dark"] .pill{
+      background:rgba(255,255,255,.06);
+    }
 
     .dot{
-      width:10px;height:10px;border-radius:50%;
+      width:10px;
+      height:10px;
+      border-radius:50%;
       background:var(--mtn);
       box-shadow:0 0 0 4px rgba(245,180,0,.12);
     }
@@ -315,6 +351,7 @@
       padding:18px 8px 8px;
       text-align:center;
     }
+
     .product-center h4{
       margin:0 0 10px;
       font-size:18px;
@@ -322,6 +359,7 @@
       color:var(--text);
       letter-spacing:.2px;
     }
+
     .gb{
       display:inline-block;
       padding:10px 16px;
@@ -331,7 +369,10 @@
       font-weight:1000;
       font-size:20px;
     }
-    html[data-theme="dark"] .gb{ background:rgba(255,255,255,.06); }
+
+    html[data-theme="dark"] .gb{
+      background:rgba(255,255,255,.06);
+    }
 
     .price{
       margin-top:16px;
@@ -339,14 +380,21 @@
       font-weight:1000;
       color: var(--primary);
     }
+
     .muted{
       margin-top:6px;
       color:var(--muted);
       font-size:13px;
     }
 
-    .addcart{
+    .product-actions{
+      display:flex;
+      flex-direction:column;
+      gap:12px;
       margin-top:16px;
+    }
+
+    .addcart{
       width:100%;
       height:52px;
       border-radius:14px;
@@ -362,11 +410,29 @@
       transition:.2s ease;
       box-shadow: 0 14px 28px rgba(31,175,107,.20);
     }
-    .addcart:hover{filter:brightness(.98); transform:translateY(-1px);}
 
-    /* =========================
-       SIDE DRAWER
-       ========================= */
+    .addcart:hover{
+      filter:brightness(.98);
+      transform:translateY(-1px);
+    }
+
+    .buybtn{
+      width:100%;
+      height:52px;
+      border-radius:14px;
+      border:1px solid var(--border);
+      background:var(--btn);
+      color:var(--btnText);
+      font-weight:1000;
+      cursor:pointer;
+      transition:.2s ease;
+    }
+
+    .buybtn:hover{
+      transform:translateY(-1px);
+      box-shadow:0 12px 26px rgba(2,6,23,.10);
+    }
+
     .drawer-overlay{
       position:fixed;
       inset:0;
@@ -387,6 +453,7 @@
       z-index:60;
       padding:18px 14px;
     }
+
     html[data-theme="dark"] .drawer{
       background:linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.03));
       backdrop-filter: blur(10px);
@@ -413,15 +480,18 @@
       transition:.2s ease;
       font-weight:900;
     }
+
     .nav a:hover{
       border-color:rgba(31,175,107,.35);
       background:rgba(31,175,107,.10);
     }
+
     .nav a.active{
       background: rgba(31,175,107,.16);
       border-color: rgba(31,175,107,.35);
       color: var(--text);
     }
+
     html[data-theme="dark"] .nav a.active{
       background: rgba(31,175,107,.22);
     }
@@ -454,13 +524,13 @@
       gap:12px;
       justify-content:flex-start;
     }
+
     .logout button:hover{
       transform:translateY(-1px);
       border-color:rgba(229,69,69,.50);
       box-shadow:0 12px 24px rgba(2,6,23,.10);
     }
 
-    /* responsive */
     @media (max-width: 720px){
       .title{font-size:18px}
       .section-title{font-size:34px}
@@ -488,7 +558,6 @@
       </div>
 
       <div class="right">
-        <!-- cart -->
         <button class="iconbtn" id="cartBtn" aria-label="Cart">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
             <path d="M7 6h14l-2 8H8L7 6Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
@@ -498,7 +567,6 @@
           </svg>
         </button>
 
-        <!-- notifications -->
         <button class="iconbtn" id="notifBtn" aria-label="Notifications">
           <span class="badge" id="notifBadge">4</span>
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
@@ -507,7 +575,6 @@
           </svg>
         </button>
 
-        <!-- theme toggle -->
         <button class="iconbtn" id="themeBtn" aria-label="Toggle theme">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
             <path d="M12 18a6 6 0 100-12 6 6 0 000 12Z" stroke="currentColor" stroke-width="2"/>
@@ -519,7 +586,6 @@
   </div>
 
   <div class="container">
-
     <div class="quick-actions">
       <button class="qbtn primary" onclick="toast('Open Delivery Status page')">Check Delivery<br/>Status</button>
       <button class="qbtn" onclick="toast('Download Template...')">Download<br/>Template</button>
@@ -530,7 +596,7 @@
     <p class="section-sub">Select a network and data bundle to get started.</p>
 
     <div class="net-grid">
-      <div class="netbtn mtn" onclick="selectNet('MTN')">
+      <div class="netbtn mtn" onclick="selectNet('MTN', 'mtn')">
         <span>
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
             <path d="M6 18v-3M10 18v-6M14 18v-9M18 18v-12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
@@ -539,7 +605,7 @@
         </span>
       </div>
 
-      <div class="netbtn atl" onclick="selectNet('AIRTELTIGO iShare')">
+      <div class="netbtn atl" onclick="selectNet('AIRTELTIGO ISHARE', 'airteltigo')">
         <span>
           <svg class="phoneIcon" viewBox="0 0 24 24" fill="none">
             <path d="M9 3h6a2 2 0 012 2v14a2 2 0 01-2 2H9a2 2 0 01-2-2V5a2 2 0 012-2Z" stroke="currentColor" stroke-width="2"/>
@@ -549,7 +615,7 @@
         </span>
       </div>
 
-      <div class="netbtn atl" onclick="selectNet('AIRTELTIGO BigTime')">
+      <div class="netbtn atl" onclick="selectNet('AIRTELTIGO BIGTIME', 'airteltigo')">
         <span>
           <svg class="phoneIcon" viewBox="0 0 24 24" fill="none">
             <path d="M9 3h6a2 2 0 012 2v14a2 2 0 01-2 2H9a2 2 0 01-2-2V5a2 2 0 012-2Z" stroke="currentColor" stroke-width="2"/>
@@ -559,7 +625,7 @@
         </span>
       </div>
 
-      <div class="netbtn telecel" onclick="selectNet('TELECEL')">
+      <div class="netbtn telecel" onclick="selectNet('TELECEL', 'telecel')">
         <span>
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
             <path d="M8.5 17.5a6 6 0 017-10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
@@ -571,37 +637,13 @@
       </div>
     </div>
 
-    <div class="product" id="productCard">
-      <div class="pill"><span class="dot" id="netDot"></span> <span id="netPillText">MTN</span></div>
-
-      <div class="product-center">
-        <h4 id="netName">MTN</h4>
-
-        <div style="opacity:.65;margin:10px 0 12px;">
-          <svg width="26" height="26" viewBox="0 0 24 24" fill="none">
-            <path d="M8.5 17.5a6 6 0 017-10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-            <path d="M6 12a10 10 0 0112 0" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-            <path d="M12 20h.01" stroke="currentColor" stroke-width="4" stroke-linecap="round"/>
-          </svg>
-        </div>
-
-        <div class="gb" id="bundle">1 GB</div>
-        <div class="price" id="price">GH₵4.00</div>
-        <div class="muted">One-time payment</div>
-
-        <button class="addcart" onclick="toast('Added to cart')">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-            <path d="M7 6h14l-2 8H8L7 6Z" stroke="white" stroke-width="2" stroke-linejoin="round"/>
-            <path d="M7 6 6 3H3" stroke="white" stroke-width="2" stroke-linecap="round"/>
-          </svg>
-          Add to Cart
-        </button>
+    <div id="offersWrapper" style="margin-top:18px;">
+      <div id="offersContainer" class="offers-grid">
+        <div class="empty-state">Select a network to load available offers.</div>
       </div>
     </div>
-
   </div>
 
-  <!-- Drawer -->
   <div class="drawer-overlay" id="drawerOverlay"></div>
 
   <aside class="drawer" id="drawer">
@@ -609,8 +651,7 @@
       <a class="active" href="#" onclick="return navClick('Dashboard')">
         <span class="ico">
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
-            <path d="M4 10.5 12 4l8 6.5V20a1 1 0 01-1 1h-5v-6H10v6H5a1 1 0 01-1-1v-9.5Z"
-                  stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+            <path d="M4 10.5 12 4l8 6.5V20a1 1 0 01-1 1h-5v-6H10v6H5a1 1 0 01-1-1v-9.5Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
           </svg>
         </span>
         Dashboard
@@ -620,8 +661,7 @@
         <span class="ico">
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
             <path d="M7 7h10M7 12h10M7 17h6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-            <path d="M6 3h12a2 2 0 012 2v14a2 2 0 01-2 2H6a2 2 0 01-2-2V5a2 2 0 012-2Z"
-                  stroke="currentColor" stroke-width="2"/>
+            <path d="M6 3h12a2 2 0 012 2v14a2 2 0 01-2 2H6a2 2 0 01-2-2V5a2 2 0 012-2Z" stroke="currentColor" stroke-width="2"/>
           </svg>
         </span>
         Orders
@@ -641,14 +681,10 @@
       <a href="#" onclick="return navClick('AFA')">
         <span class="ico">
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
-            <path d="M16 11c1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3 1.34 3 3 3Z"
-                  stroke="currentColor" stroke-width="2"/>
-            <path d="M8 11c1.66 0 3-1.34 3-3S9.66 5 8 5 5 6.34 5 8s1.34 3 3 3Z"
-                  stroke="currentColor" stroke-width="2"/>
-            <path d="M8 13c-2.76 0-5 1.79-5 4v2h10v-2c0-2.21-2.24-4-5-4Z"
-                  stroke="currentColor" stroke-width="2"/>
-            <path d="M16 13c-1.1 0-2.12.28-3 .77"
-                  stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            <path d="M16 11c1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3 1.34 3 3 3Z" stroke="currentColor" stroke-width="2"/>
+            <path d="M8 11c1.66 0 3-1.34 3-3S9.66 5 8 5 5 6.34 5 8s1.34 3 3 3Z" stroke="currentColor" stroke-width="2"/>
+            <path d="M8 13c-2.76 0-5 1.79-5 4v2h10v-2c0-2.21-2.24-4-5-4Z" stroke="currentColor" stroke-width="2"/>
+            <path d="M16 13c-1.1 0-2.12.28-3 .77" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
           </svg>
         </span>
         AFA
@@ -664,12 +700,11 @@
         Store
       </a>
 
-      <a href="agent_profile.html" >
+      <a href="agent_profile.html">
         <span class="ico">
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
             <path d="M12 15.5a3.5 3.5 0 110-7 3.5 3.5 0 010 7Z" stroke="currentColor" stroke-width="2"/>
-            <path d="M19.4 15a7.9 7.9 0 00.1-2l2-1.5-2-3.5-2.4 1a8 8 0 00-1.7-1L15 4h-4l-.4 2.9a8 8 0 00-1.7 1L6.5 7 4.5 10.5 6.5 12a7.9 7.9 0 00.1 2l-2 1.5 2 3.5 2.4-1a8 8 0 001.7 1L11 20h4l.4-2.9a8 8 0 001.7-1l2.4 1 2-3.5-2.1-1.6Z"
-                  stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+            <path d="M19.4 15a7.9 7.9 0 00.1-2l2-1.5-2-3.5-2.4 1a8 8 0 00-1.7-1L15 4h-4l-.4 2.9a8 8 0 00-1.7 1L6.5 7 4.5 10.5 6.5 12a7.9 7.9 0 00.1 2l-2 1.5 2 3.5 2.4-1a8 8 0 001.7 1L11 20h4l.4-2.9a8 8 0 001.7-1l2.4 1 2-3.5-2.1-1.6Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
           </svg>
         </span>
         Settings
@@ -713,19 +748,29 @@
   </aside>
 
   <script>
-    // Drawer open/close
+    const API_BASE =
+      location.hostname === "localhost"
+        ? "http://localhost:8080"
+        : "https://edatagh.com/edatagh-backend";
+
     const drawer = document.getElementById('drawer');
     const overlay = document.getElementById('drawerOverlay');
     const menuBtn = document.getElementById('menuBtn');
 
-    function openDrawer(){ overlay.style.display = 'block'; drawer.classList.add('open'); }
-    function closeDrawer(){ overlay.style.display = 'none'; drawer.classList.remove('open'); }
+    function openDrawer(){
+      overlay.style.display = 'block';
+      drawer.classList.add('open');
+    }
+
+    function closeDrawer(){
+      overlay.style.display = 'none';
+      drawer.classList.remove('open');
+    }
 
     menuBtn.addEventListener('click', openDrawer);
     overlay.addEventListener('click', closeDrawer);
     window.addEventListener('keydown', (e)=>{ if(e.key === 'Escape') closeDrawer(); });
 
-    // Theme toggle (Light <-> Dark)
     document.getElementById('themeBtn').addEventListener('click', ()=>{
       const html = document.documentElement;
       const current = html.getAttribute('data-theme') || 'light';
@@ -735,7 +780,6 @@
       toast(next === 'dark' ? 'Dark theme' : 'Light theme');
     });
 
-    // Load saved theme
     (function(){
       const saved = localStorage.getItem('edata_theme');
       if(saved === 'light' || saved === 'dark'){
@@ -743,24 +787,127 @@
       }
     })();
 
-    // Cart & notifications
     document.getElementById('cartBtn').addEventListener('click', ()=>toast('Open Cart'));
     document.getElementById('notifBtn').addEventListener('click', ()=>toast('Notifications opened'));
 
-    // Network selection
-    function selectNet(name){
-      document.getElementById('netPillText').textContent = name;
-      document.getElementById('netName').textContent = name;
+    async function selectNet(displayName, networkValue){
+      const offersContainer = document.getElementById('offersContainer');
+      offersContainer.innerHTML = `<div class="loading-state">Loading ${displayName} offers...</div>`;
 
-      const dot = document.getElementById('netDot');
-      if(name.includes('MTN')) dot.style.background = getComputedStyle(document.documentElement).getPropertyValue('--mtn');
-      else if(name.includes('TELECEL')) dot.style.background = getComputedStyle(document.documentElement).getPropertyValue('--telecel');
-      else dot.style.background = getComputedStyle(document.documentElement).getPropertyValue('--atl');
+      try {
+        const res = await fetch(`${API_BASE}/api/admin-prices?network=${encodeURIComponent(networkValue)}`);
+        const result = await res.json();
 
-      toast('Selected: ' + name);
+        if (!res.ok || !result.success) {
+          offersContainer.innerHTML = `
+            <div class="empty-state">
+              ${result.message || 'Failed to load offers.'}
+            </div>
+          `;
+          return;
+        }
+
+        const offers = result.data || [];
+
+        if (offers.length === 0) {
+          offersContainer.innerHTML = `
+            <div class="empty-state">
+              No active offers found for ${displayName}.
+            </div>
+          `;
+          return;
+        }
+
+        offersContainer.innerHTML = offers.map(item => createOfferCard(item, displayName)).join('');
+        toast(`${displayName} offers loaded`);
+      } catch (error) {
+        console.error('Error loading offers:', error);
+        offersContainer.innerHTML = `
+          <div class="empty-state">
+            Something went wrong while loading offers.
+          </div>
+        `;
+      }
     }
 
-    function navClick(page){ toast(page + ' clicked'); closeDrawer(); return false; }
+    function createOfferCard(item, displayName){
+      const networkName = (item.network || displayName || '').toUpperCase();
+      const price = Number(item.price || 0).toFixed(2);
+      const packageName = item.package_name || 'N/A';
+      const dotColor = getDotColor(networkName);
+
+      return `
+        <div class="product">
+          <div class="pill">
+            <span class="dot" style="background:${dotColor}; box-shadow:0 0 0 4px ${hexToRgba(dotColor, 0.12)};"></span>
+            <span>${networkName}</span>
+          </div>
+
+          <div class="product-center">
+            <h4>${networkName}</h4>
+
+            <div style="opacity:.65;margin:10px 0 12px;">
+              <svg width="26" height="26" viewBox="0 0 24 24" fill="none">
+                <path d="M8.5 17.5a6 6 0 017-10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                <path d="M6 12a10 10 0 0112 0" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                <path d="M12 20h.01" stroke="currentColor" stroke-width="4" stroke-linecap="round"/>
+              </svg>
+            </div>
+
+            <div class="gb">${packageName}</div>
+            <div class="price">GH₵${price}</div>
+            <div class="muted">One-time payment</div>
+
+            <div class="product-actions">
+              <button class="addcart" onclick='addToCartOffer(${Number(item.id)}, ${JSON.stringify(packageName)}, ${JSON.stringify(networkName)}, ${Number(item.price)})'>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                  <path d="M7 6h14l-2 8H8L7 6Z" stroke="white" stroke-width="2" stroke-linejoin="round"/>
+                  <path d="M7 6 6 3H3" stroke="white" stroke-width="2" stroke-linecap="round"/>
+                </svg>
+                Add to Cart
+              </button>
+
+              <button class="buybtn" onclick='purchaseFromMomo(${Number(item.id)}, ${JSON.stringify(packageName)}, ${JSON.stringify(networkName)}, ${Number(item.price)})'>
+                Purchase from MoMo
+              </button>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    function addToCartOffer(id, packageName, networkName, price){
+      console.log("Add to cart:", { id, packageName, networkName, price });
+      toast(`${packageName} added to cart`);
+    }
+
+    function purchaseFromMomo(id, packageName, networkName, price){
+      console.log("Purchase from momo:", { id, packageName, networkName, price });
+      toast(`Purchase ${packageName} for GH₵${Number(price).toFixed(2)}`);
+    }
+
+    function getDotColor(networkName){
+      if (networkName.includes('MTN')) return '#F5B400';
+      if (networkName.includes('TELECEL')) return '#E54545';
+      return '#3B82F6';
+    }
+
+    function hexToRgba(hex, alpha){
+      if (!hex) return `rgba(0,0,0,${alpha})`;
+      let c = hex.replace('#', '');
+      if (c.length === 3) c = c.split('').map(x => x + x).join('');
+      const num = parseInt(c, 16);
+      const r = (num >> 16) & 255;
+      const g = (num >> 8) & 255;
+      const b = num & 255;
+      return `rgba(${r},${g},${b},${alpha})`;
+    }
+
+    function navClick(page){
+      toast(page + ' clicked');
+      closeDrawer();
+      return false;
+    }
 
     function logoutConfirm(){
       const ok = confirm("Do you want to logout?");
@@ -769,7 +916,6 @@
       setTimeout(()=>{ window.location.href = "login.html"; }, 1200);
     }
 
-    // Toast
     let toastTimer;
     function toast(msg){
       let el = document.getElementById('toast');
