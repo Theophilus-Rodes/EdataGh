@@ -1174,6 +1174,34 @@ function detectMomoNetwork(msisdn) {
   return "";
 }
 
+async function sendTheTellerDepositPrompt({ phone, network, amount, transaction_id }) {
+  const msisdn = formatMsisdnForTheTeller(phone);
+  const rSwitch = getSwitchCode(network) || detectMomoNetwork(msisdn);
+
+  if (!rSwitch) {
+    throw new Error("Invalid network");
+  }
+
+  const payload = {
+    merchant_id: THETELLER.merchantId,
+    transaction_id,
+    processing_code: "000200",
+    amount: thetellerAmount12(amount),
+    desc: "Wallet Deposit",
+    subscriber_number: msisdn,
+    "r-switch": rSwitch
+  };
+
+  const response = await axios.post(THETELLER.endpoint, payload, {
+    headers: {
+      Authorization: `Basic ${THETELLER.basicToken}`,
+      "Content-Type": "application/json"
+    }
+  });
+
+  return response.data;
+}
+
 // ===============================
 // PENDING STORE (MEMORY)
 // ===============================
@@ -1941,7 +1969,7 @@ app.post("/api/wallet/deposit", async (req, res) => {
       }
 
       try {
-        const tellerResponse = await YOUR_EXISTING_THETELLER_FUNCTION({
+  const tellerResponse = await sendTheTellerDepositPrompt({
           phone,
           network,
           amount,
