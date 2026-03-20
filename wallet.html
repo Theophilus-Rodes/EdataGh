@@ -1,0 +1,888 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>EDATA Agent Wallet</title>
+
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+  <style>
+    :root{
+      --primary:#1FAF6B;
+      --primary-soft:#E9F9F1;
+      --bg:#F8FAF9;
+      --panel:#FFFFFF;
+      --card:#FFFFFF;
+      --text:#0F172A;
+      --muted:#64748B;
+      --border:#E5E7EB;
+      --shadow:0 18px 40px rgba(2,6,23,.10);
+      --btn:#F3F4F6;
+      --btnText:#0F172A;
+      --danger:#EF4444;
+      --warning:#F59E0B;
+      --info:#3B82F6;
+    }
+
+    html[data-theme="dark"]{
+      --bg:#0B1220;
+      --panel:#0F172A;
+      --card:#111827;
+      --text:#E5E7EB;
+      --muted:#9CA3AF;
+      --border:rgba(255,255,255,.12);
+      --shadow:0 20px 50px rgba(0,0,0,.35);
+      --btn:#1F2937;
+      --btnText:#E5E7EB;
+    }
+
+    *{
+      box-sizing:border-box;
+      font-family:Inter,system-ui,Segoe UI,Roboto,Arial;
+    }
+
+    body{
+      margin:0;
+      background:
+        radial-gradient(900px 450px at 20% 10%, rgba(31,175,107,.16), transparent 62%),
+        radial-gradient(900px 520px at 85% 20%, rgba(31,175,107,.10), transparent 65%),
+        var(--bg);
+      color:var(--text);
+    }
+
+    .topbar{
+      position:sticky;
+      top:0;
+      z-index:30;
+      background:rgba(255,255,255,.78);
+      border-bottom:1px solid var(--border);
+      backdrop-filter:blur(10px);
+    }
+
+    html[data-theme="dark"] .topbar{
+      background:rgba(15,23,42,.72);
+    }
+
+    .topbar-inner{
+      max-width:1100px;
+      margin:0 auto;
+      padding:16px;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+    }
+
+    .left{
+      display:flex;
+      align-items:center;
+      gap:14px;
+    }
+
+    .hamburger{
+      width:42px;
+      height:42px;
+      border-radius:14px;
+      border:1px solid var(--border);
+      background:rgba(31,175,107,.10);
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      cursor:pointer;
+      color:var(--text);
+    }
+
+    .title{
+      line-height:1.05;
+      font-weight:1000;
+      font-size:20px;
+    }
+
+    .title small{
+      display:block;
+      font-size:20px;
+      font-weight:1000;
+    }
+
+    .right{
+      display:flex;
+      gap:12px;
+      align-items:center;
+    }
+
+    .iconbtn{
+      width:44px;
+      height:44px;
+      border-radius:14px;
+      border:1px solid var(--border);
+      background:#fff;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      cursor:pointer;
+      color:var(--text);
+    }
+
+    html[data-theme="dark"] .iconbtn{
+      background:rgba(255,255,255,.06);
+    }
+
+    .container{
+      max-width:1100px;
+      margin:0 auto;
+      padding:24px 16px 80px;
+    }
+
+    .hero{
+      background:linear-gradient(135deg, rgba(31,175,107,.18), rgba(31,175,107,.04));
+      border:1px solid var(--border);
+      border-radius:24px;
+      padding:24px;
+      box-shadow:var(--shadow);
+      margin-bottom:20px;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:18px;
+      flex-wrap:wrap;
+    }
+
+    .hero h1{
+      margin:0 0 8px;
+      font-size:38px;
+      font-weight:1000;
+      letter-spacing:.3px;
+    }
+
+    .hero p{
+      margin:0;
+      color:var(--muted);
+      font-size:15px;
+      line-height:1.7;
+      max-width:650px;
+    }
+
+    .deposit-btn{
+      height:52px;
+      padding:0 22px;
+      border:none;
+      border-radius:16px;
+      background:var(--primary);
+      color:#fff;
+      font-weight:900;
+      cursor:pointer;
+      box-shadow:0 14px 28px rgba(31,175,107,.20);
+      white-space:nowrap;
+    }
+
+    .cards{
+      display:grid;
+      grid-template-columns:repeat(3, minmax(0,1fr));
+      gap:18px;
+      margin-top:18px;
+    }
+
+    .card{
+      background:var(--card);
+      border:1px solid var(--border);
+      border-radius:22px;
+      padding:22px;
+      box-shadow:var(--shadow);
+      position:relative;
+      overflow:hidden;
+    }
+
+    .card::before{
+      content:"";
+      position:absolute;
+      top:0;
+      left:0;
+      width:100%;
+      height:5px;
+    }
+
+    .card.balance::before{ background:var(--primary); }
+    .card.sales::before{ background:var(--info); }
+    .card.overdraft::before{ background:var(--warning); }
+
+    .icon-wrap{
+      width:56px;
+      height:56px;
+      border-radius:18px;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      margin-bottom:16px;
+    }
+
+    .balance .icon-wrap{ background:rgba(31,175,107,.14); color:var(--primary); }
+    .sales .icon-wrap{ background:rgba(59,130,246,.14); color:var(--info); }
+    .overdraft .icon-wrap{ background:rgba(245,158,11,.14); color:var(--warning); }
+
+    .label{
+      color:var(--muted);
+      font-size:14px;
+      font-weight:700;
+      margin-bottom:8px;
+    }
+
+    .amount{
+      font-size:38px;
+      font-weight:1000;
+      line-height:1.1;
+      margin-bottom:8px;
+    }
+
+    .sub{
+      color:var(--muted);
+      font-size:13px;
+      line-height:1.6;
+    }
+
+    .quick-actions{
+      margin-top:24px;
+      display:grid;
+      grid-template-columns:repeat(2, minmax(0,1fr));
+      gap:18px;
+    }
+
+    .action-card{
+      background:var(--panel);
+      border:1px solid var(--border);
+      border-radius:20px;
+      padding:20px;
+      box-shadow:var(--shadow);
+    }
+
+    .action-card h3{
+      margin:0 0 8px;
+      font-size:22px;
+      font-weight:900;
+    }
+
+    .action-card p{
+      margin:0 0 16px;
+      color:var(--muted);
+      line-height:1.7;
+      font-size:14px;
+    }
+
+    .action-btn{
+      height:48px;
+      padding:0 18px;
+      border-radius:14px;
+      border:none;
+      background:var(--primary);
+      color:#fff;
+      font-weight:900;
+      cursor:pointer;
+    }
+
+    .action-btn.secondary{
+      background:var(--btn);
+      color:var(--btnText);
+      border:1px solid var(--border);
+    }
+
+    .drawer-overlay{
+      position:fixed;
+      inset:0;
+      background:rgba(2,6,23,.45);
+      display:none;
+      z-index:50;
+    }
+
+    .drawer{
+      position:fixed;
+      top:0;
+      left:0;
+      height:100%;
+      width:min(320px, 86vw);
+      background:#fff;
+      border-right:1px solid var(--border);
+      transform:translateX(-105%);
+      transition:.25s ease;
+      z-index:60;
+      padding:18px 14px;
+    }
+
+    html[data-theme="dark"] .drawer{
+      background:linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.03));
+      backdrop-filter:blur(10px);
+    }
+
+    .drawer.open{
+      transform:translateX(0);
+    }
+
+    .nav{
+      margin-top:10px;
+      display:flex;
+      flex-direction:column;
+      gap:8px;
+    }
+
+    .nav a{
+      text-decoration:none;
+      color:var(--text);
+      display:flex;
+      align-items:center;
+      gap:12px;
+      padding:12px;
+      border-radius:14px;
+      border:1px solid transparent;
+      transition:.2s ease;
+      font-weight:900;
+    }
+
+    .nav a:hover,
+    .nav a.active{
+      border-color:rgba(31,175,107,.35);
+      background:rgba(31,175,107,.10);
+    }
+
+    .divider{
+      height:1px;
+      background:var(--border);
+      margin:18px 6px;
+    }
+
+    .logout button{
+      width:100%;
+      padding:12px;
+      border-radius:14px;
+      border:1px solid var(--border);
+      background:rgba(239,68,68,.10);
+      color:var(--text);
+      font-weight:900;
+      cursor:pointer;
+      display:flex;
+      align-items:center;
+      gap:12px;
+    }
+
+    .toast{
+      position:fixed;
+      left:50%;
+      bottom:22px;
+      transform:translateX(-50%);
+      padding:12px 14px;
+      border-radius:14px;
+      border:1px solid var(--border);
+      background:rgba(15,23,42,.88);
+      color:#fff;
+      font-weight:900;
+      z-index:200;
+      opacity:0;
+      pointer-events:none;
+      transition:.2s ease;
+      max-width:92vw;
+      text-align:center;
+    }
+
+    .toast.show{
+      opacity:1;
+    }
+
+    .modal-backdrop{
+      position:fixed;
+      inset:0;
+      background:rgba(2,6,23,.55);
+      display:none;
+      align-items:center;
+      justify-content:center;
+      z-index:300;
+      padding:16px;
+    }
+
+    .modal-backdrop.show{
+      display:flex;
+    }
+
+    .modal{
+      width:100%;
+      max-width:460px;
+      background:var(--panel);
+      border:1px solid var(--border);
+      border-radius:22px;
+      box-shadow:var(--shadow);
+      padding:22px;
+    }
+
+    .modal h3{
+      margin:0 0 8px;
+      font-size:24px;
+      font-weight:1000;
+    }
+
+    .modal p{
+      margin:0 0 18px;
+      color:var(--muted);
+      font-size:14px;
+      line-height:1.6;
+    }
+
+    .field{
+      margin-bottom:14px;
+    }
+
+    .field label{
+      display:block;
+      margin-bottom:6px;
+      font-size:13px;
+      color:var(--muted);
+      font-weight:700;
+    }
+
+    .field input,
+    .field select{
+      width:100%;
+      height:50px;
+      border:1px solid var(--border);
+      background:#fff;
+      color:#111827;
+      border-radius:14px;
+      padding:0 14px;
+      font-size:14px;
+      outline:none;
+    }
+
+    html[data-theme="dark"] .field input,
+    html[data-theme="dark"] .field select{
+      background:rgba(255,255,255,.06);
+      color:#E5E7EB;
+    }
+
+    .modal-actions{
+      display:flex;
+      gap:12px;
+      margin-top:8px;
+    }
+
+    .modal-btn{
+      flex:1;
+      height:48px;
+      border:none;
+      border-radius:14px;
+      font-weight:900;
+      cursor:pointer;
+    }
+
+    .modal-btn.primary{
+      background:var(--primary);
+      color:#fff;
+    }
+
+    .modal-btn.secondary{
+      background:var(--btn);
+      color:var(--btnText);
+      border:1px solid var(--border);
+    }
+
+    .status-box{
+      margin-top:12px;
+      padding:12px 14px;
+      border-radius:14px;
+      background:rgba(31,175,107,.10);
+      color:var(--text);
+      font-size:13px;
+      display:none;
+    }
+
+    .status-box.show{
+      display:block;
+    }
+
+    @media (max-width:900px){
+      .cards,
+      .quick-actions{
+        grid-template-columns:1fr;
+      }
+
+      .hero h1{
+        font-size:32px;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="topbar">
+    <div class="topbar-inner">
+      <div class="left">
+        <button class="hamburger" id="menuBtn" aria-label="Open menu">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+            <path d="M4 6h16M4 12h16M4 18h16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          </svg>
+        </button>
+
+        <div class="title">
+          Agent<br><small>Wallet</small>
+        </div>
+      </div>
+
+      <div class="right">
+        <button class="iconbtn" id="themeBtn" aria-label="Toggle theme">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+            <path d="M12 18a6 6 0 100-12 6 6 0 000 12Z" stroke="currentColor" stroke-width="2"/>
+            <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div class="container">
+    <div class="hero">
+      <div>
+        <h1>My Wallet</h1>
+        <p>
+          View your available balance, sales deposit, and overdraft limit.
+          Use the button on the right to deposit money into your wallet.
+        </p>
+      </div>
+
+      <button class="deposit-btn" onclick="openDepositModal()">
+        Deposit Money
+      </button>
+    </div>
+
+    <div class="cards">
+      <div class="card balance">
+        <div class="icon-wrap">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
+            <path d="M3 7h18a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V7Z" stroke="currentColor" stroke-width="2"/>
+            <path d="M3 7a2 2 0 012-2h14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            <path d="M17 13h2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          </svg>
+        </div>
+        <div class="label">Balance</div>
+        <div class="amount" id="balanceAmount">GH₵0.00</div>
+        <div class="sub">Available amount you can use for transactions.</div>
+      </div>
+
+      <div class="card sales">
+        <div class="icon-wrap">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
+            <path d="M12 3v18M6 8h8a3 3 0 010 6H8a3 3 0 000 6h10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          </svg>
+        </div>
+        <div class="label">Sales Deposit</div>
+        <div class="amount" id="salesAmount">GH₵0.00</div>
+        <div class="sub">Money received from sales and deposits.</div>
+      </div>
+
+      <div class="card overdraft">
+        <div class="icon-wrap">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
+            <path d="M12 8v5l3 3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            <path d="M12 22a10 10 0 110-20 10 10 0 010 20Z" stroke="currentColor" stroke-width="2"/>
+          </svg>
+        </div>
+        <div class="label">Overdraft</div>
+        <div class="amount" id="overdraftAmount">GH₵0.00</div>
+        <div class="sub">Extra approved spending amount available to you.</div>
+      </div>
+    </div>
+
+    <div class="quick-actions">
+      <div class="action-card">
+        <h3>Deposit Funds</h3>
+        <p>Add money to your wallet so you can continue making transactions smoothly.</p>
+        <button class="action-btn" onclick="openDepositModal()">Deposit Money</button>
+      </div>
+
+      <div class="action-card">
+        <h3>Wallet Activity</h3>
+        <p>View your recent wallet transactions, deposits, and other account movements.</p>
+        <button class="action-btn secondary" onclick="toast('Wallet history page coming soon')">View Activity</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="drawer-overlay" id="drawerOverlay"></div>
+
+  <aside class="drawer" id="drawer">
+    <nav class="nav">
+      <a href="agentdashboard.html">Dashboard</a>
+      <a href="#">Orders</a>
+      <a href="wallet.html" class="active">Wallet</a>
+      <a href="#">AFA</a>
+      <a href="#">Store</a>
+      <a href="agent_profile.html">Settings</a>
+      <a href="#">Developer</a>
+      <a href="support.html">Support</a>
+    </nav>
+
+    <div class="divider"></div>
+
+    <div class="logout">
+      <button onclick="logoutConfirm()">Logout</button>
+    </div>
+  </aside>
+
+  <div class="toast" id="toast"></div>
+
+  <!-- Deposit Modal -->
+  <div class="modal-backdrop" id="depositModal">
+    <div class="modal">
+      <h3>Deposit Money</h3>
+      <p>Enter the amount and payment details. You will receive a prompt on your phone to approve the payment.</p>
+
+      <div class="field">
+        <label>Amount (GH₵)</label>
+        <input type="number" id="depositAmount" placeholder="e.g. 50" min="1" step="0.01">
+      </div>
+
+      <div class="field">
+        <label>MoMo Number</label>
+        <input type="tel" id="depositPhone" placeholder="e.g. 0241234567">
+      </div>
+
+      <div class="field">
+        <label>Network</label>
+        <select id="depositNetwork">
+          <option value="mtn">MTN</option>
+          <option value="telecel">Telecel</option>
+          <option value="airteltigo">AirtelTigo</option>
+        </select>
+      </div>
+
+      <div class="status-box" id="depositStatusBox"></div>
+
+      <div class="modal-actions">
+        <button class="modal-btn secondary" onclick="closeDepositModal()">Cancel</button>
+        <button class="modal-btn primary" id="confirmDepositBtn" onclick="submitDeposit()">Continue</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const API_BASE =
+      location.hostname === "localhost"
+        ? "http://localhost:8080"
+        : "https://edatagh.com/edatagh-backend";
+
+    const drawer = document.getElementById('drawer');
+    const overlay = document.getElementById('drawerOverlay');
+    const menuBtn = document.getElementById('menuBtn');
+    const toastEl = document.getElementById('toast');
+
+    const depositModal = document.getElementById('depositModal');
+    const depositAmount = document.getElementById('depositAmount');
+    const depositPhone = document.getElementById('depositPhone');
+    const depositNetwork = document.getElementById('depositNetwork');
+    const depositStatusBox = document.getElementById('depositStatusBox');
+    const confirmDepositBtn = document.getElementById('confirmDepositBtn');
+
+    function openDrawer(){
+      overlay.style.display = 'block';
+      drawer.classList.add('open');
+    }
+
+    function closeDrawer(){
+      overlay.style.display = 'none';
+      drawer.classList.remove('open');
+    }
+
+    menuBtn.addEventListener('click', openDrawer);
+    overlay.addEventListener('click', closeDrawer);
+    window.addEventListener('keydown', (e)=>{
+      if(e.key === 'Escape') {
+        closeDrawer();
+        closeDepositModal();
+      }
+    });
+
+    document.getElementById('themeBtn').addEventListener('click', ()=>{
+      const html = document.documentElement;
+      const current = html.getAttribute('data-theme') || 'light';
+      const next = current === 'dark' ? 'light' : 'dark';
+      html.setAttribute('data-theme', next);
+      localStorage.setItem('edata_theme', next);
+      toast(next === 'dark' ? 'Dark theme' : 'Light theme');
+    });
+
+    (function(){
+      const saved = localStorage.getItem('edata_theme');
+      if(saved === 'light' || saved === 'dark'){
+        document.documentElement.setAttribute('data-theme', saved);
+      }
+    })();
+
+    function toast(message){
+      toastEl.textContent = message;
+      toastEl.classList.add('show');
+      clearTimeout(window.__toastTimer);
+      window.__toastTimer = setTimeout(()=>{
+        toastEl.classList.remove('show');
+      }, 1800);
+    }
+
+    function logoutConfirm(){
+      const ok = confirm("Do you want to logout?");
+      if(!ok) return;
+      window.location.href = "login.html";
+    }
+
+    function openDepositModal(){
+      depositStatusBox.classList.remove('show');
+      depositStatusBox.textContent = '';
+      depositModal.classList.add('show');
+    }
+
+    function closeDepositModal(){
+      depositModal.classList.remove('show');
+      confirmDepositBtn.disabled = false;
+      confirmDepositBtn.textContent = 'Continue';
+    }
+
+    function showDepositStatus(text){
+      depositStatusBox.textContent = text;
+      depositStatusBox.classList.add('show');
+    }
+
+    async function loadWallet(){
+      const userId = localStorage.getItem("user_id");
+
+      if(!userId){
+        toast("User not found. Please login again.");
+        return;
+      }
+
+      try{
+        const res = await fetch(`${API_BASE}/api/wallet/${userId}`);
+
+        if(!res.ok){
+          const txt = await res.text();
+          throw new Error(txt || `HTTP ${res.status}`);
+        }
+
+        const data = await res.json();
+
+        if(!data.ok){
+          throw new Error(data.message || "Failed to load wallet");
+        }
+
+        document.getElementById('balanceAmount').textContent =
+          `GH₵${Number(data.data.balance || 0).toFixed(2)}`;
+
+        document.getElementById('salesAmount').textContent =
+          `GH₵${Number(data.data.sales_deposit || 0).toFixed(2)}`;
+
+        document.getElementById('overdraftAmount').textContent =
+          `GH₵${Number(data.data.overdraft || 0).toFixed(2)}`;
+      }catch(err){
+        console.error("Wallet load error:", err);
+        toast("Failed to load wallet");
+      }
+    }
+
+    async function submitDeposit(){
+      const user_id = localStorage.getItem("user_id");
+      const amount = depositAmount.value.trim();
+      const phone = depositPhone.value.trim();
+      const network = depositNetwork.value;
+
+      if(!user_id){
+        showDepositStatus("User not found. Please login again.");
+        return;
+      }
+
+      if(!amount || Number(amount) <= 0){
+        showDepositStatus("Enter a valid amount.");
+        return;
+      }
+
+      if(!phone){
+        showDepositStatus("Enter your MoMo number.");
+        return;
+      }
+
+      confirmDepositBtn.disabled = true;
+      confirmDepositBtn.textContent = "Processing...";
+
+      try{
+        showDepositStatus("Sending request. Please wait...");
+
+        const res = await fetch(`${API_BASE}/api/wallet/deposit`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ user_id, phone, network, amount })
+        });
+
+        const data = await res.json();
+
+        if(!data.ok){
+          throw new Error(data.message || "Deposit failed");
+        }
+
+        showDepositStatus("Payment request sent. Approve the prompt on your phone.");
+
+        // Poll verification
+        await verifyDeposit(data.transaction_id);
+
+      }catch(err){
+        console.error("Deposit error:", err);
+        showDepositStatus(err.message || "Something went wrong");
+        confirmDepositBtn.disabled = false;
+        confirmDepositBtn.textContent = "Continue";
+      }
+    }
+async function verifyDeposit(transactionId){
+  let attempts = 0;
+  const maxAttempts = 8;
+
+  const timer = setInterval(async () => {
+    attempts++;
+
+    try{
+      const res = await fetch(`${API_BASE}/api/wallet/deposit/complete`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          transaction_id: transactionId,
+          status: "success"
+        })
+      });
+
+      const data = await res.json();
+
+      if(data.ok){
+        clearInterval(timer);
+        showDepositStatus("Deposit successful. Wallet updated.");
+        toast("Deposit successful");
+        await loadWallet();
+
+        setTimeout(() => {
+          closeDepositModal();
+          depositAmount.value = "";
+          depositPhone.value = "";
+          depositNetwork.value = "mtn";
+        }, 1500);
+        return;
+      }
+
+      if(attempts >= maxAttempts){
+        clearInterval(timer);
+        showDepositStatus(data.message || "Payment not completed yet.");
+        confirmDepositBtn.disabled = false;
+        confirmDepositBtn.textContent = "Continue";
+      }
+    }catch(err){
+      console.error("Complete error:", err);
+
+      if(attempts >= maxAttempts){
+        clearInterval(timer);
+        showDepositStatus("Could not confirm payment right now. Please check again shortly.");
+        confirmDepositBtn.disabled = false;
+        confirmDepositBtn.textContent = "Continue";
+      }
+    }
+  }, 5000);
+}
+    loadWallet();
+  </script>
+</body>
+</html>
