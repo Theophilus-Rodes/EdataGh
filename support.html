@@ -1,0 +1,491 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>EDATA Agent Support</title>
+
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+  <style>
+    :root{
+      --primary:#1FAF6B;
+      --primary-soft:#E9F9F1;
+      --bg:#F8FAF9;
+      --panel:#FFFFFF;
+      --card:#FFFFFF;
+      --text:#0F172A;
+      --muted:#64748B;
+      --border:#E5E7EB;
+      --shadow:0 18px 40px rgba(2,6,23,.10);
+      --btn:#F3F4F6;
+      --btnText:#0F172A;
+      --danger:#EF4444;
+      --radius:18px;
+    }
+
+    html[data-theme="dark"]{
+      --bg:#0B1220;
+      --panel:#0F172A;
+      --card:#111827;
+      --text:#E5E7EB;
+      --muted:#9CA3AF;
+      --border:rgba(255,255,255,.12);
+      --shadow:0 20px 50px rgba(0,0,0,.35);
+      --btn:#1F2937;
+      --btnText:#E5E7EB;
+    }
+
+    *{
+      box-sizing:border-box;
+      font-family:Inter,system-ui,Segoe UI,Roboto,Arial;
+    }
+
+    body{
+      margin:0;
+      background:
+        radial-gradient(900px 450px at 20% 10%, rgba(31,175,107,.16), transparent 62%),
+        radial-gradient(900px 520px at 85% 20%, rgba(31,175,107,.10), transparent 65%),
+        var(--bg);
+      color:var(--text);
+    }
+
+    .topbar{
+      position:sticky;
+      top:0;
+      z-index:30;
+      background:rgba(255,255,255,.78);
+      border-bottom:1px solid var(--border);
+      backdrop-filter:blur(10px);
+    }
+
+    html[data-theme="dark"] .topbar{
+      background:rgba(15,23,42,.72);
+    }
+
+    .topbar-inner{
+      max-width:1100px;
+      margin:0 auto;
+      padding:16px;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+    }
+
+    .left{
+      display:flex;
+      align-items:center;
+      gap:14px;
+    }
+
+    .hamburger{
+      width:42px;
+      height:42px;
+      border-radius:14px;
+      border:1px solid var(--border);
+      background:rgba(31,175,107,.10);
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      cursor:pointer;
+      color:var(--text);
+    }
+
+    .title{
+      line-height:1.05;
+      font-weight:1000;
+      font-size:20px;
+    }
+
+    .title small{
+      display:block;
+      font-size:20px;
+      font-weight:1000;
+    }
+
+    .right{
+      display:flex;
+      gap:12px;
+      align-items:center;
+    }
+
+    .iconbtn{
+      width:44px;
+      height:44px;
+      border-radius:14px;
+      border:1px solid var(--border);
+      background:#fff;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      cursor:pointer;
+      color:var(--text);
+    }
+
+    html[data-theme="dark"] .iconbtn{
+      background:rgba(255,255,255,.06);
+    }
+
+    .container{
+      max-width:1100px;
+      margin:0 auto;
+      padding:24px 16px 80px;
+    }
+
+    .hero{
+      background:linear-gradient(135deg, rgba(31,175,107,.12), rgba(31,175,107,.03));
+      border:1px solid var(--border);
+      border-radius:24px;
+      padding:24px;
+      box-shadow:var(--shadow);
+      margin-bottom:20px;
+    }
+
+    .hero h1{
+      margin:0 0 10px;
+      font-size:38px;
+      font-weight:1000;
+      letter-spacing:.3px;
+    }
+
+    .hero p{
+      margin:0;
+      color:var(--muted);
+      font-size:15px;
+      line-height:1.7;
+      max-width:700px;
+    }
+
+    .support-grid{
+      display:grid;
+      grid-template-columns:repeat(auto-fit, minmax(280px, 1fr));
+      gap:18px;
+      margin-top:22px;
+    }
+
+    .card{
+      background:var(--card);
+      border:1px solid var(--border);
+      border-radius:22px;
+      padding:22px;
+      box-shadow:var(--shadow);
+    }
+
+    .icon-wrap{
+      width:58px;
+      height:58px;
+      border-radius:18px;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      margin-bottom:16px;
+      background:rgba(31,175,107,.12);
+      color:var(--primary);
+    }
+
+    .card h3{
+      margin:0 0 8px;
+      font-size:22px;
+      font-weight:900;
+    }
+
+    .card p{
+      margin:0 0 16px;
+      color:var(--muted);
+      font-size:14px;
+      line-height:1.6;
+    }
+
+    .line-box{
+      background:rgba(2,6,23,.03);
+      border:1px solid var(--border);
+      border-radius:14px;
+      padding:14px 16px;
+      font-size:16px;
+      font-weight:800;
+      word-break:break-word;
+      margin-bottom:14px;
+    }
+
+    html[data-theme="dark"] .line-box{
+      background:rgba(255,255,255,.04);
+    }
+
+    .btn{
+      width:100%;
+      height:48px;
+      border:none;
+      border-radius:14px;
+      background:var(--primary);
+      color:#fff;
+      font-weight:900;
+      cursor:pointer;
+      text-decoration:none;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      gap:10px;
+    }
+
+    .btn.secondary{
+      background:var(--btn);
+      color:var(--btnText);
+      border:1px solid var(--border);
+    }
+
+    .note{
+      margin-top:24px;
+      background:var(--panel);
+      border:1px solid var(--border);
+      border-radius:20px;
+      padding:20px;
+      box-shadow:var(--shadow);
+    }
+
+    .note h4{
+      margin:0 0 10px;
+      font-size:18px;
+      font-weight:900;
+    }
+
+    .note p{
+      margin:0;
+      color:var(--muted);
+      line-height:1.7;
+      font-size:14px;
+    }
+
+    .drawer-overlay{
+      position:fixed;
+      inset:0;
+      background:rgba(2,6,23,.45);
+      display:none;
+      z-index:50;
+    }
+
+    .drawer{
+      position:fixed;
+      top:0;
+      left:0;
+      height:100%;
+      width:min(320px, 86vw);
+      background:#fff;
+      border-right:1px solid var(--border);
+      transform:translateX(-105%);
+      transition:.25s ease;
+      z-index:60;
+      padding:18px 14px;
+    }
+
+    html[data-theme="dark"] .drawer{
+      background:linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.03));
+      backdrop-filter:blur(10px);
+    }
+
+    .drawer.open{
+      transform:translateX(0);
+    }
+
+    .nav{
+      margin-top:10px;
+      display:flex;
+      flex-direction:column;
+      gap:8px;
+    }
+
+    .nav a{
+      text-decoration:none;
+      color:var(--text);
+      display:flex;
+      align-items:center;
+      gap:12px;
+      padding:12px;
+      border-radius:14px;
+      border:1px solid transparent;
+      transition:.2s ease;
+      font-weight:900;
+    }
+
+    .nav a:hover,
+    .nav a.active{
+      border-color:rgba(31,175,107,.35);
+      background:rgba(31,175,107,.10);
+    }
+
+    .divider{
+      height:1px;
+      background:var(--border);
+      margin:18px 6px;
+    }
+
+    .logout button{
+      width:100%;
+      padding:12px;
+      border-radius:14px;
+      border:1px solid var(--border);
+      background:rgba(239,68,68,.10);
+      color:var(--text);
+      font-weight:900;
+      cursor:pointer;
+      display:flex;
+      align-items:center;
+      gap:12px;
+    }
+
+    @media (max-width:720px){
+      .hero h1{
+        font-size:30px;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="topbar">
+    <div class="topbar-inner">
+      <div class="left">
+        <button class="hamburger" id="menuBtn" aria-label="Open menu">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+            <path d="M4 6h16M4 12h16M4 18h16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          </svg>
+        </button>
+
+        <div class="title">
+          Agent<br><small>Support</small>
+        </div>
+      </div>
+
+      <div class="right">
+        <button class="iconbtn" id="themeBtn" aria-label="Toggle theme">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+            <path d="M12 18a6 6 0 100-12 6 6 0 000 12Z" stroke="currentColor" stroke-width="2"/>
+            <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div class="container">
+    <div class="hero">
+      <h1>Need Help?</h1>
+      <p>
+        Contact the EDATA support team for assistance with orders, wallet issues, delivery problems,
+        account support, or general questions. Choose the option below that works best for you.
+      </p>
+    </div>
+
+    <div class="support-grid">
+      <div class="card">
+        <div class="icon-wrap">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
+            <path d="M16.5 13.5 15 15a8 8 0 01-6-6l1.5-1.5a1 1 0 00.27-1L10.2 3.8a1 1 0 00-.98-.8H6a1 1 0 00-1 1c0 8.28 6.72 15 15 15a1 1 0 001-1v-3.22a1 1 0 00-.8-.98l-2.7-.57a1 1 0 00-1 .27Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+          </svg>
+        </div>
+        <h3>Call Line</h3>
+        <p>Call our support line directly for urgent help and quick assistance.</p>
+        <div class="line-box">024XXXXXXX</div>
+        <a href="tel:024XXXXXXX" class="btn">Call Now</a>
+      </div>
+
+      <div class="card">
+        <div class="icon-wrap">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
+            <path d="M20 12.5A8.5 8.5 0 115.5 6.2L4 11l4.9-1.3A8.47 8.47 0 0020 12.5Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+          </svg>
+        </div>
+        <h3>WhatsApp Line</h3>
+        <p>Chat with our team on WhatsApp for support, follow-up, and order updates.</p>
+        <div class="line-box">024XXXXXXX</div>
+        <a href="https://wa.me/23324XXXXXXX" target="_blank" class="btn">Chat on WhatsApp</a>
+      </div>
+
+      <div class="card">
+        <div class="icon-wrap">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
+            <path d="M8 12h8M12 8v8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            <path d="M5 4h14a2 2 0 012 2v12a2 2 0 01-2 2H5a2 2 0 01-2-2V6a2 2 0 012-2Z" stroke="currentColor" stroke-width="2"/>
+          </svg>
+        </div>
+        <h3>WhatsApp Group</h3>
+        <p>Join the official WhatsApp group to get updates, announcements, and support.</p>
+        <div class="line-box">https://chat.whatsapp.com/your-group-link</div>
+        <a href="https://chat.whatsapp.com/your-group-link" target="_blank" class="btn secondary">Join Group</a>
+      </div>
+    </div>
+
+    <div class="note">
+      <h4>Support Hours</h4>
+      <p>
+        Our team is available to assist you during working hours. For faster help, send your issue clearly,
+        include your number, and explain the problem in detail when contacting support.
+      </p>
+    </div>
+  </div>
+
+  <div class="drawer-overlay" id="drawerOverlay"></div>
+
+  <aside class="drawer" id="drawer">
+    <nav class="nav">
+      <a href="agentdashboard.html">Dashboard</a>
+      <a href="#">Orders</a>
+      <a href="#">Wallet</a>
+      <a href="#">AFA</a>
+      <a href="#">Store</a>
+      <a href="agent_profile.html">Settings</a>
+      <a href="#">Developer</a>
+      <a href="support.html" class="active">Support</a>
+    </nav>
+
+    <div class="divider"></div>
+
+    <div class="logout">
+      <button onclick="logoutConfirm()">Logout</button>
+    </div>
+  </aside>
+
+  <script>
+    const drawer = document.getElementById('drawer');
+    const overlay = document.getElementById('drawerOverlay');
+    const menuBtn = document.getElementById('menuBtn');
+
+    function openDrawer(){
+      overlay.style.display = 'block';
+      drawer.classList.add('open');
+    }
+
+    function closeDrawer(){
+      overlay.style.display = 'none';
+      drawer.classList.remove('open');
+    }
+
+    menuBtn.addEventListener('click', openDrawer);
+    overlay.addEventListener('click', closeDrawer);
+    window.addEventListener('keydown', (e) => {
+      if(e.key === 'Escape') closeDrawer();
+    });
+
+    document.getElementById('themeBtn').addEventListener('click', () => {
+      const html = document.documentElement;
+      const current = html.getAttribute('data-theme') || 'light';
+      const next = current === 'dark' ? 'light' : 'dark';
+      html.setAttribute('data-theme', next);
+      localStorage.setItem('edata_theme', next);
+    });
+
+    (function(){
+      const saved = localStorage.getItem('edata_theme');
+      if(saved === 'light' || saved === 'dark'){
+        document.documentElement.setAttribute('data-theme', saved);
+      }
+    })();
+
+    function logoutConfirm(){
+      const ok = confirm("Do you want to logout?");
+      if(!ok) return;
+      window.location.href = "login.html";
+    }
+  </script>
+</body>
+</html>
