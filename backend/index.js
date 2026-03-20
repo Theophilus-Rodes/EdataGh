@@ -568,27 +568,36 @@ app.post("/api/admin-prices", (req, res) => {
 // GET ALL ADMIN PRICES
 // GET ALL ADMIN PRICES (ORDERED: MTN → TELECEL → AIRTELTIGO, PRICE ASC)
 app.get("/api/admin-prices", (req, res) => {
-  const sql = `
-    SELECT *
+  const network = (req.query.network || "").trim().toLowerCase();
+
+  let sql = `
+    SELECT id, network, package_name, price, status
     FROM admin_prices
-    ORDER BY
-      CASE LOWER(TRIM(network))
-        WHEN 'mtn' THEN 1
-        WHEN 'telecel' THEN 2
-        WHEN 'airteltigo' THEN 3
-        ELSE 4
-      END,
-      price ASC,
-      id DESC
+    WHERE LOWER(status) = 'active'
   `;
 
-  db.query(sql, (err, rows) => {
+  const params = [];
+
+  if (network) {
+    sql += ` AND LOWER(network) = ?`;
+    params.push(network);
+  }
+
+  sql += ` ORDER BY id DESC`;
+
+  db.query(sql, params, (err, results) => {
     if (err) {
-      console.error("admin-prices error:", err);
-      return res.status(500).json({ ok: false, message: "DB error" });
+      console.error("Error fetching admin prices:", err);
+      return res.status(500).json({
+        ok: false,
+        message: "Database error"
+      });
     }
 
-    res.json({ ok: true, rows: rows || [] });
+    res.json({
+      ok: true,
+      rows: results
+    });
   });
 });
 
