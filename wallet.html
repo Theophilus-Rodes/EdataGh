@@ -744,7 +744,7 @@
     }
 
     async function loadWallet(){
-      const userId = localStorage.getItem("user_id");
+     const user_id = localStorage.getItem("user_id") || localStorage.getItem("EDATA_AGENT_ID");
 
       if(!userId){
         toast("User not found. Please login again.");

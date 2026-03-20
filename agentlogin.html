@@ -373,10 +373,9 @@
         // ✅ Save session (optional)
      // ✅ Save agent session
 localStorage.setItem("agent", JSON.stringify(out.agent || {}));
-
-// OPTIONAL: also store id directly (cleaner access)
 localStorage.setItem("EDATA_AGENT_ID", out.agent.id);
-
+localStorage.setItem("user_id", out.agent.id);
+localStorage.setItem("agent_phone", out.agent.phone || phone);
 // OPTIONAL: store name
 //localStorage.setItem("EDATA_AGENT_NAME", out.agent.name);
 
