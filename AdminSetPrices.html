@@ -154,66 +154,76 @@
     msg.style.color = isError ? "#b91c1c" : "#64748b";
   }
 
-  async function loadPrices(){
-    setMsg("Loading prices...");
-    tbody.innerHTML = `<tr><td colspan="6" style="color:#64748b">Loading...</td></tr>`;
-    try{
-      const r = await fetch(`${API_BASE}/api/admin-price`);
-      const data = await r.json();
-      if(!data.ok) throw new Error(data.message || "Failed to load");
 
-      const rows = data.rows || [];
-      if(!rows.length){
-        tbody.innerHTML = `<tr><td colspan="6" style="color:#64748b">No prices yet. Add one above.</td></tr>`;
-        setMsg("No prices found.");
-        return;
-      }
+async function loadPrices(){
+  setMsg("Loading prices...");
+  tbody.innerHTML = `<tr><td colspan="6" style="color:#64748b">Loading...</td></tr>`;
 
-      tbody.innerHTML = rows.map(row => {
-        const st = String(row.status || "active").toLowerCase();
-        const pillClass = st === "active" ? "active" : "inactive";
-        const nextStatus = st === "active" ? "inactive" : "active";
-        const toggleText = st === "active" ? "Deactivate" : "Activate";
-        const toggleBtnClass = st === "active" ? "btn-danger" : "btn";
+  try{
+    const r = await fetch(`${API_BASE}/api/admin-prices`);
 
-        const safeName = String(row.package_name || "").replaceAll('"','&quot;');
-
-        return `
-          <tr data-id="${row.id}">
-            <td>${row.id}</td>
-            <td>
-              <select class="edit-network" style="padding:10px;border:1px solid var(--line);border-radius:10px">
-                <option value="mtn" ${String(row.network).toLowerCase()==="mtn"?"selected":""}>MTN</option>
-                <option value="telecel" ${String(row.network).toLowerCase()==="telecel"?"selected":""}>Telecel</option>
-                <option value="airteltigo" ${String(row.network).toLowerCase()==="airteltigo"?"selected":""}>AirtelTigo</option>
-              </select>
-            </td>
-            <td>
-              <input class="edit-name" value="${safeName}"
-                style="width:100%;padding:10px;border:1px solid var(--line);border-radius:10px" />
-            </td>
-            <td>
-              <input class="edit-price" type="number" step="0.01" value="${row.price}"
-                style="width:140px;padding:10px;border:1px solid var(--line);border-radius:10px" />
-            </td>
-            <td><span class="pill ${pillClass}">${st.toUpperCase()}</span></td>
-            <td>
-              <div class="row-actions">
-                <button class="btn mini btn-warn" onclick="updateRow(${row.id})">Update</button>
-                <button class="btn mini ${toggleBtnClass}" onclick="toggleStatus(${row.id}, '${nextStatus}')">${toggleText}</button>
-                <button class="btn mini btn-danger" onclick="deleteRow(${row.id})">Delete</button>
-              </div>
-            </td>
-          </tr>
-        `;
-      }).join("");
-
-      setMsg("Prices loaded.");
-    }catch(e){
-      tbody.innerHTML = `<tr><td colspan="6" style="color:#b91c1c">Failed to load prices.</td></tr>`;
-      setMsg(e.message || "Error", true);
+    if(!r.ok){
+      const txt = await r.text();
+      throw new Error(`HTTP ${r.status} - ${txt}`);
     }
+
+    const data = await r.json();
+
+    if(!data.ok) throw new Error(data.message || "Failed to load");
+
+    const rows = data.rows || [];
+    if(!rows.length){
+      tbody.innerHTML = `<tr><td colspan="6" style="color:#64748b">No prices yet. Add one above.</td></tr>`;
+      setMsg("No prices found.");
+      return;
+    }
+
+    tbody.innerHTML = rows.map(row => {
+      const st = String(row.status || "active").toLowerCase();
+      const pillClass = st === "active" ? "active" : "inactive";
+      const nextStatus = st === "active" ? "inactive" : "active";
+      const toggleText = st === "active" ? "Deactivate" : "Activate";
+      const toggleBtnClass = st === "active" ? "btn-danger" : "btn";
+
+      const safeName = String(row.package_name || "").replaceAll('"','&quot;');
+
+      return `
+        <tr data-id="${row.id}">
+          <td>${row.id}</td>
+          <td>
+            <select class="edit-network" style="padding:10px;border:1px solid var(--line);border-radius:10px">
+              <option value="mtn" ${String(row.network).toLowerCase()==="mtn"?"selected":""}>MTN</option>
+              <option value="telecel" ${String(row.network).toLowerCase()==="telecel"?"selected":""}>Telecel</option>
+              <option value="airteltigo" ${String(row.network).toLowerCase()==="airteltigo"?"selected":""}>AirtelTigo</option>
+            </select>
+          </td>
+          <td>
+            <input class="edit-name" value="${safeName}"
+              style="width:100%;padding:10px;border:1px solid var(--line);border-radius:10px" />
+          </td>
+          <td>
+            <input class="edit-price" type="number" step="0.01" value="${row.price}"
+              style="width:140px;padding:10px;border:1px solid var(--line);border-radius:10px" />
+          </td>
+          <td><span class="pill ${pillClass}">${st.toUpperCase()}</span></td>
+          <td>
+            <div class="row-actions">
+              <button class="btn mini btn-warn" onclick="updateRow(${row.id})">Update</button>
+              <button class="btn mini ${toggleBtnClass}" onclick="toggleStatus(${row.id}, '${nextStatus}')">${toggleText}</button>
+              <button class="btn mini btn-danger" onclick="deleteRow(${row.id})">Delete</button>
+            </div>
+          </td>
+        </tr>
+      `;
+    }).join("");
+
+    setMsg("Prices loaded.");
+  }catch(e){
+    tbody.innerHTML = `<tr><td colspan="6" style="color:#b91c1c">Failed to load prices.</td></tr>`;
+    setMsg(e.message || "Error", true);
   }
+}
+
 
   async function addPrice(){
     const network = elNetwork.value;
