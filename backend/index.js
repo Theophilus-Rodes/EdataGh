@@ -1928,9 +1928,9 @@ app.post("/api/wallet/deposit", async (req, res) => {
   const transaction_id = "DEP" + Date.now();
 
   db.query(
-    `INSERT INTO wallet_deposits (user_id, transaction_id, phone, network, amount, status)
-     VALUES (?, ?, ?, ?, ?, 'pending')`,
-    [user_id, transaction_id, phone, network, amount],
+    `INSERT INTO wallet_deposits (user_id, transaction_id, reference, phone, network, amount, status)
+     VALUES (?, ?, ?, ?, ?, ?, 'pending')`,
+    [user_id, transaction_id, transaction_id, phone, network, amount],
     async (insertErr) => {
       if (insertErr) {
         console.error("Insert deposit error:", insertErr);
