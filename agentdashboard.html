@@ -790,45 +790,58 @@
     document.getElementById('cartBtn').addEventListener('click', ()=>toast('Open Cart'));
     document.getElementById('notifBtn').addEventListener('click', ()=>toast('Notifications opened'));
 
-    async function selectNet(displayName, networkValue){
-      const offersContainer = document.getElementById('offersContainer');
-      offersContainer.innerHTML = `<div class="loading-state">Loading ${displayName} offers...</div>`;
+  
 
-      try {
-        const res = await fetch(`${API_BASE}/api/admin-prices?network=${encodeURIComponent(networkValue)}`);
-        const result = await res.json();
 
-        if (!res.ok || !result.success) {
-          offersContainer.innerHTML = `
-            <div class="empty-state">
-              ${result.message || 'Failed to load offers.'}
-            </div>
-          `;
-          return;
-        }
+  async function selectNet(displayName, networkValue){
+    const offersContainer = document.getElementById('offersContainer');
+    offersContainer.innerHTML = `<div class="loading-state">Loading ${displayName} offers...</div>`;
 
-        const offers = result.data || [];
+    try {
+      const res = await fetch(`${API_BASE}/api/admin-prices?network=${encodeURIComponent(networkValue)}`);
 
-        if (offers.length === 0) {
-          offersContainer.innerHTML = `
-            <div class="empty-state">
-              No active offers found for ${displayName}.
-            </div>
-          `;
-          return;
-        }
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(`HTTP ${res.status} - ${text}`);
+      }
 
-        offersContainer.innerHTML = offers.map(item => createOfferCard(item, displayName)).join('');
-        toast(`${displayName} offers loaded`);
-      } catch (error) {
-        console.error('Error loading offers:', error);
+      const result = await res.json();
+
+      // Match your backend response format
+      if (!result.ok) {
         offersContainer.innerHTML = `
           <div class="empty-state">
-            Something went wrong while loading offers.
+            ${result.message || 'Failed to load offers.'}
           </div>
         `;
+        return;
       }
+
+      const offers = result.rows || [];
+
+      if (offers.length === 0) {
+        offersContainer.innerHTML = `
+          <div class="empty-state">
+            No active offers found for ${displayName}.
+          </div>
+        `;
+        return;
+      }
+
+      offersContainer.innerHTML = offers.map(item => createOfferCard(item, displayName)).join('');
+      toast(`${displayName} offers loaded`);
+    } catch (error) {
+      console.error('Error loading offers:', error);
+      offersContainer.innerHTML = `
+        <div class="empty-state">
+          ${error.message || 'Something went wrong while loading offers.'}
+        </div>
+      `;
     }
+  }
+
+
+
 
     function createOfferCard(item, displayName){
       const networkName = (item.network || displayName || '').toUpperCase();
