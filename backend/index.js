@@ -1912,6 +1912,164 @@ app.get("/api/orders/error-count", async (req, res) => {
 
 
 
+
+
+/////// / ///// /////
+app.post("/api/wallet/deposit", async (req, res) => {
+  const { user_id, phone, network, amount } = req.body;
+
+  if (!user_id || !phone || !network || !amount) {
+    return res.status(400).json({
+      ok: false,
+      message: "Missing fields"
+    });
+  }
+
+  const transaction_id = "DEP" + Date.now();
+
+  db.query(
+    `INSERT INTO wallet_deposits (user_id, transaction_id, phone, network, amount, status)
+     VALUES (?, ?, ?, ?, ?, 'pending')`,
+    [user_id, transaction_id, phone, network, amount],
+    async (insertErr) => {
+      if (insertErr) {
+        console.error("Insert deposit error:", insertErr);
+        return res.status(500).json({
+          ok: false,
+          message: "Failed to save deposit"
+        });
+      }
+
+      try {
+        const tellerResponse = await YOUR_EXISTING_THETELLER_FUNCTION({
+          phone,
+          network,
+          amount,
+          transaction_id
+        });
+
+        return res.json({
+          ok: true,
+          message: "Approve payment on your phone",
+          transaction_id,
+          teller: tellerResponse
+        });
+
+      } catch (err) {
+        console.error("Deposit error:", err);
+
+        db.query(
+          `UPDATE wallet_deposits SET status='failed' WHERE transaction_id=?`,
+          [transaction_id]
+        );
+
+        return res.status(500).json({
+          ok: false,
+          message: "Deposit failed"
+        });
+      }
+    }
+  );
+});
+
+
+app.post("/api/wallet/deposit/complete", (req, res) => {
+  const { transaction_id, status } = req.body;
+
+  if (!transaction_id) {
+    return res.status(400).json({
+      ok: false,
+      message: "transaction_id required"
+    });
+  }
+
+  db.query(
+    `SELECT * FROM wallet_deposits WHERE transaction_id = ? LIMIT 1`,
+    [transaction_id],
+    (err, rows) => {
+      if (err || !rows.length) {
+        return res.status(500).json({
+          ok: false,
+          message: "Deposit not found"
+        });
+      }
+
+      const deposit = rows[0];
+
+      if (deposit.status === "success") {
+        return res.json({
+          ok: true,
+          message: "Already completed"
+        });
+      }
+
+      // ✅ SUCCESS CASE
+      if (status === "success") {
+        db.query(
+          `UPDATE wallet_deposits SET status='success' WHERE transaction_id=?`,
+          [transaction_id]
+        );
+
+        db.query(
+          `UPDATE users
+           SET balance = balance + ?, sales_deposit = sales_deposit + ?
+           WHERE id = ?`,
+          [deposit.amount, deposit.amount, deposit.user_id]
+        );
+
+        return res.json({
+          ok: true,
+          message: "Wallet funded successfully"
+        });
+      }
+
+      // ❌ FAILED
+      db.query(
+        `UPDATE wallet_deposits SET status='failed' WHERE transaction_id=?`,
+        [transaction_id]
+      );
+
+      return res.json({
+        ok: false,
+        message: "Deposit failed"
+      });
+    }
+  );
+});
+
+app.get("/api/wallet/:userId", (req, res) => {
+  const userId = req.params.userId;
+
+  db.query(
+    `SELECT balance, sales_deposit, overdraft
+     FROM users
+     WHERE id = ?
+     LIMIT 1`,
+    [userId],
+    (err, rows) => {
+      if (err) {
+        console.error("Wallet fetch error:", err);
+        return res.status(500).json({
+          ok: false,
+          message: "Database error"
+        });
+      }
+
+      if (!rows.length) {
+        return res.status(404).json({
+          ok: false,
+          message: "User not found"
+        });
+      }
+
+      return res.json({
+        ok: true,
+        data: rows[0]
+      });
+    }
+  );
+});
+
 /////////////////////////////////////////////////////////////////////////////////////////////////////////
 // ================================
 // AFA: CREATE DRAFT
