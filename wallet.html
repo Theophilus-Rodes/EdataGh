@@ -743,41 +743,46 @@
       depositStatusBox.classList.add('show');
     }
 
-    async function loadWallet(){
-     const user_id = localStorage.getItem("user_id") || localStorage.getItem("EDATA_AGENT_ID");
+   async function loadWallet(){
+  const agentId = localStorage.getItem("user_id") || localStorage.getItem("EDATA_AGENT_ID");
 
-      if(!userId){
-        toast("User not found. Please login again.");
-        return;
-      }
+  if(!agentId){
+    toast("Agent not found. Please login again.");
+    return;
+  }
 
-      try{
-        const res = await fetch(`${API_BASE}/api/wallet/${userId}`);
+  try{
+    const res = await fetch(`${API_BASE}/api/wallet/${agentId}`);
 
-        if(!res.ok){
-          const txt = await res.text();
-          throw new Error(txt || `HTTP ${res.status}`);
-        }
+    const text = await res.text();
+    let data;
 
-        const data = await res.json();
-
-        if(!data.ok){
-          throw new Error(data.message || "Failed to load wallet");
-        }
-
-        document.getElementById('balanceAmount').textContent =
-          `GH₵${Number(data.data.balance || 0).toFixed(2)}`;
-
-        document.getElementById('salesAmount').textContent =
-          `GH₵${Number(data.data.sales_deposit || 0).toFixed(2)}`;
-
-        document.getElementById('overdraftAmount').textContent =
-          `GH₵${Number(data.data.overdraft || 0).toFixed(2)}`;
-      }catch(err){
-        console.error("Wallet load error:", err);
-        toast("Failed to load wallet");
-      }
+    try {
+      data = JSON.parse(text);
+    } catch {
+      throw new Error(text || `HTTP ${res.status}`);
     }
+
+    console.log("Wallet response:", data);
+
+    if(!res.ok || !data.ok){
+      throw new Error(data.message || "Failed to load wallet");
+    }
+
+    document.getElementById('balanceAmount').textContent =
+      `GH₵${Number(data.data.balance || 0).toFixed(2)}`;
+
+    document.getElementById('salesAmount').textContent =
+      `GH₵${Number(data.data.sales_deposit || 0).toFixed(2)}`;
+
+    document.getElementById('overdraftAmount').textContent =
+      `GH₵${Number(data.data.overdraft || 0).toFixed(2)}`;
+
+  }catch(err){
+    console.error("Wallet load error:", err);
+    toast(err.message || "Failed to load wallet");
+  }
+}
 
     async function submitDeposit(){
       const user_id = localStorage.getItem("user_id");
