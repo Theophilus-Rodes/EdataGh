@@ -2001,6 +2001,7 @@ app.post("/api/wallet/deposit", async (req, res) => {
 });
 
 
+
 app.post("/api/wallet/deposit/complete", (req, res) => {
   const { transaction_id, status } = req.body;
 
@@ -2015,8 +2016,16 @@ app.post("/api/wallet/deposit/complete", (req, res) => {
     `SELECT * FROM wallet_deposits WHERE transaction_id = ? LIMIT 1`,
     [transaction_id],
     (err, rows) => {
-      if (err || !rows.length) {
+      if (err) {
+        console.error("Select deposit error:", err);
         return res.status(500).json({
+          ok: false,
+          message: "Database error"
+        });
+      }
+
+      if (!rows.length) {
+        return res.status(404).json({
           ok: false,
           message: "Deposit not found"
         });
@@ -2031,49 +2040,78 @@ app.post("/api/wallet/deposit/complete", (req, res) => {
         });
       }
 
-      // ✅ SUCCESS CASE
-      if (status === "success") {
+      if (status !== "success") {
         db.query(
-          `UPDATE wallet_deposits SET status='success' WHERE transaction_id=?`,
-          [transaction_id]
-        );
+          `UPDATE wallet_deposits SET status = 'failed' WHERE transaction_id = ?`,
+          [transaction_id],
+          (failErr) => {
+            if (failErr) console.error("Failed-status update error:", failErr);
 
-        db.query(
-          `UPDATE users
-           SET balance = balance + ?, sales_deposit = sales_deposit + ?
-           WHERE id = ?`,
-          [deposit.amount, deposit.amount, deposit.user_id]
+            return res.json({
+              ok: false,
+              message: "Deposit failed"
+            });
+          }
         );
-
-        return res.json({
-          ok: true,
-          message: "Wallet funded successfully"
-        });
+        return;
       }
 
-      // ❌ FAILED
       db.query(
-        `UPDATE wallet_deposits SET status='failed' WHERE transaction_id=?`,
-        [transaction_id]
-      );
+        `UPDATE wallet_deposits SET status = 'success' WHERE transaction_id = ?`,
+        [transaction_id],
+        (updDepositErr) => {
+          if (updDepositErr) {
+            console.error("Update deposit success error:", updDepositErr);
+            return res.status(500).json({
+              ok: false,
+              message: "Failed to update deposit status"
+            });
+          }
 
-      return res.json({
-        ok: false,
-        message: "Deposit failed"
-      });
+          db.query(
+            `UPDATE agents
+             SET balance = balance + ?, sales_deposit = sales_deposit + ?
+             WHERE id = ?`,
+            [deposit.amount, deposit.amount, deposit.user_id],
+            (updAgentErr, updAgentResult) => {
+              if (updAgentErr) {
+                console.error("Update agent balance error:", updAgentErr);
+                return res.status(500).json({
+                  ok: false,
+                  message: "Failed to update agent wallet balance"
+                });
+              }
+
+              if (updAgentResult.affectedRows === 0) {
+                return res.status(404).json({
+                  ok: false,
+                  message: "Agent not found for wallet update"
+                });
+              }
+
+              return res.json({
+                ok: true,
+                message: "Wallet funded successfully"
+              });
+            }
+          );
+        }
+      );
     }
   );
 });
 
-app.get("/api/wallet/:userId", (req, res) => {
-  const userId = req.params.userId;
+
+
+app.get("/api/wallet/:agentId", (req, res) => {
+  const agentId = req.params.agentId;
 
   db.query(
     `SELECT balance, sales_deposit, overdraft
-     FROM users
+     FROM agents
      WHERE id = ?
      LIMIT 1`,
-    [userId],
+    [agentId],
     (err, rows) => {
       if (err) {
         console.error("Wallet fetch error:", err);
@@ -2086,7 +2124,7 @@ app.get("/api/wallet/:userId", (req, res) => {
       if (!rows.length) {
         return res.status(404).json({
           ok: false,
-          message: "User not found"
+          message: "Agent not found"
         });
       }
 
