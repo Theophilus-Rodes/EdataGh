@@ -2136,6 +2136,113 @@ app.get("/api/wallet/:agentId", (req, res) => {
   );
 });
 
+
+
+
+
+////////ADMIN
+app.get("/api/admin/agents", (req, res) => {
+  const sql = `
+    SELECT 
+      id,
+      first_name,
+      last_name,
+      phone,
+      email,
+      gender,
+      address,
+      status,
+      created_at,
+      balance,
+      sales_deposit
+    FROM agents
+    ORDER BY id DESC
+  `;
+
+  db.query(sql, (err, results) => {
+    if (err) {
+      console.error("Error fetching agents:", err);
+      return res.status(500).json({
+        success: false,
+        message: "Database error while fetching agents"
+      });
+    }
+
+    res.json({
+      success: true,
+      data: results
+    });
+  });
+});
+
+
+
+app.delete("/api/admin/agents/:id", (req, res) => {
+  const agentId = req.params.id;
+
+  const sql = `DELETE FROM agents WHERE id = ?`;
+
+  db.query(sql, [agentId], (err, result) => {
+    if (err) {
+      console.error("Error deleting agent:", err);
+      return res.status(500).json({
+        success: false,
+        message: "Database error while deleting agent"
+      });
+    }
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "Agent not found"
+      });
+    }
+
+    res.json({
+      success: true,
+      message: "Agent deleted successfully"
+    });
+  });
+});
+
+
+
+app.put("/api/admin/agents/:id/status", (req, res) => {
+  const agentId = req.params.id;
+  const { status } = req.body;
+
+  if (!["active", "inactive"].includes(String(status).toLowerCase())) {
+    return res.status(400).json({
+      success: false,
+      message: "Invalid status. Use 'active' or 'inactive'"
+    });
+  }
+
+  const sql = `UPDATE agents SET status = ? WHERE id = ?`;
+
+  db.query(sql, [status.toLowerCase(), agentId], (err, result) => {
+    if (err) {
+      console.error("Error updating agent status:", err);
+      return res.status(500).json({
+        success: false,
+        message: "Database error while updating status"
+      });
+    }
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "Agent not found"
+      });
+    }
+
+    res.json({
+      success: true,
+      message: `Agent ${status.toLowerCase() === "active" ? "activated" : "deactivated"} successfully`
+    });
+  });
+});
+
 /////////////////////////////////////////////////////////////////////////////////////////////////////////
 // ================================
 // AFA: CREATE DRAFT
