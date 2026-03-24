@@ -555,34 +555,53 @@
           throw new Error("The uploaded file is empty.");
         }
 
-        parsedBulkRows = [];
+        
+parsedBulkRows = [];
 
-        for (let i = 0; i < rawRows.length; i++) {
-          const row = rawRows[i] || [];
-          const recipientRaw = row[0];
-          const packageRaw = row[1];
+let startRow = 0;
 
-          const recipient_number = normalizePhone(recipientRaw);
-          const packageToken = normalizePackageToken(packageRaw);
+// Detect header row
+const firstRow = rawRows[0] || [];
+const firstCol = String(firstRow[0] || "").trim().toLowerCase();
+const secondCol = String(firstRow[1] || "").trim().toLowerCase();
 
-          if (!recipient_number && !packageToken) continue;
+const looksLikeHeader =
+  firstCol.includes("recipient") ||
+  firstCol.includes("number") ||
+  secondCol.includes("gb") ||
+  secondCol.includes("package");
 
-          const matchedPackage = findPackageMatch(packageRaw);
+if (looksLikeHeader) {
+  startRow = 1;
+}
 
-          parsedBulkRows.push({
-            line: i + 1,
-            recipient_number,
-            raw_package: packageRaw,
-            normalized_package: packageToken,
-            matched: !!matchedPackage,
-            package_id: matchedPackage ? matchedPackage.id : null,
-            package_name: matchedPackage ? matchedPackage.package_name : null,
-            network: matchedPackage ? matchedPackage.network : null,
-            amount: matchedPackage ? Number(matchedPackage.price || 0) : 0,
-            quantity: 1,
-            total: matchedPackage ? Number(matchedPackage.price || 0) : 0
-          });
-        }
+for (let i = startRow; i < rawRows.length; i++) {
+  const row = rawRows[i] || [];
+  const recipientRaw = row[0];
+  const packageRaw = row[1];
+
+  const recipient_number = normalizePhone(recipientRaw);
+  const packageToken = normalizePackageToken(packageRaw);
+
+  if (!recipient_number && !packageToken) continue;
+
+  const matchedPackage = findPackageMatch(packageRaw);
+
+  parsedBulkRows.push({
+    line: i + 1,
+    recipient_number,
+    raw_package: packageRaw,
+    normalized_package: packageToken,
+    matched: !!matchedPackage,
+    package_id: matchedPackage ? matchedPackage.id : null,
+    package_name: matchedPackage ? matchedPackage.package_name : null,
+    network: matchedPackage ? matchedPackage.network : null,
+    amount: matchedPackage ? Number(matchedPackage.price || 0) : 0,
+    quantity: 1,
+    total: matchedPackage ? Number(matchedPackage.price || 0) : 0
+  });
+}
+
 
         renderPreviewRows();
         document.getElementById("uploadStatus").textContent = `Preview ready. ${parsedBulkRows.length} row(s) found.`;
