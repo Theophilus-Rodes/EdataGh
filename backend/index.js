@@ -2706,6 +2706,190 @@ app.get("/api/agent-orders/:agent_id", (req, res) => {
   });
 });
 
+
+
+
+///// notification 
+app.post("/api/notifications", (req, res) => {
+  const { title, message, type, status } = req.body;
+
+  if (!title || !message) {
+    return res.status(400).json({
+      success: false,
+      message: "Title and message are required"
+    });
+  }
+
+  const sql = `
+    INSERT INTO notifications (title, message, type, status)
+    VALUES (?, ?, ?, ?)
+  `;
+
+  db.query(
+    sql,
+    [
+      title.trim(),
+      message.trim(),
+      (type || "notification").trim(),
+      (status || "active").trim()
+    ],
+    (err, result) => {
+      if (err) {
+        console.error("Error creating notification:", err);
+        return res.status(500).json({
+          success: false,
+          message: "Database error while creating notification"
+        });
+      }
+
+      res.json({
+        success: true,
+        message: "Notification created successfully",
+        id: result.insertId
+      });
+    }
+  );
+});
+
+
+
+
+app.get("/api/notifications", (req, res) => {
+  const sql = `
+    SELECT id, title, message, type, status, created_at, updated_at
+    FROM notifications
+    ORDER BY id DESC
+  `;
+
+  db.query(sql, (err, results) => {
+    if (err) {
+      console.error("Error fetching notifications:", err);
+      return res.status(500).json({
+        success: false,
+        message: "Database error while fetching notifications"
+      });
+    }
+
+    res.json({
+      success: true,
+      data: results
+    });
+  });
+});
+
+
+app.get("/api/notifications/:id", (req, res) => {
+  const { id } = req.params;
+
+  const sql = `
+    SELECT id, title, message, type, status, created_at, updated_at
+    FROM notifications
+    WHERE id = ?
+    LIMIT 1
+  `;
+
+  db.query(sql, [id], (err, results) => {
+    if (err) {
+      console.error("Error fetching notification:", err);
+      return res.status(500).json({
+        success: false,
+        message: "Database error while fetching notification"
+      });
+    }
+
+    if (results.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "Notification not found"
+      });
+    }
+
+    res.json({
+      success: true,
+      data: results[0]
+    });
+  });
+});
+
+
+
+app.put("/api/notifications/:id", (req, res) => {
+  const { id } = req.params;
+  const { title, message, type, status } = req.body;
+
+  if (!title || !message) {
+    return res.status(400).json({
+      success: false,
+      message: "Title and message are required"
+    });
+  }
+
+  const sql = `
+    UPDATE notifications
+    SET title = ?, message = ?, type = ?, status = ?
+    WHERE id = ?
+  `;
+
+  db.query(
+    sql,
+    [
+      title.trim(),
+      message.trim(),
+      (type || "notification").trim(),
+      (status || "active").trim(),
+      id
+    ],
+    (err, result) => {
+      if (err) {
+        console.error("Error updating notification:", err);
+        return res.status(500).json({
+          success: false,
+          message: "Database error while updating notification"
+        });
+      }
+
+      if (result.affectedRows === 0) {
+        return res.status(404).json({
+          success: false,
+          message: "Notification not found"
+        });
+      }
+
+      res.json({
+        success: true,
+        message: "Notification updated successfully"
+      });
+    }
+  );
+});
+
+app.delete("/api/notifications/:id", (req, res) => {
+  const { id } = req.params;
+
+  const sql = `DELETE FROM notifications WHERE id = ?`;
+
+  db.query(sql, [id], (err, result) => {
+    if (err) {
+      console.error("Error deleting notification:", err);
+      return res.status(500).json({
+        success: false,
+        message: "Database error while deleting notification"
+      });
+    }
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "Notification not found"
+      });
+    }
+
+    res.json({
+      success: true,
+      message: "Notification deleted successfully"
+    });
+  });
+});
 /////////////////////////////////////////////////////////////////////////////////////////////////////////
 // ================================
 // AFA: CREATE DRAFT
