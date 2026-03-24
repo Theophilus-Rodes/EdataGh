@@ -2448,6 +2448,211 @@ app.post("/api/cart/buy-from-account", (req, res) => {
   });
 });
 
+
+
+
+///// cart payment 
+app.post("/api/cart/buy-with-momo", async (req, res) => {
+  const { agent_id, momo_number, otp_session_id } = req.body;
+
+  if (!agent_id || !momo_number) {
+    return res.json({ ok: false, message: "agent_id and momo_number are required." });
+  }
+
+  try {
+    // 1. Verify OTP
+    const otpCheck = await isOtpVerifiedNow(momo_number, otp_session_id);
+    if (!otpCheck.ok) {
+      return res.json({ ok: false, message: "OTP not verified. Please verify OTP first." });
+    }
+
+    // 2. Consume OTP so it cannot be reused
+    try {
+      const conn = await db.promise().getConnection();
+      try {
+        await conn.beginTransaction();
+
+        const [sessRows] = await conn.query(
+          `SELECT session_id, consumed_at, verified_until
+           FROM momo_otp_sessions
+           WHERE session_id=?
+           FOR UPDATE`,
+          [otpCheck.session_id]
+        );
+
+        if (!sessRows.length) {
+          await conn.rollback();
+          conn.release();
+          return res.json({ ok: false, message: "OTP session not found. Please verify again." });
+        }
+
+        const sess = sessRows[0];
+        if (!sess.verified_until || new Date(sess.verified_until).getTime() <= Date.now()) {
+          await conn.rollback();
+          conn.release();
+          return res.json({ ok: false, message: "OTP session expired. Please verify again." });
+        }
+
+        if (sess.consumed_at) {
+          await conn.rollback();
+          conn.release();
+          return res.json({ ok: false, message: "OTP already used. Please request a new OTP." });
+        }
+
+        await conn.query(
+          `UPDATE momo_otp_sessions SET consumed_at=NOW() WHERE session_id=?`,
+          [otpCheck.session_id]
+        );
+
+        await conn.commit();
+        conn.release();
+      } catch (e) {
+        await conn.rollback();
+        conn.release();
+        console.error("OTP consume tx error:", e.message);
+        return res.status(500).json({ ok: false, message: "Could not start payment." });
+      }
+    } catch (e) {
+      console.error("OTP consume error:", e.message);
+      return res.status(500).json({ ok: false, message: "Could not start payment." });
+    }
+
+    // 3. Load cart rows
+    const [cartRows] = await db.promise().query(
+      `SELECT id, agent_id, package_id, network, package_name, amount, quantity, total, recipient_number
+       FROM cart
+       WHERE agent_id = ? AND status = 'active'
+       ORDER BY id ASC`,
+      [agent_id]
+    );
+
+    if (!cartRows.length) {
+      return res.json({ ok: false, message: "Your cart is empty." });
+    }
+
+    // 4. Sum total
+    const grandTotal = cartRows.reduce((sum, item) => sum + Number(item.total || 0), 0);
+
+    const payerNet = detectMomoNetwork(momo_number);
+    const rSwitch = getSwitchCode(payerNet);
+    if (!rSwitch) {
+      return res.json({ ok: false, message: "Unsupported payer network." });
+    }
+
+    const transactionId = makeTransactionId();
+
+    // 5. Insert all cart rows into orders as pending first
+    const orderValues = cartRows.map(item => ([
+      transactionId,
+      Number(agent_id),
+      String(item.network || "").toLowerCase(),
+      Number(item.package_id),
+      String(item.package_name || ""),
+      Number(item.amount || 0),
+      String(item.recipient_number || ""),
+      String(momo_number),
+      "pending"
+    ]));
+
+    await db.promise().query(
+      `INSERT INTO orders
+       (transaction_id, vendor_id, network, package_id, package_name, amount, recipient_number, momo_number, status)
+       VALUES ?`,
+      [orderValues]
+    );
+
+    // 6. TheTeller prompt for total amount
+    const payload = {
+      amount: thetellerAmount12(grandTotal),
+      processing_code: "000200",
+      transaction_id: transactionId,
+      desc: `EDATA Cart Payment - ${cartRows.length} item(s)`,
+      merchant_id: THETELLER.merchantId,
+      subscriber_number: formatMsisdnForTheTeller(momo_number),
+      "r-switch": rSwitch,
+      redirect_url: process.env.THETELLER_REDIRECT_URL || "https://edatagh.com/payment-callback",
+    };
+
+    const tt = await axios.post(THETELLER.endpoint, payload, {
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Basic ${THETELLER.basicToken}`,
+        "Cache-Control": "no-cache",
+      },
+      timeout: 30000,
+    });
+
+    if (!isInitAccepted(tt.data)) {
+      await db.promise().query(
+        `UPDATE orders
+         SET status='failed', raw_status=?
+         WHERE transaction_id=? AND status='pending'`,
+        [JSON.stringify(tt.data), transactionId]
+      );
+
+      return res.json({ ok: false, message: "Payment prompt not accepted.", theteller: tt.data });
+    }
+
+    await db.promise().query(
+      `UPDATE orders
+       SET raw_status=?
+       WHERE transaction_id=? AND status='pending'`,
+      [JSON.stringify(tt.data), transactionId]
+    );
+
+    return res.json({
+      ok: true,
+      message: "✅ Prompt sent. Please approve on your phone.",
+      transaction_id: transactionId,
+      total_amount: grandTotal,
+      item_count: cartRows.length
+    });
+
+  } catch (err) {
+    console.error("❌ Cart MoMo INIT error:", err.response?.data || err.message);
+    return res.status(500).json({ ok: false, message: "Payment could not be initiated." });
+  }
+});
+
+
+
+app.post("/api/cart/clear-after-momo-success", async (req, res) => {
+  const { agent_id, transaction_id } = req.body;
+
+  if (!agent_id || !transaction_id) {
+    return res.json({ ok: false, message: "agent_id and transaction_id are required." });
+  }
+
+  try {
+    const [rows] = await db.promise().query(
+      `SELECT id
+       FROM orders
+       WHERE transaction_id = ?
+         AND vendor_id = ?
+         AND status = 'approved'
+       LIMIT 1`,
+      [transaction_id, agent_id]
+    );
+
+    if (!rows.length) {
+      return res.json({ ok: false, message: "Payment not yet approved." });
+    }
+
+    await db.promise().query(
+      `DELETE FROM cart WHERE agent_id = ?`,
+      [agent_id]
+    );
+
+    return res.json({
+      ok: true,
+      message: "Cart cleared after successful payment."
+    });
+  } catch (err) {
+    console.error("Clear cart after momo success error:", err.message);
+    return res.status(500).json({ ok: false, message: "Failed to clear cart." });
+  }
+});
+
 /////////////////////////////////////////////////////////////////////////////////////////////////////////
 // ================================
 // AFA: CREATE DRAFT
