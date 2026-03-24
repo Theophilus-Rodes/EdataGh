@@ -2152,15 +2152,15 @@ app.post("/api/cart/add", (req, res) => {
   }
 
   const qty = parseInt(quantity) || 1;
-  const itemPrice = parseFloat(price);
-  const total = itemPrice * qty;
+  const amount = parseFloat(price);
+  const total = amount * qty;
 
   const sql = `
-    INSERT INTO cart (agent_id, package_id, network, package_name, price, quantity, total)
+    INSERT INTO cart (agent_id, package_id, network, package_name, amount, quantity, total)
     VALUES (?, ?, ?, ?, ?, ?, ?)
   `;
 
-  db.query(sql, [agent_id, package_id, network, package_name, itemPrice, qty, total], (err, result) => {
+  db.query(sql, [agent_id, package_id, network, package_name, amount, qty, total], (err, result) => {
     if (err) {
       console.error("Cart insert error:", err);
       return res.status(500).json({
@@ -2176,7 +2176,6 @@ app.post("/api/cart/add", (req, res) => {
     });
   });
 });
-
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////
 // ================================
