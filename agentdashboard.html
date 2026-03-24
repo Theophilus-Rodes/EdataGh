@@ -977,10 +977,258 @@ async function confirmAddToCart(){
 }
 
 
-    function purchaseFromMomo(id, packageName, networkName, price){
-      console.log("Purchase from momo:", { id, packageName, networkName, price });
-      toast(`Purchase ${packageName} for GH₵${Number(price).toFixed(2)}`);
+   let momoPurchaseItem = null;
+let momoOtpSessionId = null;
+let momoVerified = false;
+let momoStatusPollTimer = null;
+
+function purchaseFromMomo(id, packageName, networkName, price){
+  if (!agentId) {
+    toast("Agent not logged in");
+    return;
+  }
+
+  momoPurchaseItem = {
+    package_id: Number(id),
+    package_name: packageName,
+    network: networkName,
+    price: Number(price)
+  };
+
+  momoOtpSessionId = null;
+  momoVerified = false;
+
+  document.getElementById("momoPkgName").textContent = packageName;
+  document.getElementById("momoPkgNetwork").textContent = networkName;
+  document.getElementById("momoPkgPrice").textContent = `GH₵${Number(price).toFixed(2)}`;
+
+  document.getElementById("recipientNumberInput").value = "";
+  document.getElementById("momoNumberInput").value = "";
+  document.getElementById("otpInput").value = "";
+  document.getElementById("otpArea").style.display = "none";
+
+  document.getElementById("verifyOtpBtn").disabled = true;
+  document.getElementById("verifyOtpBtn").style.background = "#cbd5e1";
+
+  const payBtn = document.getElementById("confirmMomoPaymentBtn");
+  payBtn.disabled = true;
+  payBtn.style.opacity = ".55";
+
+  document.getElementById("momoStatusText").textContent = "";
+  document.getElementById("momoPurchaseModal").style.display = "flex";
+}
+
+function closeMomoPurchaseModal(){
+  document.getElementById("momoPurchaseModal").style.display = "none";
+  momoPurchaseItem = null;
+  momoOtpSessionId = null;
+  momoVerified = false;
+
+  if (momoStatusPollTimer) {
+    clearInterval(momoStatusPollTimer);
+    momoStatusPollTimer = null;
+  }
+}
+
+async function sendMomoOtp(){
+  try {
+    const momo_number = document.getElementById("momoNumberInput").value.trim();
+
+    if (!momo_number) {
+      toast("Enter MoMo number");
+      return;
     }
+
+    document.getElementById("momoStatusText").textContent = "Sending OTP...";
+
+    const res = await fetch(`${API_BASE}/api/send-momo-otp`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ momo_number })
+    });
+
+    const result = await res.json();
+
+    if (!res.ok || !result.ok) {
+      throw new Error(result.message || "Failed to send OTP");
+    }
+
+    momoOtpSessionId = result.session_id;
+    document.getElementById("otpArea").style.display = "block";
+    document.getElementById("verifyOtpBtn").disabled = false;
+    document.getElementById("verifyOtpBtn").style.background = "#0f172a";
+    document.getElementById("momoStatusText").textContent = "OTP sent successfully. Enter the code to verify.";
+    toast("OTP sent successfully");
+  } catch (error) {
+    console.error("Send OTP error:", error);
+    document.getElementById("momoStatusText").textContent = error.message || "Failed to send OTP";
+    toast(error.message || "Failed to send OTP");
+  }
+}
+
+async function verifyMomoOtp(){
+  try {
+    const momo_number = document.getElementById("momoNumberInput").value.trim();
+    const otp = document.getElementById("otpInput").value.trim();
+
+    if (!momo_number) {
+      toast("Enter MoMo number");
+      return;
+    }
+
+    if (!otp) {
+      toast("Enter OTP");
+      return;
+    }
+
+    document.getElementById("momoStatusText").textContent = "Verifying OTP...";
+
+    const res = await fetch(`${API_BASE}/api/verify-momo-otp`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        momo_number,
+        otp,
+        session_id: momoOtpSessionId
+      })
+    });
+
+    const result = await res.json();
+
+    if (!res.ok || !result.ok) {
+      throw new Error(result.message || "OTP verification failed");
+    }
+
+    momoVerified = true;
+    momoOtpSessionId = result.session_id || momoOtpSessionId;
+
+    const payBtn = document.getElementById("confirmMomoPaymentBtn");
+    payBtn.disabled = false;
+    payBtn.style.opacity = "1";
+
+    document.getElementById("momoStatusText").textContent = "OTP verified. You can now continue payment.";
+    toast("OTP verified successfully");
+  } catch (error) {
+    console.error("Verify OTP error:", error);
+    document.getElementById("momoStatusText").textContent = error.message || "OTP verification failed";
+    toast(error.message || "OTP verification failed");
+  }
+}
+
+async function confirmMomoPayment(){
+  try {
+    if (!momoPurchaseItem) {
+      toast("No package selected");
+      return;
+    }
+
+    if (!momoVerified) {
+      toast("Please verify OTP first");
+      return;
+    }
+
+    const recipient_number = document.getElementById("recipientNumberInput").value.trim();
+    const momo_number = document.getElementById("momoNumberInput").value.trim();
+
+    if (!recipient_number) {
+      toast("Enter receiver's number");
+      return;
+    }
+
+    if (!momo_number) {
+      toast("Enter MoMo number");
+      return;
+    }
+
+    document.getElementById("momoStatusText").textContent = "Sending payment prompt to your phone...";
+
+    const payload = {
+      package_id: momoPurchaseItem.package_id,
+      momo_number,
+      recipient_number,
+      vendor_id: Number(agentId || 1),
+      otp_session_id: momoOtpSessionId
+    };
+
+    const res = await fetch(`${API_BASE}/api/buy-data-theteller`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(payload)
+    });
+
+    const result = await res.json();
+
+    if (!res.ok || !result.ok) {
+      throw new Error(result.message || "Payment could not be initiated");
+    }
+
+    document.getElementById("momoStatusText").textContent = "Prompt sent. Please approve on your phone.";
+    toast("Prompt sent. Approve on your phone.");
+
+    if (result.transaction_id) {
+      startMomoStatusPolling(result.transaction_id);
+    }
+  } catch (error) {
+    console.error("Confirm payment error:", error);
+    document.getElementById("momoStatusText").textContent = error.message || "Payment failed";
+    toast(error.message || "Payment failed");
+  }
+}
+
+function startMomoStatusPolling(transactionId){
+  if (momoStatusPollTimer) {
+    clearInterval(momoStatusPollTimer);
+  }
+
+  let tries = 0;
+  const maxTries = 30;
+
+  momoStatusPollTimer = setInterval(async () => {
+    tries++;
+
+    try {
+      const res = await fetch(`${API_BASE}/api/theteller-status?transaction_id=${encodeURIComponent(transactionId)}`);
+      const result = await res.json();
+
+      if (!res.ok || !result.ok) {
+        return;
+      }
+
+      if (result.status === "approved") {
+        clearInterval(momoStatusPollTimer);
+        momoStatusPollTimer = null;
+        document.getElementById("momoStatusText").textContent = "Payment successful.";
+        toast("Payment successful");
+        setTimeout(() => {
+          closeMomoPurchaseModal();
+        }, 1200);
+        return;
+      }
+
+      if (result.status === "failed") {
+        clearInterval(momoStatusPollTimer);
+        momoStatusPollTimer = null;
+        document.getElementById("momoStatusText").textContent = "Payment failed or was cancelled.";
+        toast("Payment failed");
+        return;
+      }
+
+      if (tries >= maxTries) {
+        clearInterval(momoStatusPollTimer);
+        momoStatusPollTimer = null;
+        document.getElementById("momoStatusText").textContent = "Still pending. Please check again shortly.";
+      }
+    } catch (error) {
+      console.error("Status polling error:", error);
+    }
+  }, 5000);
+}
 
     function openCartModal(){
   document.getElementById("cartModal").style.display = "flex";
@@ -1129,6 +1377,64 @@ async function loadCartItems(){
       <button onclick="confirmAddToCart()" style="height:50px; border-radius:14px; border:none; background:var(--primary); color:#fff; font-weight:1000; cursor:pointer; box-shadow:0 14px 28px rgba(31,175,107,.20);">
         Confirm
       </button>
+    </div>
+  </div>
+</div>
+
+
+
+
+<!-- MOMO PURCHASE MODAL -->
+<div id="momoPurchaseModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,.45); z-index:150; align-items:center; justify-content:center; padding:16px;">
+  <div style="width:min(460px, 100%); background:var(--panel); border:1px solid var(--border); border-radius:22px; box-shadow:var(--shadow); padding:22px; max-height:90vh; overflow:auto;">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
+      <h3 style="margin:0; font-size:22px; font-weight:1000;">Purchase from MoMo</h3>
+      <button onclick="closeMomoPurchaseModal()" style="border:none; background:#ef4444; color:#fff; width:36px; height:36px; border-radius:10px; cursor:pointer; font-weight:bold;">×</button>
+    </div>
+
+    <div style="border:1px solid var(--border); border-radius:16px; padding:14px; background:var(--card); margin-bottom:14px;">
+      <div style="font-size:18px; font-weight:1000; margin-bottom:8px;" id="momoPkgName">-</div>
+      <div style="color:var(--muted); margin-bottom:6px;">Network: <span id="momoPkgNetwork">-</span></div>
+      <div style="color:var(--muted);">Amount: <span id="momoPkgPrice">GH₵0.00</span></div>
+    </div>
+
+    <div style="display:grid; gap:12px;">
+      <div>
+        <label style="display:block; font-weight:800; margin-bottom:6px;">Receiver's Number</label>
+        <input id="recipientNumberInput" type="tel" placeholder="024XXXXXXX"
+          style="width:100%; height:50px; border:1px solid var(--border); border-radius:14px; padding:0 14px; outline:none; background:var(--card); color:var(--text);" />
+      </div>
+
+      <div>
+        <label style="display:block; font-weight:800; margin-bottom:6px;">MoMo Number</label>
+        <input id="momoNumberInput" type="tel" placeholder="024XXXXXXX"
+          style="width:100%; height:50px; border:1px solid var(--border); border-radius:14px; padding:0 14px; outline:none; background:var(--card); color:var(--text);" />
+      </div>
+
+      <div id="otpArea" style="display:none;">
+        <label style="display:block; font-weight:800; margin-bottom:6px;">Enter OTP</label>
+        <input id="otpInput" type="text" placeholder="Enter OTP"
+          style="width:100%; height:50px; border:1px solid var(--border); border-radius:14px; padding:0 14px; outline:none; background:var(--card); color:var(--text);" />
+      </div>
+
+      <div id="momoActionButtons" style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+        <button id="sendOtpBtn" onclick="sendMomoOtp()"
+          style="height:50px; border:none; border-radius:14px; background:#0f172a; color:#fff; font-weight:1000; cursor:pointer;">
+          Send OTP
+        </button>
+
+        <button id="verifyOtpBtn" onclick="verifyMomoOtp()" disabled
+          style="height:50px; border:none; border-radius:14px; background:#cbd5e1; color:#0f172a; font-weight:1000; cursor:pointer;">
+          Verify OTP
+        </button>
+      </div>
+
+      <button id="confirmMomoPaymentBtn" onclick="confirmMomoPayment()" disabled
+        style="height:52px; border:none; border-radius:14px; background:var(--primary); color:#fff; font-weight:1000; cursor:pointer; opacity:.55;">
+        Confirm & Pay
+      </button>
+
+      <div id="momoStatusText" style="font-size:14px; color:var(--muted); text-align:center;"></div>
     </div>
   </div>
 </div>
