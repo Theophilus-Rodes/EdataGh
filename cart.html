@@ -375,6 +375,9 @@
     </div>
   </div>
 
+
+  
+
   <script>
     const API_BASE =
       location.hostname === "localhost"
@@ -499,15 +502,55 @@
       }
     }
 
-    function buyFromAccount(){
-      if (!currentCartRows.length) {
-        alert("Your cart is empty.");
-        return;
-      }
+   function buyFromAccount(){
+  if (!currentCartRows.length) {
+    showNiceMessage("Your cart is empty.", false);
+    return;
+  }
 
-      const total = currentCartRows.reduce((sum, item) => sum + Number(item.total || 0), 0);
-      alert(`Proceed to buy all cart items from account. Total: GH₵${total.toFixed(2)}`);
+  const total = currentCartRows.reduce((sum, item) => sum + Number(item.total || 0), 0);
+
+  document.getElementById("confirmAccountItemCount").textContent = currentCartRows.length;
+  document.getElementById("confirmAccountTotal").textContent = `GH₵${total.toFixed(2)}`;
+  document.getElementById("accountConfirmModal").style.display = "flex";
+}
+
+function closeAccountConfirmModal(){
+  document.getElementById("accountConfirmModal").style.display = "none";
+}
+
+async function confirmBuyFromAccount(){
+  try {
+    if (!agentId) {
+      showNiceMessage("Agent not logged in.", false);
+      return;
     }
+
+    const res = await fetch(`${API_BASE}/api/cart/buy-from-account`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        agent_id: Number(agentId)
+      })
+    });
+
+    const result = await res.json();
+
+    if (!res.ok || !result.ok) {
+      throw new Error(result.message || "Payment failed");
+    }
+
+    closeAccountConfirmModal();
+    showNiceMessage(`Payment successful. Balance left: GH₵${Number(result.balance_left || 0).toFixed(2)}`, true);
+    loadCartItems();
+  } catch (error) {
+    console.error("Buy from account error:", error);
+    closeAccountConfirmModal();
+    showNiceMessage(error.message || "Payment failed", false);
+  }
+}
 
     function buyWithMomo(){
       if (!currentCartRows.length) {
@@ -519,7 +562,74 @@
       alert(`Proceed to pay with MoMo. Total: GH₵${total.toFixed(2)}`);
     }
 
+
+
+    function showNiceMessage(message, success = true){
+  let box = document.getElementById("niceMessageBox");
+
+  if (!box) {
+    box = document.createElement("div");
+    box.id = "niceMessageBox";
+    box.style.position = "fixed";
+    box.style.left = "50%";
+    box.style.bottom = "24px";
+    box.style.transform = "translateX(-50%)";
+    box.style.padding = "14px 18px";
+    box.style.borderRadius = "16px";
+    box.style.fontWeight = "900";
+    box.style.zIndex = "200";
+    box.style.boxShadow = "0 12px 30px rgba(0,0,0,.18)";
+    box.style.maxWidth = "90vw";
+    box.style.textAlign = "center";
+    document.body.appendChild(box);
+  }
+
+  box.textContent = message;
+  box.style.background = success ? "#1FAF6B" : "#EF4444";
+  box.style.color = "#fff";
+  box.style.display = "block";
+
+  clearTimeout(window.__niceMsgTimer);
+  window.__niceMsgTimer = setTimeout(() => {
+    box.style.display = "none";
+  }, 3000);
+}
+
     loadCartItems();
   </script>
+
+
+<div id="accountConfirmModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,.45); z-index:150; align-items:center; justify-content:center; padding:16px;">
+  <div style="width:min(420px, 100%); background:#fff; border:1px solid #e2e8f0; border-radius:22px; box-shadow:0 18px 40px rgba(15,23,42,.12); padding:22px;">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+      <h3 style="margin:0; font-size:22px; font-weight:900;">Confirm Payment</h3>
+      <button onclick="closeAccountConfirmModal()" style="border:none; background:#ef4444; color:#fff; width:36px; height:36px; border-radius:10px; cursor:pointer; font-weight:bold;">×</button>
+    </div>
+
+    <p style="margin:0 0 10px; color:#475569; line-height:1.6;">
+      Are you sure you want to proceed with this payment from your account balance?
+    </p>
+
+    <div style="border:1px solid #e2e8f0; border-radius:16px; padding:14px; background:#f8fafc; margin-bottom:16px;">
+      <div style="display:flex; justify-content:space-between; margin-bottom:8px;">
+        <span style="color:#64748b;">Items</span>
+        <strong id="confirmAccountItemCount">0</strong>
+      </div>
+      <div style="display:flex; justify-content:space-between;">
+        <span style="color:#64748b;">Total Amount</span>
+        <strong id="confirmAccountTotal" style="color:#1FAF6B;">GH₵0.00</strong>
+      </div>
+    </div>
+
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+      <button onclick="closeAccountConfirmModal()" style="height:50px; border-radius:14px; border:1px solid #e2e8f0; background:#f1f5f9; color:#0f172a; font-weight:900; cursor:pointer;">
+        Cancel
+      </button>
+      <button onclick="confirmBuyFromAccount()" style="height:50px; border:none; border-radius:14px; background:#1FAF6B; color:#fff; font-weight:900; cursor:pointer;">
+        Yes, Proceed
+      </button>
+    </div>
+  </div>
+</div>
 </body>
 </html>
