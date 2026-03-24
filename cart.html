@@ -1,0 +1,523 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>EDATA Cart</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+
+  <style>
+    :root{
+      --primary:#1FAF6B;
+      --primary-dark:#169457;
+      --bg:#F4F8F5;
+      --panel:#FFFFFF;
+      --card:#FFFFFF;
+      --text:#0F172A;
+      --muted:#64748B;
+      --border:#E2E8F0;
+      --danger:#EF4444;
+      --shadow:0 18px 40px rgba(15,23,42,.08);
+      --btn:#F8FAFC;
+      --btnText:#0F172A;
+    }
+
+    *{box-sizing:border-box}
+    body{
+      margin:0;
+      font-family:'Inter',sans-serif;
+      background:var(--bg);
+      color:var(--text);
+    }
+
+    .topbar{
+      position:sticky;
+      top:0;
+      z-index:50;
+      background:rgba(255,255,255,.92);
+      backdrop-filter:blur(10px);
+      border-bottom:1px solid var(--border);
+    }
+
+    .topbar-inner{
+      max-width:1100px;
+      margin:0 auto;
+      padding:16px 18px;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:16px;
+    }
+
+    .brand{
+      display:flex;
+      align-items:center;
+      gap:12px;
+    }
+
+    .backbtn{
+      border:none;
+      background:#EAF8F0;
+      color:var(--primary-dark);
+      width:46px;
+      height:46px;
+      border-radius:14px;
+      cursor:pointer;
+      font-size:20px;
+      font-weight:900;
+    }
+
+    .title{
+      font-size:30px;
+      font-weight:900;
+      line-height:1.05;
+      margin:0;
+    }
+
+    .sub{
+      margin:4px 0 0;
+      color:var(--muted);
+      font-size:14px;
+    }
+
+    .container{
+      max-width:1100px;
+      margin:26px auto;
+      padding:0 18px 40px;
+    }
+
+    .grid{
+      display:grid;
+      grid-template-columns:1.5fr .8fr;
+      gap:20px;
+    }
+
+    .panel{
+      background:var(--panel);
+      border:1px solid var(--border);
+      border-radius:24px;
+      box-shadow:var(--shadow);
+      overflow:hidden;
+    }
+
+    .panel-head{
+      padding:20px 22px;
+      border-bottom:1px solid var(--border);
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      gap:10px;
+      flex-wrap:wrap;
+    }
+
+    .panel-head h2{
+      margin:0;
+      font-size:22px;
+      font-weight:900;
+    }
+
+    .badge{
+      background:#ECFDF5;
+      color:var(--primary-dark);
+      border:1px solid #BBF7D0;
+      padding:8px 12px;
+      border-radius:999px;
+      font-weight:800;
+      font-size:13px;
+    }
+
+    .cart-list{
+      padding:18px;
+    }
+
+    .cart-item{
+      border:1px solid var(--border);
+      border-radius:20px;
+      background:var(--card);
+      padding:18px;
+      margin-bottom:14px;
+      display:flex;
+      justify-content:space-between;
+      gap:14px;
+      flex-wrap:wrap;
+    }
+
+    .item-left{
+      flex:1 1 300px;
+    }
+
+    .network-pill{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      padding:7px 12px;
+      border-radius:999px;
+      background:#F8FAFC;
+      border:1px solid var(--border);
+      font-size:13px;
+      font-weight:800;
+      color:#475569;
+      margin-bottom:10px;
+    }
+
+    .dot{
+      width:10px;
+      height:10px;
+      border-radius:50%;
+      display:inline-block;
+    }
+
+    .item-title{
+      font-size:24px;
+      font-weight:900;
+      margin:0 0 8px;
+      color:#0B1830;
+    }
+
+    .item-meta{
+      color:var(--muted);
+      font-size:14px;
+      margin:4px 0;
+    }
+
+    .item-right{
+      min-width:170px;
+      text-align:right;
+      display:flex;
+      flex-direction:column;
+      justify-content:space-between;
+      align-items:flex-end;
+      gap:12px;
+    }
+
+    .item-price{
+      font-size:28px;
+      font-weight:900;
+      color:var(--primary);
+      margin:0;
+    }
+
+    .remove-btn{
+      border:none;
+      background:#FEF2F2;
+      color:var(--danger);
+      border:1px solid #FECACA;
+      height:44px;
+      padding:0 16px;
+      border-radius:14px;
+      font-weight:800;
+      cursor:pointer;
+    }
+
+    .summary{
+      padding:20px;
+    }
+
+    .summary-card{
+      border:1px solid var(--border);
+      border-radius:22px;
+      padding:18px;
+      background:linear-gradient(180deg,#FFFFFF,#F8FAFC);
+    }
+
+    .summary-title{
+      margin:0 0 14px;
+      font-size:20px;
+      font-weight:900;
+    }
+
+    .row{
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      gap:10px;
+      margin:10px 0;
+      font-size:15px;
+      color:var(--muted);
+    }
+
+    .row.total{
+      margin-top:16px;
+      padding-top:16px;
+      border-top:1px solid var(--border);
+      color:var(--text);
+      font-weight:900;
+      font-size:20px;
+    }
+
+    .total-amount{
+      color:var(--primary);
+      font-size:28px;
+      font-weight:900;
+    }
+
+    .actions{
+      display:grid;
+      gap:12px;
+      margin-top:18px;
+    }
+
+    .btn{
+      border:none;
+      height:54px;
+      border-radius:16px;
+      font-size:16px;
+      font-weight:900;
+      cursor:pointer;
+      transition:.2s ease;
+    }
+
+    .btn.primary{
+      background:var(--primary);
+      color:#fff;
+      box-shadow:0 18px 30px rgba(31,175,107,.22);
+    }
+
+    .btn.primary:hover{ background:var(--primary-dark); }
+
+    .btn.secondary{
+      background:#F1F5F9;
+      color:#0F172A;
+      border:1px solid var(--border);
+    }
+
+    .empty-state{
+      padding:40px 20px;
+      text-align:center;
+      color:var(--muted);
+      font-size:15px;
+    }
+
+    .hint{
+      margin-top:14px;
+      color:var(--muted);
+      font-size:13px;
+      line-height:1.6;
+    }
+
+    @media (max-width: 860px){
+      .grid{
+        grid-template-columns:1fr;
+      }
+
+      .item-right{
+        width:100%;
+        min-width:unset;
+        text-align:left;
+        align-items:flex-start;
+      }
+
+      .item-price{
+        font-size:24px;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="topbar">
+    <div class="topbar-inner">
+      <div class="brand">
+        <button class="backbtn" onclick="goBack()">←</button>
+        <div>
+          <h1 class="title">My Cart</h1>
+          <p class="sub">Review your selected data bundles before payment</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="container">
+    <div class="grid">
+      <div class="panel">
+        <div class="panel-head">
+          <h2>Cart Items</h2>
+          <span class="badge" id="cartCountBadge">0 item(s)</span>
+        </div>
+
+        <div class="cart-list" id="cartItemsContainer">
+          <div class="empty-state">Loading cart items...</div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="summary">
+          <div class="summary-card">
+            <h3 class="summary-title">Cart Summary</h3>
+
+            <div class="row">
+              <span>Total Items</span>
+              <strong id="summaryItemCount">0</strong>
+            </div>
+
+            <div class="row">
+              <span>Subtotal</span>
+              <strong id="summarySubtotal">GH₵0.00</strong>
+            </div>
+
+            <div class="row total">
+              <span>Total Amount</span>
+              <span class="total-amount" id="summaryGrandTotal">GH₵0.00</span>
+            </div>
+
+            <div class="actions">
+              <button class="btn primary" onclick="buyFromAccount()">Buy From Account</button>
+              <button class="btn secondary" onclick="buyWithMomo()">Buy With MoMo</button>
+            </div>
+
+            <p class="hint">
+              Buy From Account will use the wallet/account balance.
+              Buy With MoMo will trigger mobile money payment for the total cart amount.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const API_BASE =
+      location.hostname === "localhost"
+        ? "http://localhost:8080"
+        : "https://edatagh.com/edatagh-backend";
+
+    const agentId =
+      localStorage.getItem("agent_id") ||
+      localStorage.getItem("EDATA_AGENT_ID") ||
+      localStorage.getItem("user_id") ||
+      sessionStorage.getItem("agent_id");
+
+    let currentCartRows = [];
+
+    function goBack(){
+      window.location.href = "agentdashboard.html";
+    }
+
+    function getDotColor(networkName){
+      const n = String(networkName || "").toUpperCase();
+      if (n.includes("MTN")) return "#F5B400";
+      if (n.includes("TELECEL")) return "#E54545";
+      return "#3B82F6";
+    }
+
+    async function loadCartItems(){
+      try{
+        if (!agentId) {
+          document.getElementById("cartItemsContainer").innerHTML = `
+            <div class="empty-state">Agent not logged in.</div>
+          `;
+          updateSummary([]);
+          return;
+        }
+
+        const res = await fetch(`${API_BASE}/api/cart/${agentId}`);
+        const result = await res.json();
+
+        if (!res.ok || !result.ok) {
+          throw new Error(result.message || "Failed to load cart");
+        }
+
+        const rows = result.rows || [];
+        currentCartRows = rows;
+
+        if (rows.length === 0) {
+          document.getElementById("cartItemsContainer").innerHTML = `
+            <div class="empty-state">Your cart is empty.</div>
+          `;
+          updateSummary([]);
+          return;
+        }
+
+        document.getElementById("cartItemsContainer").innerHTML = rows.map(item => {
+          const network = String(item.network || "").toUpperCase();
+          const dotColor = getDotColor(network);
+          return `
+            <div class="cart-item">
+              <div class="item-left">
+                <div class="network-pill">
+                  <span class="dot" style="background:${dotColor}"></span>
+                  <span>${network}</span>
+                </div>
+
+                <h3 class="item-title">${item.package_name || "Package"}</h3>
+                <div class="item-meta">Package ID: ${item.package_id}</div>
+                <div class="item-meta">Quantity: ${item.quantity}</div>
+                <div class="item-meta">Amount each: GH₵${Number(item.amount || 0).toFixed(2)}</div>
+              </div>
+
+              <div class="item-right">
+                <p class="item-price">GH₵${Number(item.total || 0).toFixed(2)}</p>
+                <button class="remove-btn" onclick="removeCartItem(${item.id})">Remove</button>
+              </div>
+            </div>
+          `;
+        }).join("");
+
+        updateSummary(rows);
+
+      }catch(error){
+        console.error("Load cart error:", error);
+        document.getElementById("cartItemsContainer").innerHTML = `
+          <div class="empty-state">${error.message || "Failed to load cart."}</div>
+        `;
+        updateSummary([]);
+      }
+    }
+
+    function updateSummary(rows){
+      const count = rows.length;
+      const total = rows.reduce((sum, item) => sum + Number(item.total || 0), 0);
+
+      document.getElementById("cartCountBadge").textContent = `${count} item(s)`;
+      document.getElementById("summaryItemCount").textContent = count;
+      document.getElementById("summarySubtotal").textContent = `GH₵${total.toFixed(2)}`;
+      document.getElementById("summaryGrandTotal").textContent = `GH₵${total.toFixed(2)}`;
+    }
+
+    async function removeCartItem(id){
+      const ok = confirm("Remove this item from cart?");
+      if (!ok) return;
+
+      try{
+        const res = await fetch(`${API_BASE}/api/cart/${id}`, {
+          method: "DELETE"
+        });
+
+        const result = await res.json();
+
+        if (!res.ok || !result.ok) {
+          throw new Error(result.message || "Failed to remove item");
+        }
+
+        alert("Item removed from cart");
+        loadCartItems();
+      }catch(error){
+        console.error("Remove cart error:", error);
+        alert(error.message || "Failed to remove item");
+      }
+    }
+
+    function buyFromAccount(){
+      if (!currentCartRows.length) {
+        alert("Your cart is empty.");
+        return;
+      }
+
+      const total = currentCartRows.reduce((sum, item) => sum + Number(item.total || 0), 0);
+      alert(`Proceed to buy all cart items from account. Total: GH₵${total.toFixed(2)}`);
+    }
+
+    function buyWithMomo(){
+      if (!currentCartRows.length) {
+        alert("Your cart is empty.");
+        return;
+      }
+
+      const total = currentCartRows.reduce((sum, item) => sum + Number(item.total || 0), 0);
+      alert(`Proceed to pay with MoMo. Total: GH₵${total.toFixed(2)}`);
+    }
+
+    loadCartItems();
+  </script>
+</body>
+</html>

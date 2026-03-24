@@ -812,7 +812,9 @@ console.log("Logged in agent ID:", agentId);
       }
     })();
 
-    document.getElementById('cartBtn').addEventListener('click', openCartModal);
+   document.getElementById('cartBtn').addEventListener('click', () => {
+  window.location.href = "cart.html";
+});
     document.getElementById('notifBtn').addEventListener('click', ()=>toast('Notifications opened'));
 
   
