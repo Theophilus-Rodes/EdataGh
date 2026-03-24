@@ -588,7 +588,7 @@
   <div class="container">
     <div class="quick-actions">
       <button class="qbtn primary"  onclick="window.location.href='delivery-status.html'">Check Delivery<br/>Status</button>
-      <button class="qbtn" onclick="toast('Download Template...')">Download<br/>Template</button>
+      <button class="qbtn" onclick="downloadBulkTemplate()">Download<br>Template</button>
    <button class="qbtn" onclick="window.location.href='bulk-upload.html'">Bulk<br/>Upload</button>
     </div>
 
@@ -1352,6 +1352,28 @@ async function loadCartItems(){
       clearTimeout(toastTimer);
       toastTimer = setTimeout(()=>{ el.style.opacity = '0'; }, 1400);
     }
+
+   function downloadBulkTemplate() {
+  try {
+    const rows = [
+      ["Recipient Number", "GB"]
+    ];
+
+    const ws = XLSX.utils.aoa_to_sheet(rows);
+    ws["!cols"] = [
+      { wch: 20 },
+      { wch: 10 }
+    ];
+
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "MTN Orders");
+
+    XLSX.writeFile(wb, `mtn-orders-DL-${Date.now()}.xlsx`);
+  } catch (error) {
+    console.error("Template download error:", error);
+    alert("Failed to download template.");
+  }
+}
   </script>
 
 
