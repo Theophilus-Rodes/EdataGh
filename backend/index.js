@@ -2140,7 +2140,42 @@ app.get("/api/wallet/:agentId", (req, res) => {
 
 
 
+///////////////CART
+app.post("/api/cart/add", (req, res) => {
+  const { agent_id, package_id, network, package_name, price, quantity } = req.body;
 
+  if (!agent_id || !package_id || !network || !package_name || !price) {
+    return res.status(400).json({
+      ok: false,
+      message: "Missing required fields"
+    });
+  }
+
+  const qty = parseInt(quantity) || 1;
+  const itemPrice = parseFloat(price);
+  const total = itemPrice * qty;
+
+  const sql = `
+    INSERT INTO cart (agent_id, package_id, network, package_name, price, quantity, total)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
+  `;
+
+  db.query(sql, [agent_id, package_id, network, package_name, itemPrice, qty, total], (err, result) => {
+    if (err) {
+      console.error("Cart insert error:", err);
+      return res.status(500).json({
+        ok: false,
+        message: "Failed to add item to cart"
+      });
+    }
+
+    res.json({
+      ok: true,
+      message: "Item added to cart successfully",
+      cart_id: result.insertId
+    });
+  });
+});
 
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////
