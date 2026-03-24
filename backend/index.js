@@ -2395,17 +2395,17 @@ app.post("/api/cart/buy-from-account", (req, res) => {
         const orderValues = cartRows.map(item => {
           const transactionId = `ACC-${Date.now()}-${Math.floor(Math.random() * 100000)}`;
           return [
-            transactionId,
-            agent_id,
-            item.network,
-            item.package_id,
-            item.package_name,
-            item.amount,
-            item.recipient_number || "",
-            "", // momo_number empty because payment is from account
-            "pending",
-            now
-          ];
+  transactionId,
+  agent_id,
+  item.network,
+  item.package_id,
+  item.package_name,
+  item.amount,
+  item.recipient_number || "",
+  "", // momo_number empty because payment is from account
+  "approved",
+  now
+];
         });
 
         const insertOrdersSql = `
