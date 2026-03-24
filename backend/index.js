@@ -2182,9 +2182,9 @@ app.get("/api/cart/:agent_id", (req, res) => {
   const { agent_id } = req.params;
 
   const sql = `
-    SELECT id, agent_id, package_id, network, package_name, amount, quantity, total, status, created_at
-    FROM cart
-    WHERE agent_id = ?
+    SELECT id, agent_id, package_id, network, package_name, amount, quantity, total, recipient_number
+FROM cart
+WHERE agent_id = ?
     ORDER BY id DESC
   `;
 
