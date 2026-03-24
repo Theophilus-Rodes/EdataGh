@@ -2653,6 +2653,59 @@ app.post("/api/cart/clear-after-momo-success", async (req, res) => {
   }
 });
 
+
+
+
+
+///// Status ceck
+app.get("/api/agent-orders/:agent_id", (req, res) => {
+  const { agent_id } = req.params;
+  const recipient = (req.query.recipient || "").trim();
+
+  let sql = `
+    SELECT 
+      id,
+      transaction_id,
+      vendor_id,
+      network,
+      package_id,
+      package_name,
+      amount,
+      recipient_number,
+      momo_number,
+      status,
+      created_at,
+      updated_at,
+      delivered_at
+    FROM orders
+    WHERE vendor_id = ?
+  `;
+
+  const params = [agent_id];
+
+  if (recipient) {
+    sql += ` AND recipient_number LIKE ?`;
+    params.push(`%${recipient}%`);
+  }
+
+  sql += ` ORDER BY id DESC`;
+
+  db.query(sql, params, (err, rows) => {
+    if (err) {
+      console.error("Fetch agent orders error:", err);
+      return res.status(500).json({
+        ok: false,
+        message: "Failed to fetch orders"
+      });
+    }
+
+    res.json({
+      ok: true,
+      rows
+    });
+  });
+});
+
 /////////////////////////////////////////////////////////////////////////////////////////////////////////
 // ================================
 // AFA: CREATE DRAFT
