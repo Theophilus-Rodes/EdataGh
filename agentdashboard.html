@@ -770,9 +770,13 @@
         ? "http://localhost:8080"
         : "https://edatagh.com/edatagh-backend";
 
-        const agentId =
+ const agentId =
   localStorage.getItem("agent_id") ||
+  localStorage.getItem("EDATA_AGENT_ID") ||
+  localStorage.getItem("user_id") ||
   sessionStorage.getItem("agent_id");
+
+console.log("Logged in agent ID:", agentId);
 
     const drawer = document.getElementById('drawer');
     const overlay = document.getElementById('drawerOverlay');

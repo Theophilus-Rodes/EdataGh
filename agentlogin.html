@@ -365,16 +365,20 @@
         try { out = JSON.parse(text); }
         catch { out = { ok:false, error: text || `HTTP ${res.status}` }; }
 
-        if (!res.ok || !out.ok) {
-          // backend will return: "Contact admin to activate your account." if pending
-          return showMsg("err", out.error || `Login failed (${res.status})`);
-        }
 
-        // ✅ Save session (optional)
-     // ✅ Save agent session
+        if (!res.ok || !out.ok) {
+  return showMsg("err", out.error || `Login failed (${res.status})`);
+}
+
+if (!out.agent || !out.agent.id) {
+  return showMsg("err", "Login succeeded but agent ID was not returned by backend.");
+}
+
+// ✅ Save agent session
 localStorage.setItem("agent", JSON.stringify(out.agent || {}));
-localStorage.setItem("EDATA_AGENT_ID", out.agent.id);
-localStorage.setItem("user_id", out.agent.id);
+localStorage.setItem("agent_id", String(out.agent.id));
+localStorage.setItem("EDATA_AGENT_ID", String(out.agent.id));
+localStorage.setItem("user_id", String(out.agent.id));
 localStorage.setItem("agent_phone", out.agent.phone || phone);
 // OPTIONAL: store name
 //localStorage.setItem("EDATA_AGENT_NAME", out.agent.name);
