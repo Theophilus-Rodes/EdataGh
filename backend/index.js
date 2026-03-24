@@ -2224,6 +2224,92 @@ app.delete("/api/cart/:id", (req, res) => {
   });
 });
 
+
+
+
+
+
+/////Bulk Routs
+app.post("/api/cart/bulk-add", async (req, res) => {
+  try {
+    const { agent_id, items } = req.body;
+
+    if (!agent_id || !Array.isArray(items) || items.length === 0) {
+      return res.status(400).json({
+        ok: false,
+        message: "agent_id and items are required"
+      });
+    }
+
+    const values = [];
+
+    for (const item of items) {
+      if (
+        !item.package_id ||
+        !item.network ||
+        !item.package_name ||
+        !item.amount ||
+        !item.recipient_number
+      ) {
+        continue;
+      }
+
+      const qty = parseInt(item.quantity || 1) || 1;
+      const amount = parseFloat(item.amount || 0);
+      const total = parseFloat(item.total || (amount * qty));
+
+      values.push([
+        agent_id,
+        item.package_id,
+        item.network,
+        item.package_name,
+        amount,
+        qty,
+        total,
+        "active",
+        item.recipient_number
+      ]);
+    }
+
+    if (!values.length) {
+      return res.status(400).json({
+        ok: false,
+        message: "No valid items to insert"
+      });
+    }
+
+    const sql = `
+      INSERT INTO cart
+      (agent_id, package_id, network, package_name, amount, quantity, total, status, recipient_number)
+      VALUES ?
+    `;
+
+    db.query(sql, [values], (err, result) => {
+      if (err) {
+        console.error("Bulk cart insert error:", err);
+        return res.status(500).json({
+          ok: false,
+          message: "Failed to insert bulk cart items"
+        });
+      }
+
+      res.json({
+        ok: true,
+        message: "Bulk cart items inserted successfully",
+        inserted_count: result.affectedRows
+      });
+    });
+
+  } catch (error) {
+    console.error("Bulk upload route error:", error);
+    res.status(500).json({
+      ok: false,
+      message: "Server error during bulk upload"
+    });
+  }
+});
+
+
 /////////////////////////////////////////////////////////////////////////////////////////////////////////
 // ================================
 // AFA: CREATE DRAFT
