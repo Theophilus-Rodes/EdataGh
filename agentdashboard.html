@@ -914,28 +914,48 @@ console.log("Logged in agent ID:", agentId);
       `;
     }
 
-    async function addToCartOffer(id, packageName, networkName, price){
+    
+let pendingCartItem = null;
+
+function addToCartOffer(id, packageName, networkName, price){
+  if (!agentId) {
+    toast("Agent not logged in");
+    return;
+  }
+
+  pendingCartItem = {
+    agent_id: agentId,
+    package_id: id,
+    network: networkName,
+    package_name: packageName,
+    price: Number(price),
+    quantity: 1
+  };
+
+  document.getElementById("confirmPackageName").textContent = packageName;
+  document.getElementById("confirmNetworkName").textContent = networkName;
+  document.getElementById("confirmPrice").textContent = `GH₵${Number(price).toFixed(2)}`;
+  document.getElementById("addCartConfirmModal").style.display = "flex";
+}
+
+function closeAddCartConfirm(){
+  document.getElementById("addCartConfirmModal").style.display = "none";
+  pendingCartItem = null;
+}
+
+async function confirmAddToCart(){
   try {
-    if (!agentId) {
-      toast("Agent not logged in");
+    if (!pendingCartItem) {
+      toast("No cart item selected");
       return;
     }
-
-    const payload = {
-      agent_id: agentId,
-      package_id: id,
-      network: networkName,
-      package_name: packageName,
-      price: Number(price),
-      quantity: 1
-    };
 
     const res = await fetch(`${API_BASE}/api/cart/add`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json"
       },
-      body: JSON.stringify(payload)
+      body: JSON.stringify(pendingCartItem)
     });
 
     const result = await res.json();
@@ -944,13 +964,16 @@ console.log("Logged in agent ID:", agentId);
       throw new Error(result.message || "Failed to add to cart");
     }
 
-    toast(`${packageName} added to cart`);
+    document.getElementById("addCartConfirmModal").style.display = "none";
+    toast(`${pendingCartItem.package_name} added to cart successfully`);
+    pendingCartItem = null;
     loadCartItems();
   } catch (error) {
     console.error("Add to cart error:", error);
     toast(error.message || "Failed to add to cart");
   }
 }
+
 
     function purchaseFromMomo(id, packageName, networkName, price){
       console.log("Purchase from momo:", { id, packageName, networkName, price });
@@ -1080,5 +1103,32 @@ async function loadCartItems(){
       toastTimer = setTimeout(()=>{ el.style.opacity = '0'; }, 1400);
     }
   </script>
+
+
+<!-- ADD TO CART CONFIRM MODAL -->
+<div id="addCartConfirmModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,.45); z-index:130; align-items:center; justify-content:center; padding:16px;">
+  <div style="width:min(420px, 100%); background:var(--panel); border:1px solid var(--border); border-radius:22px; box-shadow:var(--shadow); padding:22px;">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
+      <h3 style="margin:0; font-size:22px; font-weight:1000;">Confirm Cart Item</h3>
+      <button onclick="closeAddCartConfirm()" style="border:none; background:#ef4444; color:#fff; width:36px; height:36px; border-radius:10px; cursor:pointer; font-weight:bold;">×</button>
+    </div>
+
+    <div style="border:1px solid var(--border); border-radius:16px; padding:14px; background:var(--card);">
+      <div style="font-size:18px; font-weight:1000; margin-bottom:8px;" id="confirmPackageName">-</div>
+      <div style="color:var(--muted); margin-bottom:6px;">Network: <span id="confirmNetworkName">-</span></div>
+      <div style="color:var(--muted); margin-bottom:6px;">Amount: <span id="confirmPrice">GH₵0.00</span></div>
+      <div style="color:var(--muted);">Quantity: <span>1</span></div>
+    </div>
+
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-top:18px;">
+      <button onclick="closeAddCartConfirm()" style="height:50px; border-radius:14px; border:1px solid var(--border); background:var(--btn); color:var(--btnText); font-weight:1000; cursor:pointer;">
+        Cancel
+      </button>
+      <button onclick="confirmAddToCart()" style="height:50px; border-radius:14px; border:none; background:var(--primary); color:#fff; font-weight:1000; cursor:pointer; box-shadow:0 14px 28px rgba(31,175,107,.20);">
+        Confirm
+      </button>
+    </div>
+  </div>
+</div>
 </body>
 </html>
