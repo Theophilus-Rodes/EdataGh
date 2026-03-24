@@ -2310,6 +2310,144 @@ app.post("/api/cart/bulk-add", async (req, res) => {
 });
 
 
+
+
+
+/////BULK DOWNLOAD ADMIN 
+app.post("/api/cart/buy-from-account", (req, res) => {
+  const { agent_id } = req.body;
+
+  if (!agent_id) {
+    return res.status(400).json({
+      ok: false,
+      message: "agent_id is required"
+    });
+  }
+
+  const getAgentSql = `SELECT id, balance FROM agents WHERE id = ? LIMIT 1`;
+  const getCartSql = `
+    SELECT id, agent_id, package_id, network, package_name, amount, quantity, total, recipient_number
+    FROM cart
+    WHERE agent_id = ? AND status = 'active'
+    ORDER BY id ASC
+  `;
+
+  db.query(getAgentSql, [agent_id], (agentErr, agentRows) => {
+    if (agentErr) {
+      console.error("Agent fetch error:", agentErr);
+      return res.status(500).json({
+        ok: false,
+        message: "Failed to fetch agent account"
+      });
+    }
+
+    if (!agentRows.length) {
+      return res.status(404).json({
+        ok: false,
+        message: "Agent not found"
+      });
+    }
+
+    const agent = agentRows[0];
+    const currentBalance = parseFloat(agent.balance || 0);
+
+    db.query(getCartSql, [agent_id], (cartErr, cartRows) => {
+      if (cartErr) {
+        console.error("Cart fetch error:", cartErr);
+        return res.status(500).json({
+          ok: false,
+          message: "Failed to fetch cart items"
+        });
+      }
+
+      if (!cartRows.length) {
+        return res.status(400).json({
+          ok: false,
+          message: "Your cart is empty"
+        });
+      }
+
+      const totalCartAmount = cartRows.reduce((sum, item) => sum + parseFloat(item.total || 0), 0);
+
+      if (currentBalance < totalCartAmount) {
+        return res.status(400).json({
+          ok: false,
+          message: "You do not have enough amount in your account",
+          balance: currentBalance,
+          total: totalCartAmount
+        });
+      }
+
+      const newBalance = currentBalance - totalCartAmount;
+
+      const updateBalanceSql = `UPDATE agents SET balance = ? WHERE id = ?`;
+
+      db.query(updateBalanceSql, [newBalance, agent_id], (updateErr) => {
+        if (updateErr) {
+          console.error("Balance update error:", updateErr);
+          return res.status(500).json({
+            ok: false,
+            message: "Failed to deduct account balance"
+          });
+        }
+
+        const now = new Date();
+        const orderValues = cartRows.map(item => {
+          const transactionId = `ACC-${Date.now()}-${Math.floor(Math.random() * 100000)}`;
+          return [
+            transactionId,
+            agent_id,
+            item.network,
+            item.package_id,
+            item.package_name,
+            item.amount,
+            item.recipient_number || "",
+            "", // momo_number empty because payment is from account
+            "pending",
+            now
+          ];
+        });
+
+        const insertOrdersSql = `
+          INSERT INTO orders
+          (transaction_id, vendor_id, network, package_id, package_name, amount, recipient_number, momo_number, status, created_at)
+          VALUES ?
+        `;
+
+        db.query(insertOrdersSql, [orderValues], (orderErr, orderResult) => {
+          if (orderErr) {
+            console.error("Insert orders error:", orderErr);
+            return res.status(500).json({
+              ok: false,
+              message: "Failed to insert orders"
+            });
+          }
+
+          const deleteCartSql = `DELETE FROM cart WHERE agent_id = ?`;
+
+          db.query(deleteCartSql, [agent_id], (deleteErr) => {
+            if (deleteErr) {
+              console.error("Delete cart error:", deleteErr);
+              return res.status(500).json({
+                ok: false,
+                message: "Orders inserted but failed to clear cart"
+              });
+            }
+
+            return res.json({
+              ok: true,
+              message: "Payment completed successfully from account",
+              deducted: totalCartAmount,
+              balance_left: newBalance,
+              orders_inserted: orderResult.affectedRows
+            });
+          });
+        });
+      });
+    });
+  });
+});
+
 /////////////////////////////////////////////////////////////////////////////////////////////////////////
 // ================================
 // AFA: CREATE DRAFT
