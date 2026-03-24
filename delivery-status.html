@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>EDATA Delivery Status</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+
+  <style>
+    :root{
+      --primary:#1FAF6B;
+      --primary-dark:#169457;
+      --bg:#F4F8F5;
+      --panel:#FFFFFF;
+      --card:#FFFFFF;
+      --text:#0F172A;
+      --muted:#64748B;
+      --border:#E2E8F0;
+      --shadow:0 18px 40px rgba(15,23,42,.08);
+      --danger:#EF4444;
+      --warning:#F59E0B;
+      --info:#3B82F6;
+    }
+
+    *{box-sizing:border-box}
+    body{
+      margin:0;
+      font-family:'Inter',sans-serif;
+      background:var(--bg);
+      color:var(--text);
+    }
+
+    .topbar{
+      position:sticky;
+      top:0;
+      z-index:30;
+      background:rgba(255,255,255,.92);
+      backdrop-filter:blur(10px);
+      border-bottom:1px solid var(--border);
+    }
+
+    .topbar-inner{
+      max-width:1150px;
+      margin:0 auto;
+      padding:16px 18px;
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      gap:12px;
+    }
+
+    .brand{
+      display:flex;
+      align-items:center;
+      gap:12px;
+    }
+
+    .backbtn{
+      border:none;
+      background:#EAF8F0;
+      color:var(--primary-dark);
+      width:46px;
+      height:46px;
+      border-radius:14px;
+      cursor:pointer;
+      font-size:20px;
+      font-weight:900;
+    }
+
+    .title{
+      margin:0;
+      font-size:28px;
+      font-weight:900;
+      line-height:1.05;
+    }
+
+    .sub{
+      margin:4px 0 0;
+      color:var(--muted);
+      font-size:14px;
+    }
+
+    .container{
+      max-width:1150px;
+      margin:24px auto;
+      padding:0 18px 40px;
+    }
+
+    .panel{
+      background:var(--panel);
+      border:1px solid var(--border);
+      border-radius:24px;
+      box-shadow:var(--shadow);
+      overflow:hidden;
+    }
+
+    .panel-head{
+      padding:20px 22px;
+      border-bottom:1px solid var(--border);
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      gap:14px;
+      flex-wrap:wrap;
+    }
+
+    .panel-head h2{
+      margin:0;
+      font-size:22px;
+      font-weight:900;
+    }
+
+    .search-wrap{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      width:100%;
+      max-width:430px;
+    }
+
+    .search-input{
+      flex:1;
+      min-width:220px;
+      height:48px;
+      border:1px solid var(--border);
+      border-radius:14px;
+      padding:0 14px;
+      font-size:15px;
+      outline:none;
+    }
+
+    .search-btn{
+      height:48px;
+      border:none;
+      border-radius:14px;
+      padding:0 18px;
+      background:var(--primary);
+      color:#fff;
+      font-weight:900;
+      cursor:pointer;
+    }
+
+    .orders-wrap{
+      padding:18px;
+    }
+
+    .empty-state{
+      padding:42px 20px;
+      text-align:center;
+      color:var(--muted);
+      font-size:15px;
+    }
+
+    .order-card{
+      border:1px solid var(--border);
+      border-radius:20px;
+      background:var(--card);
+      padding:18px;
+      margin-bottom:14px;
+      display:flex;
+      justify-content:space-between;
+      gap:16px;
+      flex-wrap:wrap;
+    }
+
+    .order-left{
+      flex:1 1 320px;
+    }
+
+    .network-pill{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      padding:7px 12px;
+      border-radius:999px;
+      background:#F8FAFC;
+      border:1px solid var(--border);
+      color:#475569;
+      font-size:12px;
+      font-weight:900;
+      margin-bottom:10px;
+    }
+
+    .dot{
+      width:10px;
+      height:10px;
+      border-radius:50%;
+      display:inline-block;
+    }
+
+    .order-title{
+      margin:0 0 8px;
+      font-size:22px;
+      font-weight:900;
+    }
+
+    .meta{
+      color:var(--muted);
+      font-size:14px;
+      margin:5px 0;
+    }
+
+    .order-right{
+      min-width:180px;
+      display:flex;
+      flex-direction:column;
+      justify-content:space-between;
+      align-items:flex-end;
+      gap:12px;
+    }
+
+    .price{
+      font-size:26px;
+      font-weight:900;
+      color:var(--primary);
+      margin:0;
+    }
+
+    .status-badge{
+      padding:8px 14px;
+      border-radius:999px;
+      font-size:12px;
+      font-weight:900;
+      text-transform:uppercase;
+      border:1px solid transparent;
+    }
+
+    .status-pending{
+      background:#FFF7ED;
+      color:#C2410C;
+      border-color:#FED7AA;
+    }
+
+    .status-processing{
+      background:#EFF6FF;
+      color:#1D4ED8;
+      border-color:#BFDBFE;
+    }
+
+    .status-approved{
+      background:#ECFDF5;
+      color:#15803D;
+      border-color:#BBF7D0;
+    }
+
+    .status-delivered{
+      background:#DCFCE7;
+      color:#166534;
+      border-color:#86EFAC;
+    }
+
+    .status-failed{
+      background:#FEF2F2;
+      color:#B91C1C;
+      border-color:#FECACA;
+    }
+
+    .status-default{
+      background:#F8FAFC;
+      color:#475569;
+      border-color:#E2E8F0;
+    }
+
+    @media (max-width: 800px){
+      .order-right{
+        width:100%;
+        min-width:unset;
+        align-items:flex-start;
+      }
+
+      .search-wrap{
+        max-width:100%;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="topbar">
+    <div class="topbar-inner">
+      <div class="brand">
+        <button class="backbtn" onclick="goBack()">←</button>
+        <div>
+          <h1 class="title">Delivery Status</h1>
+          <p class="sub">Track all your placed orders and their current status</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="container">
+    <div class="panel">
+      <div class="panel-head">
+        <h2>My Orders</h2>
+
+        <div class="search-wrap">
+          <input
+            type="text"
+            id="recipientFilter"
+            class="search-input"
+            placeholder="Filter by recipient number"
+          />
+          <button class="search-btn" onclick="loadOrders()">Search</button>
+        </div>
+      </div>
+
+      <div class="orders-wrap" id="ordersContainer">
+        <div class="empty-state">Loading orders...</div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const API_BASE =
+      location.hostname === "localhost"
+        ? "http://localhost:8080"
+        : "https://edatagh.com/edatagh-backend";
+
+    const agentId =
+      localStorage.getItem("agent_id") ||
+      localStorage.getItem("EDATA_AGENT_ID") ||
+      localStorage.getItem("user_id") ||
+      sessionStorage.getItem("agent_id");
+
+    function goBack(){
+      window.location.href = "agentdashboard.html";
+    }
+
+    function getDotColor(networkName){
+      const n = String(networkName || "").toUpperCase();
+      if (n.includes("MTN")) return "#F5B400";
+      if (n.includes("TELECEL")) return "#E54545";
+      return "#3B82F6";
+    }
+
+    function getStatusClass(status){
+      const s = String(status || "").toLowerCase();
+      if (s === "pending") return "status-pending";
+      if (s === "processing") return "status-processing";
+      if (s === "approved") return "status-approved";
+      if (s === "delivered") return "status-delivered";
+      if (s === "failed") return "status-failed";
+      return "status-default";
+    }
+
+    async function loadOrders(){
+      try{
+        if (!agentId) {
+          document.getElementById("ordersContainer").innerHTML = `
+            <div class="empty-state">Agent not logged in.</div>
+          `;
+          return;
+        }
+
+        const recipient = document.getElementById("recipientFilter").value.trim();
+        let url = `${API_BASE}/api/agent-orders/${agentId}`;
+
+        if (recipient) {
+          url += `?recipient=${encodeURIComponent(recipient)}`;
+        }
+
+        const res = await fetch(url);
+        const result = await res.json();
+
+        if (!res.ok || !result.ok) {
+          throw new Error(result.message || "Failed to load orders");
+        }
+
+        const rows = result.rows || [];
+
+        if (!rows.length) {
+          document.getElementById("ordersContainer").innerHTML = `
+            <div class="empty-state">No orders found.</div>
+          `;
+          return;
+        }
+
+        document.getElementById("ordersContainer").innerHTML = rows.map(item => {
+          const network = String(item.network || "").toUpperCase();
+          const dotColor = getDotColor(network);
+          const statusClass = getStatusClass(item.status);
+
+          return `
+            <div class="order-card">
+              <div class="order-left">
+                <div class="network-pill">
+                  <span class="dot" style="background:${dotColor}"></span>
+                  <span>${network || "UNKNOWN"}</span>
+                </div>
+
+                <h3 class="order-title">${item.package_name || "Package"}</h3>
+                <div class="meta">Recipient: ${item.recipient_number || "-"}</div>
+                <div class="meta">Transaction ID: ${item.transaction_id || "-"}</div>
+                <div class="meta">Placed: ${item.created_at || "-"}</div>
+                <div class="meta">Delivered At: ${item.delivered_at || "-"}</div>
+              </div>
+
+              <div class="order-right">
+                <p class="price">GH₵${Number(item.amount || 0).toFixed(2)}</p>
+                <span class="status-badge ${statusClass}">${item.status || "unknown"}</span>
+              </div>
+            </div>
+          `;
+        }).join("");
+
+      }catch(error){
+        console.error("Load orders error:", error);
+        document.getElementById("ordersContainer").innerHTML = `
+          <div class="empty-state">${error.message || "Failed to load orders."}</div>
+        `;
+      }
+    }
+
+    document.getElementById("recipientFilter").addEventListener("keyup", function(e){
+      if (e.key === "Enter") {
+        loadOrders();
+      }
+    });
+
+    loadOrders();
+  </script>
+</body>
+</html>
