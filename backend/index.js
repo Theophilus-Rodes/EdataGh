@@ -2177,6 +2177,53 @@ app.post("/api/cart/add", (req, res) => {
   });
 });
 
+
+app.get("/api/cart/:agent_id", (req, res) => {
+  const { agent_id } = req.params;
+
+  const sql = `
+    SELECT id, agent_id, package_id, network, package_name, amount, quantity, total, status, created_at
+    FROM cart
+    WHERE agent_id = ?
+    ORDER BY id DESC
+  `;
+
+  db.query(sql, [agent_id], (err, rows) => {
+    if (err) {
+      console.error("Fetch cart error:", err);
+      return res.status(500).json({
+        ok: false,
+        message: "Failed to fetch cart"
+      });
+    }
+
+    res.json({
+      ok: true,
+      rows
+    });
+  });
+});
+
+
+app.delete("/api/cart/:id", (req, res) => {
+  const { id } = req.params;
+
+  db.query("DELETE FROM cart WHERE id = ?", [id], (err, result) => {
+    if (err) {
+      console.error("Delete cart error:", err);
+      return res.status(500).json({
+        ok: false,
+        message: "Failed to remove item"
+      });
+    }
+
+    res.json({
+      ok: true,
+      message: "Item removed successfully"
+    });
+  });
+});
+
 /////////////////////////////////////////////////////////////////////////////////////////////////////////
 // ================================
 // AFA: CREATE DRAFT
