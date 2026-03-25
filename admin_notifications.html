@@ -354,9 +354,9 @@
 
   <script>
     const API_BASE =
-      location.hostname === "localhost" || location.hostname === "127.0.0.1"
-        ? "http://localhost:5000"
-        : "";
+      location.hostname === "localhost"
+        ? "http://localhost:8080"
+        : "https://edatagh.com/edatagh-backend";
 
     let allNotifications = [];
 
