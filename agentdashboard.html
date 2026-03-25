@@ -540,6 +540,27 @@
       .product{max-width:100%;}
       .left{min-width:auto}
     }
+
+    .iconbtn {
+  position: relative;
+}
+
+.badge {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: #19a8e8;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
   </style>
 </head>
 
@@ -816,7 +837,9 @@ console.log("Logged in agent ID:", agentId);
    document.getElementById('cartBtn').addEventListener('click', () => {
   window.location.href = "cart.html";
 });
-    document.getElementById('notifBtn').addEventListener('click', ()=>toast('Notifications opened'));
+    document.getElementById("notifBtn").addEventListener("click", function () {
+  window.location.href = "agent_notifications.html";
+});
 
   
 
@@ -1314,7 +1337,7 @@ async function loadCartItems(){
     }
 
     function navClick(page){
-      toast(page + ' clicked');
+      toast(page + ' Coming Soon');
       closeDrawer();
       return false;
     }
@@ -1375,6 +1398,39 @@ async function loadCartItems(){
     alert("Failed to download template.");
   }
 }
+
+
+
+
+async function loadNotificationCount() {
+  try {
+    
+    const res = await fetch(`${API_BASE}/api/agent/notifications/count`);
+    const data = await res.json();
+
+    const badge = document.getElementById("notifBadge");
+
+    if (!badge) return;
+
+    if (data.success) {
+      const count = data.total || 0;
+
+      badge.textContent = count;
+
+      // hide if zero
+      if (count === 0) {
+        badge.style.display = "none";
+      } else {
+        badge.style.display = "flex";
+      }
+    }
+  } catch (err) {
+    console.error("Error loading notification count:", err);
+  }
+}
+
+// run on page load
+loadNotificationCount();
   </script>
 
 
