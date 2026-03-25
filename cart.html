@@ -615,12 +615,13 @@ function buyWithMomo(){
   verifyBtn.style.color = "#0f172a";
   verifyBtn.style.opacity = "1";
 
-const payBtn = document.getElementById("cartConfirmMomoBtn");
+  const payBtn = document.getElementById("cartConfirmMomoBtn");
 
-payBtn.disabled = true;
-payBtn.textContent = "Processing...";
-payBtn.style.opacity = "0.6";
-payBtn.style.cursor = "not-allowed";
+  
+  payBtn.disabled = true;
+  payBtn.style.background = "#86d3ad";
+  payBtn.style.color = "#ffffff";
+  payBtn.style.opacity = ".55";
 
   cartMomoOtpSessionId = null;
   cartMomoVerified = false;
@@ -737,6 +738,10 @@ async function verifyCartMomoOtp(){
 
 
 async function confirmCartMomoPayment(){
+  const payBtn = document.getElementById("cartConfirmMomoBtn");
+
+  if (payBtn.disabled) return;
+
   try {
     if (!agentId) {
       showNiceMessage("Agent not logged in.", false);
@@ -754,7 +759,14 @@ async function confirmCartMomoPayment(){
       return;
     }
 
-  document.getElementById("cartMomoStatusText").textContent = "Sending payment prompt to your phone... Do not close this page until payment is confirmed.";
+    payBtn.disabled = true;
+    payBtn.textContent = "Processing...";
+    payBtn.style.background = "#86d3ad";
+    payBtn.style.color = "#ffffff";
+    payBtn.style.opacity = ".55";
+
+    document.getElementById("cartMomoStatusText").textContent =
+      "Sending payment prompt to your phone... Do not close this page until payment is confirmed.";
 
     const res = await fetch(`${API_BASE}/api/cart/buy-with-momo`, {
       method: "POST",
@@ -775,14 +787,29 @@ async function confirmCartMomoPayment(){
     }
 
     cartCurrentTransactionId = result.transaction_id;
-    document.getElementById("cartMomoStatusText").textContent = "Prompt sent. Please approve on your phone. If payment delays, check your MoMo approvals.";
+    document.getElementById("cartMomoStatusText").textContent =
+      "Prompt sent. Please approve on your phone. If payment delays, check your MoMo approvals.";
     showNiceMessage("Prompt sent. Approve on your phone.", true);
 
     if (result.transaction_id) {
       startCartMomoStatusPolling(result.transaction_id);
+    } else {
+      payBtn.disabled = false;
+      payBtn.textContent = "Confirm & Pay";
+      payBtn.style.background = "#1FAF6B";
+      payBtn.style.color = "#ffffff";
+      payBtn.style.opacity = "1";
     }
+
   } catch (error) {
     console.error("Cart MoMo payment error:", error);
+
+    payBtn.disabled = false;
+    payBtn.textContent = "Confirm & Pay";
+    payBtn.style.background = "#1FAF6B";
+    payBtn.style.color = "#ffffff";
+    payBtn.style.opacity = "1";
+
     document.getElementById("cartMomoStatusText").textContent = error.message || "Payment failed";
     showNiceMessage(error.message || "Payment failed", false);
   }
