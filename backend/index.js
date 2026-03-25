@@ -3227,6 +3227,82 @@ app.get("/api/agent/announcements", (req, res) => {
 });
 
 
+///// Status 
+app.get("/api/check-cart-payment-status/:transactionId", async (req, res) => {
+  try {
+    const transactionId = String(req.params.transactionId || "").trim();
+
+    if (!transactionId) {
+      return res.status(400).json({
+        ok: false,
+        message: "Transaction ID is required"
+      });
+    }
+
+    const auth = Buffer.from(
+      `${THETELLER.username}:${THETELLER.apiKey}`
+    ).toString("base64");
+
+    const response = await axios.get(
+      `${THETELLER.statusBase}/${encodeURIComponent(transactionId)}`,
+      {
+        headers: {
+          Authorization: `Basic ${auth}`,
+          "Content-Type": "application/json"
+        },
+        timeout: 20000
+      }
+    );
+
+    const data = response.data || {};
+
+    const rawStatus = String(
+      data.status ||
+      data.transaction_status ||
+      data.payment_status ||
+      data.code ||
+      ""
+    ).toLowerCase().trim();
+
+    let status = "pending";
+
+    if (
+      rawStatus === "000" ||
+      rawStatus.includes("approved") ||
+      rawStatus.includes("successful") ||
+      rawStatus.includes("success") ||
+      rawStatus.includes("completed") ||
+      rawStatus.includes("paid")
+    ) {
+      status = "approved";
+    } else if (
+      rawStatus.includes("failed") ||
+      rawStatus.includes("cancelled") ||
+      rawStatus.includes("declined") ||
+      rawStatus.includes("rejected")
+    ) {
+      status = "failed";
+    }
+
+    return res.json({
+      ok: true,
+      status,
+      raw_status: rawStatus,
+      data
+    });
+
+  } catch (error) {
+    console.error(
+      "Check cart payment status error:",
+      error.response?.data || error.message
+    );
+
+    return res.status(500).json({
+      ok: false,
+      message: "Failed to check payment status"
+    });
+  }
+});
 
 
 
