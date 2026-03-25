@@ -2890,6 +2890,88 @@ app.delete("/api/notifications/:id", (req, res) => {
     });
   });
 });
+
+///// batch count 
+app.get("/api/agent/notifications/count", (req, res) => {
+  const sql = `
+    SELECT COUNT(*) AS total
+    FROM notifications
+    WHERE status = 'active'
+  `;
+
+  db.query(sql, (err, results) => {
+    if (err) {
+      console.error("Error getting notification count:", err);
+      return res.status(500).json({
+        success: false,
+        message: "Database error"
+      });
+    }
+
+    res.json({
+      success: true,
+      total: results[0].total || 0
+    });
+  });
+});
+
+app.get("/api/agent/notifications", (req, res) => {
+  const sql = `
+    SELECT id, title, message, type, created_at, updated_at
+    FROM notifications
+    WHERE status = 'active'
+    ORDER BY id DESC
+  `;
+
+  db.query(sql, (err, results) => {
+    if (err) {
+      console.error("Error fetching agent notifications:", err);
+      return res.status(500).json({
+        success: false,
+        message: "Database error"
+      });
+    }
+
+    res.json({
+      success: true,
+      data: results
+    });
+  });
+});
+
+
+app.get("/api/agent/notifications/:id", (req, res) => {
+  const { id } = req.params;
+
+  const sql = `
+    SELECT id, title, message, type, created_at, updated_at
+    FROM notifications
+    WHERE id = ? AND status = 'active'
+    LIMIT 1
+  `;
+
+  db.query(sql, [id], (err, results) => {
+    if (err) {
+      console.error("Error fetching single notification:", err);
+      return res.status(500).json({
+        success: false,
+        message: "Database error"
+      });
+    }
+
+    if (results.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "Notification not found"
+      });
+    }
+
+    res.json({
+      success: true,
+      data: results[0]
+    });
+  });
+});
 /////////////////////////////////////////////////////////////////////////////////////////////////////////
 // ================================
 // AFA: CREATE DRAFT
