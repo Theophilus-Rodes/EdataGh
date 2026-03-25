@@ -561,6 +561,94 @@
   align-items: center;
   justify-content: center;
 }
+
+
+.announce-overlay{
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.55);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  z-index: 9999;
+}
+
+.announce-box{
+  width: 100%;
+  max-width: 520px;
+  background: #ffffff;
+  border-radius: 24px;
+  padding: 24px;
+  box-shadow: 0 25px 60px rgba(0,0,0,0.18);
+  animation: popIn .25s ease;
+}
+
+@keyframes popIn{
+  from{
+    transform: translateY(18px) scale(.98);
+    opacity: 0;
+  }
+  to{
+    transform: translateY(0) scale(1);
+    opacity: 1;
+  }
+}
+
+.announce-badge{
+  display: inline-block;
+  padding: 7px 12px;
+  border-radius: 999px;
+  background: #e9f9f1;
+  color: #1FAF6B;
+  font-size: 12px;
+  font-weight: 800;
+  margin-bottom: 14px;
+}
+
+.announce-box h2{
+  font-size: 24px;
+  line-height: 1.2;
+  color: #0f172a;
+  margin: 0 0 8px;
+}
+
+.announce-date{
+  font-size: 13px;
+  color: #64748b;
+  margin-bottom: 16px;
+}
+
+.announce-message{
+  font-size: 15px;
+  line-height: 1.8;
+  color: #334155;
+  white-space: pre-wrap;
+  max-height: 300px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.announce-actions{
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 22px;
+}
+
+#announceOkBtn{
+  border: none;
+  background: #1FAF6B;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 800;
+  border-radius: 12px;
+  padding: 12px 22px;
+  cursor: pointer;
+}
+
+#announceOkBtn:hover{
+  background: #19945a;
+}
   </style>
 </head>
 
@@ -1431,6 +1519,67 @@ async function loadNotificationCount() {
 
 // run on page load
 loadNotificationCount();
+loadAnnouncementsForPopup();
+
+
+
+
+let announcementQueue = [];
+let currentAnnouncementIndex = 0;
+
+function formatAnnouncementDate(dateString) {
+  if (!dateString) return "";
+  const d = new Date(dateString);
+  return d.toLocaleString();
+}
+
+function showNextAnnouncement() {
+  const overlay = document.getElementById("announceOverlay");
+  const titleEl = document.getElementById("announceTitle");
+  const dateEl = document.getElementById("announceDate");
+  const messageEl = document.getElementById("announceMessage");
+
+  if (!overlay || !titleEl || !dateEl || !messageEl) return;
+
+  if (currentAnnouncementIndex >= announcementQueue.length) {
+    overlay.style.display = "none";
+    return;
+  }
+
+  const item = announcementQueue[currentAnnouncementIndex];
+
+  titleEl.textContent = item.title || "Announcement";
+  dateEl.textContent = `Posted: ${formatAnnouncementDate(item.created_at)}`;
+  messageEl.textContent = item.message || "";
+
+  overlay.style.display = "flex";
+}
+
+async function loadAnnouncementsForPopup() {
+  try {
+    const res = await fetch(`${API_BASE}/api/agent/announcements`);
+    const data = await res.json();
+
+    if (!data.success) {
+      console.error("Failed to load announcements");
+      return;
+    }
+
+    announcementQueue = Array.isArray(data.data) ? data.data : [];
+    currentAnnouncementIndex = 0;
+
+    if (announcementQueue.length > 0) {
+      showNextAnnouncement();
+    }
+  } catch (err) {
+    console.error("Error loading announcements:", err);
+  }
+}
+
+document.getElementById("announceOkBtn").addEventListener("click", function () {
+  currentAnnouncementIndex++;
+  showNextAnnouncement();
+});
   </script>
 
 
@@ -1514,6 +1663,21 @@ loadNotificationCount();
       </button>
 
       <div id="momoStatusText" style="font-size:14px; color:var(--muted); text-align:center;"></div>
+    </div>
+  </div>
+</div>
+
+
+
+<div class="announce-overlay" id="announceOverlay" style="display:none;">
+  <div class="announce-box">
+    <div class="announce-badge">Announcement</div>
+    <h2 id="announceTitle">Title here</h2>
+    <p class="announce-date" id="announceDate"></p>
+    <div class="announce-message" id="announceMessage"></div>
+
+    <div class="announce-actions">
+      <button id="announceOkBtn">OK</button>
     </div>
   </div>
 </div>
