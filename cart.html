@@ -18,8 +18,6 @@
       --border:#E2E8F0;
       --danger:#EF4444;
       --shadow:0 18px 40px rgba(15,23,42,.08);
-      --btn:#F8FAFC;
-      --btnText:#0F172A;
     }
 
     *{box-sizing:border-box}
@@ -305,6 +303,19 @@
       font-weight:700;
       line-height:1.45;
       margin-bottom:14px;
+    }
+
+    .payment-delay-help{
+      display:none;
+      background:#eff6ff;
+      color:#1e3a8a;
+      border:1px solid #93c5fd;
+      padding:12px 14px;
+      border-radius:12px;
+      font-size:14px;
+      font-weight:700;
+      line-height:1.45;
+      margin-top:4px;
     }
 
     #cartManualConfirmBtn{
@@ -619,6 +630,9 @@
       payBtn.style.opacity = ".55";
       payBtn.textContent = "Confirm & Pay";
 
+      const helpBox = document.getElementById("cartDelayHelpText");
+      helpBox.style.display = "none";
+
       const manualBtn = document.getElementById("cartManualConfirmBtn");
       manualBtn.style.display = "none";
       manualBtn.disabled = false;
@@ -732,6 +746,9 @@
         payBtn.style.background = "#1FAF6B";
         payBtn.style.color = "#ffffff";
 
+        document.getElementById("cartDelayHelpText").style.display = "block";
+        document.getElementById("cartManualConfirmBtn").style.display = "block";
+
         document.getElementById("cartMomoStatusText").textContent = "OTP verified. You can now continue payment.";
         showNiceMessage("OTP verified successfully.", true);
       } catch (error) {
@@ -760,8 +777,6 @@
         }
 
         const payBtn = document.getElementById("cartConfirmMomoBtn");
-        const manualBtn = document.getElementById("cartManualConfirmBtn");
-
         payBtn.disabled = true;
         payBtn.style.opacity = ".8";
         payBtn.textContent = "Processing Payment...";
@@ -789,17 +804,14 @@
 
         cartCurrentTransactionId = result.transaction_id || null;
 
-        manualBtn.style.display = cartCurrentTransactionId ? "block" : "none";
-        manualBtn.disabled = false;
-        manualBtn.textContent = "I have completed the payment";
-
-        document.getElementById("cartMomoStatusText").textContent =
-          "Prompt sent. Please approve on your phone. Do not close this window or refresh the page until payment is confirmed.";
-
         showNiceMessage("Prompt sent. Approve on your phone.", true);
 
         if (cartCurrentTransactionId) {
           startCartMomoStatusPolling(cartCurrentTransactionId);
+        } else {
+          payBtn.disabled = false;
+          payBtn.style.opacity = "1";
+          payBtn.textContent = "Confirm & Pay";
         }
       } catch (error) {
         console.error("Cart MoMo payment error:", error);
@@ -820,7 +832,7 @@
       }
 
       let tries = 0;
-      const maxTries = 30;
+      const maxTries = 24;
 
       cartMomoPollTimer = setInterval(async () => {
         tries++;
@@ -831,7 +843,9 @@
 
           if (!res.ok || !result.ok) return;
 
-          if (result.status === "approved" || result.status === "successful" || result.status === "success" || result.status === "completed") {
+          const status = String(result.status || "").toLowerCase();
+
+          if (["approved","successful","success","completed","paid"].includes(status)) {
             clearInterval(cartMomoPollTimer);
             cartMomoPollTimer = null;
 
@@ -847,18 +861,25 @@
             });
 
             document.getElementById("cartMomoStatusText").textContent = "Payment successful.";
+            document.getElementById("cartDelayHelpText").style.display = "none";
             document.getElementById("cartManualConfirmBtn").style.display = "none";
+
             showNiceMessage("Payment successful.", true);
             closeCartMomoModal();
             loadCartItems();
             return;
           }
 
-          if (result.status === "failed" || result.status === "cancelled") {
+          if (["failed","cancelled","declined"].includes(status)) {
             clearInterval(cartMomoPollTimer);
             cartMomoPollTimer = null;
             document.getElementById("cartMomoStatusText").textContent = "Payment failed or was cancelled.";
             showNiceMessage("Payment failed.", false);
+
+            const payBtn = document.getElementById("cartConfirmMomoBtn");
+            payBtn.disabled = false;
+            payBtn.style.opacity = "1";
+            payBtn.textContent = "Confirm & Pay";
             return;
           }
 
@@ -866,8 +887,7 @@
             clearInterval(cartMomoPollTimer);
             cartMomoPollTimer = null;
             document.getElementById("cartMomoStatusText").textContent =
-              "Payment is still pending. If you have already approved the payment on your phone, click 'I have completed the payment' to check again.";
-            document.getElementById("cartManualConfirmBtn").style.display = "block";
+              "Payment is still pending. If you already approved it on your phone, use the button below to confirm again.";
           }
         } catch (error) {
           console.error("Cart status polling error:", error);
@@ -896,7 +916,9 @@
           throw new Error(result.message || "Unable to check payment");
         }
 
-        if (result.status === "approved" || result.status === "successful" || result.status === "success" || result.status === "completed") {
+        const status = String(result.status || "").toLowerCase();
+
+        if (["approved","successful","success","completed","paid"].includes(status)) {
           if (cartMomoPollTimer) {
             clearInterval(cartMomoPollTimer);
             cartMomoPollTimer = null;
@@ -914,6 +936,7 @@
           });
 
           document.getElementById("cartMomoStatusText").textContent = "Payment confirmed successfully.";
+          document.getElementById("cartDelayHelpText").style.display = "none";
           manualBtn.style.display = "none";
 
           const payBtn = document.getElementById("cartConfirmMomoBtn");
@@ -921,7 +944,7 @@
           payBtn.disabled = true;
           payBtn.style.opacity = "1";
 
-          showNiceMessage("Payment confirmed successfully.", true);
+          showNiceMessage("Payment successful.", true);
           closeCartMomoModal();
           loadCartItems();
           return;
@@ -931,9 +954,9 @@
         manualBtn.textContent = "I have completed the payment";
 
         document.getElementById("cartMomoStatusText").textContent =
-          "Payment is not yet confirmed. If you have approved the payment on your phone, wait a little and try again.";
+          "Payment is not yet confirmed. If you approved it in your MoMo approvals, wait a little and try again.";
 
-        showNiceMessage("Payment not yet confirmed. Please try again shortly.", false);
+        showNiceMessage("Payment not yet confirmed.", false);
 
       } catch (error) {
         console.error("Manual cart payment check error:", error);
@@ -1066,6 +1089,10 @@
           style="height:52px; border:none; border-radius:14px; background:#1FAF6B; color:#fff; font-weight:900; cursor:pointer; opacity:.55;">
           Confirm & Pay
         </button>
+
+        <div id="cartDelayHelpText" class="payment-delay-help">
+          If payment delays, approve it in your MoMo approvals and click the button below.
+        </div>
 
         <button id="cartManualConfirmBtn" onclick="manualCheckCartPayment()">
           I have completed the payment
