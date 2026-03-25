@@ -1146,6 +1146,12 @@ payBtn.style.opacity = ".55";
 
   document.getElementById("momoStatusText").textContent = "";
   document.getElementById("momoPurchaseModal").style.display = "flex";
+
+
+  document.getElementById("recipientNumberInput").oninput = toggleMomoWarning;
+document.getElementById("momoNumberInput").oninput = toggleMomoWarning;
+
+document.getElementById("momoWarningBox").style.display = "none";
 }
 
 function closeMomoPurchaseModal(){
@@ -1217,6 +1223,7 @@ async function verifyMomoOtp(){
     }
 
     document.getElementById("momoStatusText").textContent = "Verifying OTP...";
+    document.getElementById("momoWarningBox").style.display = "block";
 
     const res = await fetch(`${API_BASE}/api/verify-momo-otp`, {
       method: "POST",
@@ -1251,10 +1258,22 @@ payBtn.style.color = "#ffffff";
     console.error("Verify OTP error:", error);
     document.getElementById("momoStatusText").textContent = error.message || "OTP verification failed";
     toast(error.message || "OTP verification failed");
+
+    payBtn.disabled = false;
+payBtn.textContent = "Confirm & Pay";
+payBtn.style.background = "#1FAF6B";
+payBtn.style.cursor = "pointer";
   }
 }
 
 async function confirmMomoPayment(){
+
+  const payBtn = document.getElementById("confirmMomoPaymentBtn");
+
+payBtn.disabled = true;
+payBtn.textContent = "Processing...";
+payBtn.style.background = "#94a3b8";
+payBtn.style.cursor = "not-allowed";
   try {
     if (!momoPurchaseItem) {
       toast("No package selected");
@@ -1618,6 +1637,20 @@ loadAnnouncementsForPopup();
     loadAnnouncementsForPopup();
   });
 
+
+
+  function toggleMomoWarning() {
+  const receiver = document.getElementById("recipientNumberInput").value.trim();
+  const momo = document.getElementById("momoNumberInput").value.trim();
+  const box = document.getElementById("momoWarningBox");
+
+  if (receiver && momo) {
+    box.style.display = "block";
+  } else {
+    box.style.display = "none";
+  }
+}
+
   </script>
 
 
@@ -1655,6 +1688,21 @@ loadAnnouncementsForPopup();
   <div style="width:min(460px, 100%); background:var(--panel); border:1px solid var(--border); border-radius:22px; box-shadow:var(--shadow); padding:22px; max-height:90vh; overflow:auto;">
     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
       <h3 style="margin:0; font-size:22px; font-weight:1000;">Purchase from MoMo</h3>
+      <div id="momoWarningBox" style="
+  display:none;
+  margin-top:10px;
+  border:1px solid #f59e0b;
+  background:#fff7ed;
+  color:#92400e;
+  border-radius:12px;
+  padding:12px;
+  font-size:13px;
+  line-height:1.6;
+">
+  <strong>⚠️ Important:</strong><br>
+  Do NOT close or refresh this page until payment is completed.<br>
+  If payment delays, check your approvals on your phone.
+</div>
       <button onclick="closeMomoPurchaseModal()" style="border:none; background:#ef4444; color:#fff; width:36px; height:36px; border-radius:10px; cursor:pointer; font-weight:bold;">×</button>
     </div>
 
