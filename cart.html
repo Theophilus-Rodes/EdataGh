@@ -615,11 +615,12 @@ function buyWithMomo(){
   verifyBtn.style.color = "#0f172a";
   verifyBtn.style.opacity = "1";
 
-  const payBtn = document.getElementById("cartConfirmMomoBtn");
-  payBtn.disabled = true;
-  payBtn.style.background = "#86d3ad";
-  payBtn.style.color = "#ffffff";
-  payBtn.style.opacity = ".55";
+const payBtn = document.getElementById("cartConfirmMomoBtn");
+
+payBtn.disabled = true;
+payBtn.textContent = "Processing...";
+payBtn.style.opacity = "0.6";
+payBtn.style.cursor = "not-allowed";
 
   cartMomoOtpSessionId = null;
   cartMomoVerified = false;
