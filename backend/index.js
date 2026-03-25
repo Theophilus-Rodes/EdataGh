@@ -2142,9 +2142,17 @@ app.get("/api/wallet/:agentId", (req, res) => {
 
 ///////////////CART
 app.post("/api/cart/add", (req, res) => {
-  const { agent_id, package_id, network, package_name, price, quantity } = req.body;
+  const {
+    agent_id,
+    package_id,
+    network,
+    package_name,
+    price,
+    quantity,
+    recipient_number
+  } = req.body;
 
-  if (!agent_id || !package_id || !network || !package_name || !price) {
+  if (!agent_id || !package_id || !network || !package_name || !price || !recipient_number) {
     return res.status(400).json({
       ok: false,
       message: "Missing required fields"
@@ -2156,25 +2164,38 @@ app.post("/api/cart/add", (req, res) => {
   const total = amount * qty;
 
   const sql = `
-    INSERT INTO cart (agent_id, package_id, network, package_name, amount, quantity, total)
-    VALUES (?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO cart (
+      agent_id,
+      package_id,
+      network,
+      package_name,
+      amount,
+      quantity,
+      total,
+      recipient_number
+    )
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
   `;
 
-  db.query(sql, [agent_id, package_id, network, package_name, amount, qty, total], (err, result) => {
-    if (err) {
-      console.error("Cart insert error:", err);
-      return res.status(500).json({
-        ok: false,
-        message: "Failed to add item to cart"
+  db.query(
+    sql,
+    [agent_id, package_id, network, package_name, amount, qty, total, recipient_number],
+    (err, result) => {
+      if (err) {
+        console.error("Cart insert error:", err);
+        return res.status(500).json({
+          ok: false,
+          message: "Failed to add item to cart"
+        });
+      }
+
+      res.json({
+        ok: true,
+        message: "Item added to cart successfully",
+        cart_id: result.insertId
       });
     }
-
-    res.json({
-      ok: true,
-      message: "Item added to cart successfully",
-      cart_id: result.insertId
-    });
-  });
+  );
 });
 
 
