@@ -652,6 +652,16 @@
 #announceOkBtn:hover{
   background: #19945a;
 }
+
+
+#verifyOtpBtn,
+#confirmMomoPaymentBtn {
+  color: #ffffff;
+}
+
+#verifyOtpBtn:disabled {
+  color: #0f172a;
+}
   </style>
 </head>
 
@@ -1122,12 +1132,17 @@ function purchaseFromMomo(id, packageName, networkName, price){
   document.getElementById("otpInput").value = "";
   document.getElementById("otpArea").style.display = "none";
 
-  document.getElementById("verifyOtpBtn").disabled = true;
-  document.getElementById("verifyOtpBtn").style.background = "#cbd5e1";
+const verifyBtn = document.getElementById("verifyOtpBtn");
+verifyBtn.disabled = true;
+verifyBtn.style.background = "#cbd5e1";
+verifyBtn.style.color = "#0f172a";
+verifyBtn.style.opacity = "1";
 
-  const payBtn = document.getElementById("confirmMomoPaymentBtn");
-  payBtn.disabled = true;
-  payBtn.style.opacity = ".55";
+const payBtn = document.getElementById("confirmMomoPaymentBtn");
+payBtn.disabled = true;
+payBtn.style.background = "#86d3ad";
+payBtn.style.color = "#ffffff";
+payBtn.style.opacity = ".55";
 
   document.getElementById("momoStatusText").textContent = "";
   document.getElementById("momoPurchaseModal").style.display = "flex";
@@ -1172,8 +1187,11 @@ async function sendMomoOtp(){
 
     momoOtpSessionId = result.session_id;
     document.getElementById("otpArea").style.display = "block";
-    document.getElementById("verifyOtpBtn").disabled = false;
-    document.getElementById("verifyOtpBtn").style.background = "#0f172a";
+   const verifyBtn = document.getElementById("verifyOtpBtn");
+verifyBtn.disabled = false;
+verifyBtn.style.background = "#0f172a";
+verifyBtn.style.color = "#ffffff";
+verifyBtn.style.opacity = "1";
     document.getElementById("momoStatusText").textContent = "OTP sent successfully. Enter the code to verify.";
     toast("OTP sent successfully");
   } catch (error) {
@@ -1221,9 +1239,11 @@ async function verifyMomoOtp(){
     momoVerified = true;
     momoOtpSessionId = result.session_id || momoOtpSessionId;
 
-    const payBtn = document.getElementById("confirmMomoPaymentBtn");
-    payBtn.disabled = false;
-    payBtn.style.opacity = "1";
+   const payBtn = document.getElementById("confirmMomoPaymentBtn");
+payBtn.disabled = false;
+payBtn.style.opacity = "1";
+payBtn.style.background = "#1FAF6B";
+payBtn.style.color = "#ffffff";
 
     document.getElementById("momoStatusText").textContent = "OTP verified. You can now continue payment.";
     toast("OTP verified successfully");
