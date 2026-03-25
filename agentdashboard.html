@@ -565,7 +565,10 @@
 
 .announce-overlay{
   position: fixed;
-  inset: 0;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
   background: rgba(15, 23, 42, 0.55);
   display: none;
   align-items: center;
@@ -1524,16 +1527,17 @@ loadAnnouncementsForPopup();
 
 
 
-let announcementQueue = [];
-let currentAnnouncementIndex = 0;
 
-function formatAnnouncementDate(dateString) {
-  if (!dateString) return "";
-  const d = new Date(dateString);
-  return d.toLocaleString();
-}
+  let announcementQueue = [];
+  let currentAnnouncementIndex = 0;
 
-function showNextAnnouncement() {
+  function formatAnnouncementDate(dateString) {
+    if (!dateString) return "";
+    const d = new Date(dateString);
+    return d.toLocaleString();
+  }
+
+  function showNextAnnouncement() {
   const overlay = document.getElementById("announceOverlay");
   const titleEl = document.getElementById("announceTitle");
   const dateEl = document.getElementById("announceDate");
@@ -1549,13 +1553,15 @@ function showNextAnnouncement() {
   const item = announcementQueue[currentAnnouncementIndex];
 
   titleEl.textContent = item.title || "Announcement";
-  dateEl.textContent = `Posted: ${formatAnnouncementDate(item.created_at)}`;
+  dateEl.textContent = item.created_at
+    ? `Posted: ${new Date(item.created_at).toLocaleString()}`
+    : "";
   messageEl.textContent = item.message || "";
 
   overlay.style.display = "flex";
 }
 
-async function loadAnnouncementsForPopup() {
+  async function loadAnnouncementsForPopup() {
   try {
     const res = await fetch(`${API_BASE}/api/agent/announcements`);
     const data = await res.json();
@@ -1570,16 +1576,28 @@ async function loadAnnouncementsForPopup() {
 
     if (announcementQueue.length > 0) {
       showNextAnnouncement();
+    } else {
+      document.getElementById("announceOverlay").style.display = "none";
     }
   } catch (err) {
     console.error("Error loading announcements:", err);
   }
 }
 
-document.getElementById("announceOkBtn").addEventListener("click", function () {
-  currentAnnouncementIndex++;
-  showNextAnnouncement();
-});
+  // ✅ attach click after page has loaded
+  document.addEventListener("DOMContentLoaded", function () {
+    const okBtn = document.getElementById("announceOkBtn");
+
+    if (okBtn) {
+      okBtn.addEventListener("click", function () {
+        currentAnnouncementIndex++;
+        showNextAnnouncement();
+      });
+    }
+
+    loadAnnouncementsForPopup();
+  });
+
   </script>
 
 
@@ -1672,14 +1690,15 @@ document.getElementById("announceOkBtn").addEventListener("click", function () {
 <div class="announce-overlay" id="announceOverlay" style="display:none;">
   <div class="announce-box">
     <div class="announce-badge">Announcement</div>
-    <h2 id="announceTitle">Title here</h2>
+    <h2 id="announceTitle"></h2>
     <p class="announce-date" id="announceDate"></p>
     <div class="announce-message" id="announceMessage"></div>
-
     <div class="announce-actions">
-      <button id="announceOkBtn">OK</button>
+      <button type="button" id="announceOkBtn">OK</button>
     </div>
   </div>
 </div>
+
+
 </body>
 </html>
