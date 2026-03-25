@@ -3200,7 +3200,31 @@ app.get("/api/afa/status", async (req, res) => {
 
 
 
+///// Annouce pop
+app.get("/api/agent/announcements", (req, res) => {
+  const sql = `
+    SELECT id, title, message, type, created_at, updated_at
+    FROM notifications
+    WHERE status = 'active'
+      AND LOWER(type) = 'announcement'
+    ORDER BY id DESC
+  `;
 
+  db.query(sql, (err, results) => {
+    if (err) {
+      console.error("Error fetching announcements:", err);
+      return res.status(500).json({
+        success: false,
+        message: "Database error"
+      });
+    }
+
+    res.json({
+      success: true,
+      data: results
+    });
+  });
+});
 
 
 
@@ -3256,6 +3280,7 @@ app.get("/api/admin/afa/batches", async (req, res) => {
     return res.status(500).json({ ok: false, message: "DB error" });
   }
 });
+
 
 
 // ================================
