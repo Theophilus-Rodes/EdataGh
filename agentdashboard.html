@@ -1055,18 +1055,21 @@ function addToCartOffer(id, packageName, networkName, price){
     package_id: id,
     network: networkName,
     package_name: packageName,
-    price: Number(price),
-    quantity: 1
+    amount: Number(price),
+    quantity: 1,
+    total: Number(price)
   };
 
   document.getElementById("confirmPackageName").textContent = packageName;
   document.getElementById("confirmNetworkName").textContent = networkName;
   document.getElementById("confirmPrice").textContent = `GH₵${Number(price).toFixed(2)}`;
+  document.getElementById("cartRecipientNumberInput").value = "";
   document.getElementById("addCartConfirmModal").style.display = "flex";
 }
 
 function closeAddCartConfirm(){
   document.getElementById("addCartConfirmModal").style.display = "none";
+  document.getElementById("cartRecipientNumberInput").value = "";
   pendingCartItem = null;
 }
 
@@ -1077,12 +1080,24 @@ async function confirmAddToCart(){
       return;
     }
 
+    const recipient_number = document.getElementById("cartRecipientNumberInput").value.trim();
+
+    if (!recipient_number) {
+      toast("Enter cart receiver number");
+      return;
+    }
+
+    const payload = {
+      ...pendingCartItem,
+      recipient_number
+    };
+
     const res = await fetch(`${API_BASE}/api/cart/add`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json"
       },
-      body: JSON.stringify(pendingCartItem)
+      body: JSON.stringify(payload)
     });
 
     const result = await res.json();
@@ -1092,6 +1107,7 @@ async function confirmAddToCart(){
     }
 
     document.getElementById("addCartConfirmModal").style.display = "none";
+    document.getElementById("cartRecipientNumberInput").value = "";
     toast(`${pendingCartItem.package_name} added to cart successfully`);
     pendingCartItem = null;
     loadCartItems();
@@ -1663,11 +1679,17 @@ loadAnnouncementsForPopup();
     </div>
 
     <div style="border:1px solid var(--border); border-radius:16px; padding:14px; background:var(--card);">
-      <div style="font-size:18px; font-weight:1000; margin-bottom:8px;" id="confirmPackageName">-</div>
-      <div style="color:var(--muted); margin-bottom:6px;">Network: <span id="confirmNetworkName">-</span></div>
-      <div style="color:var(--muted); margin-bottom:6px;">Amount: <span id="confirmPrice">GH₵0.00</span></div>
-      <div style="color:var(--muted);">Quantity: <span>1</span></div>
-    </div>
+  <div style="font-size:18px; font-weight:1000; margin-bottom:8px;" id="confirmPackageName">-</div>
+  <div style="color:var(--muted); margin-bottom:6px;">Network: <span id="confirmNetworkName">-</span></div>
+  <div style="color:var(--muted); margin-bottom:6px;">Amount: <span id="confirmPrice">GH₵0.00</span></div>
+  <div style="color:var(--muted); margin-bottom:12px;">Quantity: <span>1</span></div>
+
+  <div>
+    <label style="display:block; font-weight:800; margin-bottom:6px;">Cart Receiver Number</label>
+    <input id="cartRecipientNumberInput" type="tel" placeholder="024XXXXXXX"
+      style="width:100%; height:50px; border:1px solid var(--border); border-radius:14px; padding:0 14px; outline:none; background:var(--card); color:var(--text);" />
+  </div>
+</div>
 
     <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-top:18px;">
       <button onclick="closeAddCartConfirm()" style="height:50px; border-radius:14px; border:1px solid var(--border); background:var(--btn); color:var(--btnText); font-weight:1000; cursor:pointer;">
