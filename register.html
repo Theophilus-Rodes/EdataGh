@@ -230,7 +230,7 @@ const API_REGISTER = API_BASE + "/api/agent/register";
         showMsg("ok", out.message || "Account created successfully.");
         form.reset();
 
-        setTimeout(()=> window.location.href = "login.html", 1200);
+        setTimeout(()=> window.location.href = "agentlogin.html", 1200);
 
       }catch(err){
         showMsg("err", "Network error. Please try again.");
