@@ -1488,12 +1488,15 @@ async function loadCartItems(){
       return false;
     }
 
-    function logoutConfirm(){
-      const ok = confirm("Do you want to logout?");
-      if(!ok) return;
-      toast("Logging out...");
-      setTimeout(()=>{ window.location.href = "agentlogin.html"; }, 1200);
-    }
+  function logoutConfirm(){
+  const ok = confirm("Do you want to logout?");
+  if(!ok) return;
+
+  sessionStorage.removeItem("agent_dashboard_loaded_once");
+
+  toast("Logging out...");
+  setTimeout(()=>{ window.location.href = "agentlogin.html"; }, 1200);
+}
 
     let toastTimer;
     function toast(msg){
