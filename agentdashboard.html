@@ -1575,9 +1575,13 @@ async function loadNotificationCount() {
   }
 }
 
-// run on page load
+
 loadNotificationCount();
-loadAnnouncementsForPopup();
+// run only once after login
+if (!sessionStorage.getItem("agent_dashboard_loaded_once")) {
+  loadAnnouncementsForPopup();
+  sessionStorage.setItem("agent_dashboard_loaded_once", "yes");
+}
 
 
 
