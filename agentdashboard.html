@@ -1488,10 +1488,11 @@ async function loadCartItems(){
       return false;
     }
 
-  function logoutConfirm(){
+function logoutConfirm(){
   const ok = confirm("Do you want to logout?");
   if(!ok) return;
 
+  sessionStorage.removeItem("agent_dashboard_announcements_shown");
   sessionStorage.removeItem("agent_dashboard_loaded_once");
 
   toast("Logging out...");
@@ -1578,11 +1579,9 @@ async function loadNotificationCount() {
   }
 }
 
-
 loadNotificationCount();
-// run only once after login
+
 if (!sessionStorage.getItem("agent_dashboard_loaded_once")) {
-  loadAnnouncementsForPopup();
   sessionStorage.setItem("agent_dashboard_loaded_once", "yes");
 }
 
@@ -1647,18 +1646,21 @@ if (!sessionStorage.getItem("agent_dashboard_loaded_once")) {
 }
 
   // ✅ attach click after page has loaded
-  document.addEventListener("DOMContentLoaded", function () {
-    const okBtn = document.getElementById("announceOkBtn");
+ document.addEventListener("DOMContentLoaded", function () {
+  const okBtn = document.getElementById("announceOkBtn");
 
-    if (okBtn) {
-      okBtn.addEventListener("click", function () {
-        currentAnnouncementIndex++;
-        showNextAnnouncement();
-      });
-    }
+  if (okBtn) {
+    okBtn.addEventListener("click", function () {
+      currentAnnouncementIndex++;
+      showNextAnnouncement();
+    });
+  }
 
+  if (!sessionStorage.getItem("agent_dashboard_announcements_shown")) {
     loadAnnouncementsForPopup();
-  });
+    sessionStorage.setItem("agent_dashboard_announcements_shown", "yes");
+  }
+});
 
 
 
