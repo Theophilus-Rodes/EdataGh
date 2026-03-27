@@ -3248,6 +3248,253 @@ app.get("/api/agent/announcements", (req, res) => {
 });
 
 
+///// Admin Money Send 
+app.post("/api/admin/agents/:id/deposit-balance", (req, res) => {
+  const agentId = Number(req.params.id);
+  const amount = Number(req.body.amount);
+
+  if (!agentId || !amount || amount <= 0) {
+    return res.status(400).json({
+      success: false,
+      message: "Valid agent ID and amount are required"
+    });
+  }
+
+  const transactionId = `ADMINDEP${Date.now()}`;
+  const reference = `ADMINDEP${Date.now()}`;
+
+  const insertDepositSql = `
+    INSERT INTO wallet_deposits
+    (user_id, transaction_id, reference, phone, network, amount, status, created_at, updated_at)
+    VALUES (?, ?, ?, '', 'admin', ?, 'success', NOW(), NOW())
+  `;
+
+  db.query(insertDepositSql, [agentId, transactionId, reference, amount], (err) => {
+    if (err) {
+      console.error("Error inserting wallet deposit:", err);
+      return res.status(500).json({
+        success: false,
+        message: "Failed to save deposit history"
+      });
+    }
+
+    const updateAgentSql = `
+      UPDATE agents
+      SET balance = COALESCE(balance, 0) + ?, status = 'active'
+      WHERE id = ?
+    `;
+
+    db.query(updateAgentSql, [amount, agentId], (err2, result) => {
+      if (err2) {
+        console.error("Error updating agent balance:", err2);
+        return res.status(500).json({
+          success: false,
+          message: "Deposit saved but failed to update agent balance"
+        });
+      }
+
+      if (result.affectedRows === 0) {
+        return res.status(404).json({
+          success: false,
+          message: "Agent not found"
+        });
+      }
+
+      res.json({
+        success: true,
+        message: "Deposit added successfully and agent activated"
+      });
+    });
+  });
+});
+
+
+app.post("/api/admin/agents/:id/deduct-balance", (req, res) => {
+  const agentId = Number(req.params.id);
+  const amount = Number(req.body.amount);
+
+  if (!agentId || !amount || amount <= 0) {
+    return res.status(400).json({
+      success: false,
+      message: "Valid agent ID and amount are required"
+    });
+  }
+
+  db.query(`SELECT balance FROM agents WHERE id = ?`, [agentId], (err, rows) => {
+    if (err) {
+      console.error(err);
+      return res.status(500).json({ success: false, message: "Database error" });
+    }
+
+    if (!rows.length) {
+      return res.status(404).json({ success: false, message: "Agent not found" });
+    }
+
+    const currentBalance = Number(rows[0].balance || 0);
+
+    if (amount > currentBalance) {
+      return res.status(400).json({
+        success: false,
+        message: "Insufficient balance"
+      });
+    }
+
+    const insertAdjustmentSql = `
+      INSERT INTO wallet_adjustments (agent_id, action_type, amount, note, created_at)
+      VALUES (?, 'deduct', ?, 'Admin deducted from balance', NOW())
+    `;
+
+    db.query(insertAdjustmentSql, [agentId, amount], (err2) => {
+      if (err2) {
+        console.error(err2);
+        return res.status(500).json({
+          success: false,
+          message: "Failed to save deduction history"
+        });
+      }
+
+      db.query(
+        `UPDATE agents SET balance = COALESCE(balance, 0) - ? WHERE id = ?`,
+        [amount, agentId],
+        (err3) => {
+          if (err3) {
+            console.error(err3);
+            return res.status(500).json({
+              success: false,
+              message: "Failed to deduct balance"
+            });
+          }
+
+          res.json({
+            success: true,
+            message: "Balance deducted successfully"
+          });
+        }
+      );
+    });
+  });
+});
+
+
+app.post("/api/admin/agents/:id/add-overdraft", (req, res) => {
+  const agentId = Number(req.params.id);
+  const amount = Number(req.body.amount);
+
+  if (!agentId || !amount || amount <= 0) {
+    return res.status(400).json({
+      success: false,
+      message: "Valid agent ID and amount are required"
+    });
+  }
+
+  const insertSql = `
+    INSERT INTO overdraft_transactions (agent_id, action_type, amount, note, created_at)
+    VALUES (?, 'add', ?, 'Admin added overdraft', NOW())
+  `;
+
+  db.query(insertSql, [agentId, amount], (err) => {
+    if (err) {
+      console.error("Error inserting overdraft transaction:", err);
+      return res.status(500).json({
+        success: false,
+        message: "Failed to save overdraft history"
+      });
+    }
+
+    db.query(
+      `UPDATE agents SET overdraft = COALESCE(overdraft, 0) + ? WHERE id = ?`,
+      [amount, agentId],
+      (err2, result) => {
+        if (err2) {
+          console.error("Error updating overdraft:", err2);
+          return res.status(500).json({
+            success: false,
+            message: "Failed to update overdraft"
+          });
+        }
+
+        if (result.affectedRows === 0) {
+          return res.status(404).json({
+            success: false,
+            message: "Agent not found"
+          });
+        }
+
+        res.json({
+          success: true,
+          message: "Overdraft added successfully"
+        });
+      }
+    );
+  });
+});
+
+app.post("/api/admin/agents/:id/deduct-overdraft", (req, res) => {
+  const agentId = Number(req.params.id);
+  const amount = Number(req.body.amount);
+
+  if (!agentId || !amount || amount <= 0) {
+    return res.status(400).json({
+      success: false,
+      message: "Valid agent ID and amount are required"
+    });
+  }
+
+  db.query(`SELECT overdraft FROM agents WHERE id = ?`, [agentId], (err, rows) => {
+    if (err) {
+      console.error(err);
+      return res.status(500).json({ success: false, message: "Database error" });
+    }
+
+    if (!rows.length) {
+      return res.status(404).json({ success: false, message: "Agent not found" });
+    }
+
+    const currentOverdraft = Number(rows[0].overdraft || 0);
+
+    if (amount > currentOverdraft) {
+      return res.status(400).json({
+        success: false,
+        message: "Insufficient overdraft"
+      });
+    }
+
+    const insertSql = `
+      INSERT INTO overdraft_transactions (agent_id, action_type, amount, note, created_at)
+      VALUES (?, 'deduct', ?, 'Admin deducted overdraft', NOW())
+    `;
+
+    db.query(insertSql, [agentId, amount], (err2) => {
+      if (err2) {
+        console.error(err2);
+        return res.status(500).json({
+          success: false,
+          message: "Failed to save overdraft deduction history"
+        });
+      }
+
+      db.query(
+        `UPDATE agents SET overdraft = COALESCE(overdraft, 0) - ? WHERE id = ?`,
+        [amount, agentId],
+        (err3) => {
+          if (err3) {
+            console.error(err3);
+            return res.status(500).json({
+              success: false,
+              message: "Failed to deduct overdraft"
+            });
+          }
+
+          res.json({
+            success: true,
+            message: "Overdraft deducted successfully"
+          });
+        }
+      );
+    });
+  });
+});
+
 
 
 
