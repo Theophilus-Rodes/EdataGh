@@ -3249,7 +3249,60 @@ app.get("/api/agent/announcements", (req, res) => {
 
 
 ///// Admin Money Send 
-app.post("/api/admin/agents/:id/deposit-balance", (req, res) => {
+app.get("/api/admin-agent-wallet-list", (req, res) => {
+  const search = (req.query.search || "").trim();
+
+  let sql = `
+    SELECT
+      id,
+      first_name,
+      last_name,
+      phone,
+      email,
+      gender,
+      address,
+      status,
+      created_at,
+      balance,
+      sales_deposit,
+      overdraft
+    FROM agents
+  `;
+
+  let params = [];
+
+  if (search) {
+    sql += `
+      WHERE
+        first_name LIKE ?
+        OR last_name LIKE ?
+        OR phone LIKE ?
+        OR email LIKE ?
+    `;
+    const like = `%${search}%`;
+    params = [like, like, like, like];
+  }
+
+  sql += ` ORDER BY id DESC`;
+
+  db.query(sql, params, (err, results) => {
+    if (err) {
+      console.error("Error fetching admin wallet agents:", err);
+      return res.status(500).json({
+        success: false,
+        message: "Database error while fetching agents"
+      });
+    }
+
+    return res.json({
+      success: true,
+      data: results
+    });
+  });
+});
+
+
+app.post("/api/admin-agent-wallet/deposit/:id", (req, res) => {
   const agentId = Number(req.params.id);
   const amount = Number(req.body.amount);
 
@@ -3263,53 +3316,76 @@ app.post("/api/admin/agents/:id/deposit-balance", (req, res) => {
   const transactionId = `ADMINDEP${Date.now()}`;
   const reference = `ADMINDEP${Date.now()}`;
 
-  const insertDepositSql = `
-    INSERT INTO wallet_deposits
-    (user_id, transaction_id, reference, phone, network, amount, status, created_at, updated_at)
-    VALUES (?, ?, ?, '', 'admin', ?, 'success', NOW(), NOW())
-  `;
+  const getAgentSql = `SELECT id, phone FROM agents WHERE id = ? LIMIT 1`;
 
-  db.query(insertDepositSql, [agentId, transactionId, reference, amount], (err) => {
+  db.query(getAgentSql, [agentId], (err, rows) => {
     if (err) {
-      console.error("Error inserting wallet deposit:", err);
+      console.error("Error finding agent:", err);
       return res.status(500).json({
         success: false,
-        message: "Failed to save deposit history"
+        message: "Database error while finding agent"
       });
     }
 
-    const updateAgentSql = `
-      UPDATE agents
-      SET balance = COALESCE(balance, 0) + ?, status = 'active'
-      WHERE id = ?
+    if (!rows.length) {
+      return res.status(404).json({
+        success: false,
+        message: "Agent not found"
+      });
+    }
+
+    const agentPhone = rows[0].phone || "";
+
+    const insertDepositSql = `
+      INSERT INTO wallet_deposits
+      (user_id, transaction_id, reference, phone, network, amount, status, created_at, updated_at)
+      VALUES (?, ?, ?, ?, 'admin', ?, 'success', NOW(), NOW())
     `;
 
-    db.query(updateAgentSql, [amount, agentId], (err2, result) => {
+    db.query(insertDepositSql, [agentId, transactionId, reference, agentPhone, amount], (err2) => {
       if (err2) {
-        console.error("Error updating agent balance:", err2);
+        console.error("Error inserting wallet deposit:", err2);
         return res.status(500).json({
           success: false,
-          message: "Deposit saved but failed to update agent balance"
+          message: "Failed to save deposit history"
         });
       }
 
-      if (result.affectedRows === 0) {
-        return res.status(404).json({
-          success: false,
-          message: "Agent not found"
-        });
-      }
+      const updateAgentSql = `
+        UPDATE agents
+        SET
+          balance = COALESCE(balance, 0) + ?,
+          status = 'active'
+        WHERE id = ?
+      `;
 
-      res.json({
-        success: true,
-        message: "Deposit added successfully and agent activated"
+      db.query(updateAgentSql, [amount, agentId], (err3, result) => {
+        if (err3) {
+          console.error("Error updating agent balance:", err3);
+          return res.status(500).json({
+            success: false,
+            message: "Deposit saved but failed to update agent balance"
+          });
+        }
+
+        if (result.affectedRows === 0) {
+          return res.status(404).json({
+            success: false,
+            message: "Agent not found after deposit"
+          });
+        }
+
+        return res.json({
+          success: true,
+          message: "Deposit added successfully and agent activated"
+        });
       });
     });
   });
 });
 
 
-app.post("/api/admin/agents/:id/deduct-balance", (req, res) => {
+app.post("/api/admin-agent-wallet/deduct-balance/:id", (req, res) => {
   const agentId = Number(req.params.id);
   const amount = Number(req.body.amount);
 
@@ -3322,12 +3398,18 @@ app.post("/api/admin/agents/:id/deduct-balance", (req, res) => {
 
   db.query(`SELECT balance FROM agents WHERE id = ?`, [agentId], (err, rows) => {
     if (err) {
-      console.error(err);
-      return res.status(500).json({ success: false, message: "Database error" });
+      console.error("Error checking balance:", err);
+      return res.status(500).json({
+        success: false,
+        message: "Database error while checking balance"
+      });
     }
 
     if (!rows.length) {
-      return res.status(404).json({ success: false, message: "Agent not found" });
+      return res.status(404).json({
+        success: false,
+        message: "Agent not found"
+      });
     }
 
     const currentBalance = Number(rows[0].balance || 0);
@@ -3346,7 +3428,7 @@ app.post("/api/admin/agents/:id/deduct-balance", (req, res) => {
 
     db.query(insertAdjustmentSql, [agentId, amount], (err2) => {
       if (err2) {
-        console.error(err2);
+        console.error("Error inserting wallet adjustment:", err2);
         return res.status(500).json({
           success: false,
           message: "Failed to save deduction history"
@@ -3358,14 +3440,14 @@ app.post("/api/admin/agents/:id/deduct-balance", (req, res) => {
         [amount, agentId],
         (err3) => {
           if (err3) {
-            console.error(err3);
+            console.error("Error deducting balance:", err3);
             return res.status(500).json({
               success: false,
               message: "Failed to deduct balance"
             });
           }
 
-          res.json({
+          return res.json({
             success: true,
             message: "Balance deducted successfully"
           });
@@ -3376,7 +3458,7 @@ app.post("/api/admin/agents/:id/deduct-balance", (req, res) => {
 });
 
 
-app.post("/api/admin/agents/:id/add-overdraft", (req, res) => {
+app.post("/api/admin-agent-wallet/add-overdraft/:id", (req, res) => {
   const agentId = Number(req.params.id);
   const amount = Number(req.body.amount);
 
@@ -3394,7 +3476,7 @@ app.post("/api/admin/agents/:id/add-overdraft", (req, res) => {
 
   db.query(insertSql, [agentId, amount], (err) => {
     if (err) {
-      console.error("Error inserting overdraft transaction:", err);
+      console.error("Error saving overdraft transaction:", err);
       return res.status(500).json({
         success: false,
         message: "Failed to save overdraft history"
@@ -3406,7 +3488,7 @@ app.post("/api/admin/agents/:id/add-overdraft", (req, res) => {
       [amount, agentId],
       (err2, result) => {
         if (err2) {
-          console.error("Error updating overdraft:", err2);
+          console.error("Error updating agent overdraft:", err2);
           return res.status(500).json({
             success: false,
             message: "Failed to update overdraft"
@@ -3420,7 +3502,7 @@ app.post("/api/admin/agents/:id/add-overdraft", (req, res) => {
           });
         }
 
-        res.json({
+        return res.json({
           success: true,
           message: "Overdraft added successfully"
         });
@@ -3429,7 +3511,8 @@ app.post("/api/admin/agents/:id/add-overdraft", (req, res) => {
   });
 });
 
-app.post("/api/admin/agents/:id/deduct-overdraft", (req, res) => {
+
+app.post("/api/admin-agent-wallet/deduct-overdraft/:id", (req, res) => {
   const agentId = Number(req.params.id);
   const amount = Number(req.body.amount);
 
@@ -3442,12 +3525,18 @@ app.post("/api/admin/agents/:id/deduct-overdraft", (req, res) => {
 
   db.query(`SELECT overdraft FROM agents WHERE id = ?`, [agentId], (err, rows) => {
     if (err) {
-      console.error(err);
-      return res.status(500).json({ success: false, message: "Database error" });
+      console.error("Error checking overdraft:", err);
+      return res.status(500).json({
+        success: false,
+        message: "Database error while checking overdraft"
+      });
     }
 
     if (!rows.length) {
-      return res.status(404).json({ success: false, message: "Agent not found" });
+      return res.status(404).json({
+        success: false,
+        message: "Agent not found"
+      });
     }
 
     const currentOverdraft = Number(rows[0].overdraft || 0);
@@ -3466,7 +3555,7 @@ app.post("/api/admin/agents/:id/deduct-overdraft", (req, res) => {
 
     db.query(insertSql, [agentId, amount], (err2) => {
       if (err2) {
-        console.error(err2);
+        console.error("Error saving overdraft deduction:", err2);
         return res.status(500).json({
           success: false,
           message: "Failed to save overdraft deduction history"
@@ -3478,14 +3567,14 @@ app.post("/api/admin/agents/:id/deduct-overdraft", (req, res) => {
         [amount, agentId],
         (err3) => {
           if (err3) {
-            console.error(err3);
+            console.error("Error deducting overdraft:", err3);
             return res.status(500).json({
               success: false,
               message: "Failed to deduct overdraft"
             });
           }
 
-          res.json({
+          return res.json({
             success: true,
             message: "Overdraft deducted successfully"
           });
@@ -3494,9 +3583,6 @@ app.post("/api/admin/agents/:id/deduct-overdraft", (req, res) => {
     });
   });
 });
-
-
-
 
 
 
