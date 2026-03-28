@@ -24,6 +24,7 @@
     }
 
     *{box-sizing:border-box}
+
     body{
       margin:0;
       font-family:'Inter',sans-serif;
@@ -164,6 +165,11 @@
       color:#B45309;
     }
 
+    .badge.inactive{
+      background:#FEF2F2;
+      color:#B91C1C;
+    }
+
     .money{
       font-weight:800;
     }
@@ -199,7 +205,9 @@
       color:var(--danger);
     }
 
-    .btn.balance-minus:hover{
+    .btn.balance-minus:hover,
+    .btn.od-plus:hover,
+    .btn.od-minus:hover{
       transform:translateY(-1px);
     }
 
@@ -284,9 +292,7 @@
       color:var(--muted);
     }
 
-    .field input,
-    .field select,
-    .field textarea{
+    .field input{
       width:100%;
       border:1px solid var(--border);
       border-radius:14px;
@@ -296,9 +302,7 @@
       outline:none;
     }
 
-    .field input:focus,
-    .field select:focus,
-    .field textarea:focus{
+    .field input:focus{
       border-color:var(--primary);
       box-shadow:0 0 0 4px rgba(31,175,107,.12);
     }
@@ -344,8 +348,13 @@
       z-index:10000;
     }
 
-    .toast.show{display:block}
-    .toast.error{border-left-color:var(--danger)}
+    .toast.show{
+      display:block;
+    }
+
+    .toast.error{
+      border-left-color:var(--danger);
+    }
 
     @media (max-width: 900px){
       .topbar{
@@ -397,7 +406,6 @@
     </div>
   </div>
 
-  <!-- Modal -->
   <div class="modal" id="actionModal">
     <div class="modal-card">
       <div class="modal-head">
@@ -423,8 +431,8 @@
       </div>
 
       <div class="modal-foot">
-        <button class="btn2 btn-cancel" onclick="closeModal()">Cancel</button>
-        <button class="btn2 btn-save" onclick="submitAction()">Submit</button>
+        <button class="btn2 btn-cancel" type="button" onclick="closeModal()">Cancel</button>
+        <button class="btn2 btn-save" type="button" onclick="submitAction()">Submit</button>
       </div>
     </div>
   </div>
@@ -439,11 +447,20 @@
     let selectedAgentId = null;
     let selectedAction = "";
 
-    function money(v){
+    function money(v) {
       return Number(v || 0).toFixed(2);
     }
 
-    function showToast(message, isError = false){
+    function escapeHtml(value) {
+      return String(value || "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+    }
+
+    function showToast(message, isError = false) {
       const toast = document.getElementById("toast");
       toast.textContent = message;
       toast.className = "toast show" + (isError ? " error" : "");
@@ -452,73 +469,21 @@
       }, 3000);
     }
 
-    function getStatusBadge(status){
+    function getStatusBadge(status) {
       const s = String(status || "").toLowerCase();
+
       if (s === "active") {
         return `<span class="badge active">Active</span>`;
       }
-      return `<span class="badge pending">${status || "Pending"}</span>`;
-    }
 
-    async function loadAgents(search = ""){
-      const tbody = document.getElementById("agentsBody");
-      tbody.innerHTML = `<tr><td colspan="12" class="empty">Loading agents...</td></tr>`;
-
-      try {
-        const res = await fetch(`${API_BASE}/api/admin/agents?search=${encodeURIComponent(search)}`);
-        const result = await res.json();
-
-        if (!res.ok || !result.success) {
-          throw new Error(result.message || "Failed to load agents");
-        }
-
-        const rows = result.data || [];
-
-        if (!rows.length) {
-          tbody.innerHTML = `<tr><td colspan="12" class="empty">No agents found.</td></tr>`;
-          return;
-        }
-
-        tbody.innerHTML = rows.map(agent => `
-          <tr>
-            <td>${agent.id}</td>
-            <td><strong>${agent.first_name || ""} ${agent.last_name || ""}</strong></td>
-            <td>${agent.phone || ""}</td>
-            <td>${agent.email || ""}</td>
-            <td>${agent.gender || ""}</td>
-            <td>${agent.address || ""}</td>
-            <td>${getStatusBadge(agent.status)}</td>
-            <td class="money">GHS ${money(agent.balance)}</td>
-            <td class="money">GHS ${money(agent.sales_deposit)}</td>
-            <td class="money">GHS ${money(agent.overdraft)}</td>
-            <td>${agent.created_at ? new Date(agent.created_at).toLocaleString() : ""}</td>
-            <td>
-              <div class="actions">
-                <button class="btn deposit" onclick='openModal(${agent.id}, "${(agent.first_name || "")} ${(agent.last_name || "")}".trim(), "deposit_balance")'>
-                  Deposit Balance
-                </button>
-                <button class="btn balance-minus" onclick='openModal(${agent.id}, "${(agent.first_name || "")} ${(agent.last_name || "")}".trim(), "deduct_balance")'>
-                  Deduct Balance
-                </button>
-                <button class="btn od-plus" onclick='openModal(${agent.id}, "${(agent.first_name || "")} ${(agent.last_name || "")}".trim(), "add_overdraft")'>
-                  Add Overdraft
-                </button>
-                <button class="btn od-minus" onclick='openModal(${agent.id}, "${(agent.first_name || "")} ${(agent.last_name || "")}".trim(), "deduct_overdraft")'>
-                  Deduct Overdraft
-                </button>
-              </div>
-            </td>
-          </tr>
-        `).join("");
-
-      } catch (err) {
-        console.error(err);
-        tbody.innerHTML = `<tr><td colspan="12" class="empty">Failed to load agents.</td></tr>`;
-        showToast(err.message || "Error loading agents", true);
+      if (s === "inactive") {
+        return `<span class="badge inactive">Inactive</span>`;
       }
+
+      return `<span class="badge pending">${escapeHtml(status || "Pending")}</span>`;
     }
 
-    function openModal(agentId, agentName, action){
+    function openModal(agentId, agentName, action) {
       selectedAgentId = agentId;
       selectedAction = action;
 
@@ -534,19 +499,84 @@
         action === "deposit_balance"
           ? "This will add money to the main balance and automatically make the agent active."
           : "Enter the amount for this action.";
+
       document.getElementById("agentNameField").value = agentName;
       document.getElementById("amountField").value = "";
       document.getElementById("actionTypeField").value = actionMap[action] || action;
       document.getElementById("actionModal").classList.add("show");
     }
 
-    function closeModal(){
+    function closeModal() {
       document.getElementById("actionModal").classList.remove("show");
       selectedAgentId = null;
       selectedAction = "";
     }
 
-    async function submitAction(){
+    async function loadAgents(search = "") {
+      const tbody = document.getElementById("agentsBody");
+      tbody.innerHTML = `<tr><td colspan="12" class="empty">Loading agents...</td></tr>`;
+
+      try {
+        const res = await fetch(`${API_BASE}/api/admin-agent-wallet-list?search=${encodeURIComponent(search)}`);
+        const result = await res.json();
+
+        console.log("Admin wallet agent list:", result);
+
+        if (!res.ok || !result.success) {
+          throw new Error(result.message || "Failed to load agents");
+        }
+
+        const rows = Array.isArray(result.data) ? result.data : [];
+
+        if (!rows.length) {
+          tbody.innerHTML = `<tr><td colspan="12" class="empty">No agents found.</td></tr>`;
+          return;
+        }
+
+        tbody.innerHTML = rows.map(agent => {
+          const fullName = `${agent.first_name || ""} ${agent.last_name || ""}`.trim();
+
+          return `
+            <tr>
+              <td>${escapeHtml(agent.id)}</td>
+              <td><strong>${escapeHtml(fullName)}</strong></td>
+              <td>${escapeHtml(agent.phone || "")}</td>
+              <td>${escapeHtml(agent.email || "")}</td>
+              <td>${escapeHtml(agent.gender || "")}</td>
+              <td>${escapeHtml(agent.address || "")}</td>
+              <td>${getStatusBadge(agent.status)}</td>
+              <td class="money">GHS ${money(agent.balance)}</td>
+              <td class="money">GHS ${money(agent.sales_deposit)}</td>
+              <td class="money">GHS ${money(agent.overdraft)}</td>
+              <td>${agent.created_at ? new Date(agent.created_at).toLocaleString() : ""}</td>
+              <td>
+                <div class="actions">
+                  <button class="btn deposit" onclick='openModal(${Number(agent.id)}, ${JSON.stringify(fullName)}, "deposit_balance")'>
+                    Deposit Balance
+                  </button>
+                  <button class="btn balance-minus" onclick='openModal(${Number(agent.id)}, ${JSON.stringify(fullName)}, "deduct_balance")'>
+                    Deduct Balance
+                  </button>
+                  <button class="btn od-plus" onclick='openModal(${Number(agent.id)}, ${JSON.stringify(fullName)}, "add_overdraft")'>
+                    Add Overdraft
+                  </button>
+                  <button class="btn od-minus" onclick='openModal(${Number(agent.id)}, ${JSON.stringify(fullName)}, "deduct_overdraft")'>
+                    Deduct Overdraft
+                  </button>
+                </div>
+              </td>
+            </tr>
+          `;
+        }).join("");
+
+      } catch (err) {
+        console.error("Error loading agents:", err);
+        tbody.innerHTML = `<tr><td colspan="12" class="empty">Failed to load agents.</td></tr>`;
+        showToast(err.message || "Error loading agents", true);
+      }
+    }
+
+    async function submitAction() {
       const amount = Number(document.getElementById("amountField").value);
 
       if (!selectedAgentId || !selectedAction) {
@@ -562,13 +592,16 @@
       let endpoint = "";
 
       if (selectedAction === "deposit_balance") {
-        endpoint = `/api/admin/agents/${selectedAgentId}/deposit-balance`;
+        endpoint = `/api/admin-agent-wallet/deposit/${selectedAgentId}`;
       } else if (selectedAction === "deduct_balance") {
-        endpoint = `/api/admin/agents/${selectedAgentId}/deduct-balance`;
+        endpoint = `/api/admin-agent-wallet/deduct-balance/${selectedAgentId}`;
       } else if (selectedAction === "add_overdraft") {
-        endpoint = `/api/admin/agents/${selectedAgentId}/add-overdraft`;
+        endpoint = `/api/admin-agent-wallet/add-overdraft/${selectedAgentId}`;
       } else if (selectedAction === "deduct_overdraft") {
-        endpoint = `/api/admin/agents/${selectedAgentId}/deduct-overdraft`;
+        endpoint = `/api/admin-agent-wallet/deduct-overdraft/${selectedAgentId}`;
+      } else {
+        showToast("Invalid action selected.", true);
+        return;
       }
 
       try {
@@ -590,17 +623,24 @@
         closeModal();
         loadAgents(document.getElementById("searchInput").value.trim());
       } catch (err) {
-        console.error(err);
+        console.error("Action error:", err);
         showToast(err.message || "Action failed", true);
       }
     }
 
     let searchTimer = null;
-    document.getElementById("searchInput").addEventListener("input", function(){
+    document.getElementById("searchInput").addEventListener("input", function() {
       clearTimeout(searchTimer);
       searchTimer = setTimeout(() => {
         loadAgents(this.value.trim());
       }, 350);
+    });
+
+    window.addEventListener("click", function(e) {
+      const modal = document.getElementById("actionModal");
+      if (e.target === modal) {
+        closeModal();
+      }
     });
 
     loadAgents();
