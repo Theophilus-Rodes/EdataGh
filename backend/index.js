@@ -3036,6 +3036,135 @@ app.get("/api/cart/count/:agent_id", (req, res) => {
     });
   });
 });
+
+
+
+/////Network Status
+app.get("/api/admin/network-delivery-status", (req, res) => {
+  const sql = `
+    SELECT id, network, delivery_status, delivery_time, updated_at
+    FROM network_delivery_status
+    ORDER BY id DESC
+  `;
+
+  db.query(sql, (err, results) => {
+    if (err) {
+      console.error("Error fetching network delivery status:", err);
+      return res.status(500).json({
+        success: false,
+        message: "Database error"
+      });
+    }
+
+    res.json({
+      success: true,
+      data: results
+    });
+  });
+});
+
+app.post("/api/admin/network-delivery-status", (req, res) => {
+  const { network, delivery_status, delivery_time } = req.body;
+
+  if (!network || !delivery_status || !delivery_time) {
+    return res.status(400).json({
+      success: false,
+      message: "Network, delivery status and delivery time are required"
+    });
+  }
+
+  const sql = `
+    INSERT INTO network_delivery_status (network, delivery_status, delivery_time)
+    VALUES (?, ?, ?)
+  `;
+
+  db.query(sql, [network, delivery_status, delivery_time], (err, result) => {
+    if (err) {
+      console.error("Error adding network delivery status:", err);
+      return res.status(500).json({
+        success: false,
+        message: "Database error"
+      });
+    }
+
+    res.json({
+      success: true,
+      message: "Network delivery setting added successfully",
+      id: result.insertId
+    });
+  });
+});
+
+
+app.put("/api/admin/network-delivery-status/:id", (req, res) => {
+  const { id } = req.params;
+  const { network, delivery_status, delivery_time } = req.body;
+
+  if (!network || !delivery_status || !delivery_time) {
+    return res.status(400).json({
+      success: false,
+      message: "Network, delivery status and delivery time are required"
+    });
+  }
+
+  const sql = `
+    UPDATE network_delivery_status
+    SET network = ?, delivery_status = ?, delivery_time = ?, updated_at = NOW()
+    WHERE id = ?
+  `;
+
+  db.query(sql, [network, delivery_status, delivery_time, id], (err, result) => {
+    if (err) {
+      console.error("Error updating network delivery status:", err);
+      return res.status(500).json({
+        success: false,
+        message: "Database error"
+      });
+    }
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "Record not found"
+      });
+    }
+
+    res.json({
+      success: true,
+      message: "Network delivery setting updated successfully"
+    });
+  });
+});
+
+
+app.delete("/api/admin/network-delivery-status/:id", (req, res) => {
+  const { id } = req.params;
+
+  const sql = `DELETE FROM network_delivery_status WHERE id = ?`;
+
+  db.query(sql, [id], (err, result) => {
+    if (err) {
+      console.error("Error deleting network delivery status:", err);
+      return res.status(500).json({
+        success: false,
+        message: "Database error"
+      });
+    }
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "Record not found"
+      });
+    }
+
+    res.json({
+      success: true,
+      message: "Record deleted successfully"
+    });
+  });
+});
+
 /////////////////////////////////////////////////////////////////////////////////////////////////////////
 // ================================
 // AFA: CREATE DRAFT
