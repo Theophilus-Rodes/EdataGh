@@ -3001,6 +3001,41 @@ app.get("/api/agent/notifications/:id", (req, res) => {
     });
   });
 });
+
+
+
+///// Cart Count 
+app.get("/api/cart/count/:agent_id", (req, res) => {
+  const { agent_id } = req.params;
+
+  if (!agent_id) {
+    return res.status(400).json({
+      ok: false,
+      message: "agent_id is required"
+    });
+  }
+
+  const sql = `
+    SELECT COUNT(*) AS total
+    FROM cart
+    WHERE agent_id = ? AND status = 'active'
+  `;
+
+  db.query(sql, [agent_id], (err, rows) => {
+    if (err) {
+      console.error("Cart count error:", err);
+      return res.status(500).json({
+        ok: false,
+        message: "Failed to fetch cart count"
+      });
+    }
+
+    return res.json({
+      ok: true,
+      count: rows[0].total
+    });
+  });
+});
 /////////////////////////////////////////////////////////////////////////////////////////////////////////
 // ================================
 // AFA: CREATE DRAFT
