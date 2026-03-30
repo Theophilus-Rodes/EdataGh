@@ -1,0 +1,592 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Admin Network Delivery Status</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+  <style>
+    *{
+      margin:0;
+      padding:0;
+      box-sizing:border-box;
+      font-family:'Inter',sans-serif;
+    }
+
+    body{
+      background:#f5f7fb;
+      color:#111827;
+      padding:20px;
+    }
+
+    .container{
+      max-width:1200px;
+      margin:0 auto;
+    }
+
+    .page-header{
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      flex-wrap:wrap;
+      gap:12px;
+      margin-bottom:20px;
+    }
+
+    .page-header h1{
+      font-size:28px;
+      font-weight:800;
+      color:#0f172a;
+    }
+
+    .page-header p{
+      color:#64748b;
+      margin-top:6px;
+      font-size:14px;
+    }
+
+    .main-grid{
+      display:grid;
+      grid-template-columns: 360px 1fr;
+      gap:20px;
+    }
+
+    .card{
+      background:#fff;
+      border-radius:18px;
+      box-shadow:0 10px 30px rgba(0,0,0,0.06);
+      padding:20px;
+    }
+
+    .card h2{
+      font-size:18px;
+      margin-bottom:18px;
+      color:#0f172a;
+    }
+
+    .form-group{
+      margin-bottom:16px;
+    }
+
+    .form-group label{
+      display:block;
+      font-size:14px;
+      font-weight:600;
+      margin-bottom:8px;
+      color:#334155;
+    }
+
+    .form-group input,
+    .form-group select{
+      width:100%;
+      height:46px;
+      border:1px solid #dbe2ea;
+      border-radius:12px;
+      padding:0 14px;
+      font-size:14px;
+      outline:none;
+      background:#fff;
+    }
+
+    .form-group input:focus,
+    .form-group select:focus{
+      border-color:#16a34a;
+      box-shadow:0 0 0 3px rgba(22,163,74,0.12);
+    }
+
+    .btn-row{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      margin-top:10px;
+    }
+
+    .btn{
+      border:none;
+      border-radius:12px;
+      padding:12px 18px;
+      font-size:14px;
+      font-weight:700;
+      cursor:pointer;
+      transition:0.2s ease;
+    }
+
+    .btn-primary{
+      background:#16a34a;
+      color:#fff;
+    }
+
+    .btn-primary:hover{
+      background:#15803d;
+    }
+
+    .btn-secondary{
+      background:#e2e8f0;
+      color:#0f172a;
+    }
+
+    .btn-secondary:hover{
+      background:#cbd5e1;
+    }
+
+    .top-tools{
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      gap:12px;
+      flex-wrap:wrap;
+      margin-bottom:16px;
+    }
+
+    .search-box{
+      flex:1;
+      min-width:240px;
+    }
+
+    .search-box input{
+      width:100%;
+      height:46px;
+      border:1px solid #dbe2ea;
+      border-radius:12px;
+      padding:0 14px;
+      font-size:14px;
+      outline:none;
+    }
+
+    .table-wrap{
+      overflow:auto;
+      border-radius:14px;
+    }
+
+    table{
+      width:100%;
+      border-collapse:collapse;
+      min-width:760px;
+      background:#fff;
+    }
+
+    th, td{
+      padding:14px 12px;
+      text-align:left;
+      border-bottom:1px solid #eef2f7;
+      font-size:14px;
+    }
+
+    th{
+      background:#f8fafc;
+      color:#475569;
+      font-weight:700;
+    }
+
+    tr:hover{
+      background:#fafafa;
+    }
+
+    .badge{
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      padding:6px 12px;
+      border-radius:999px;
+      font-size:12px;
+      font-weight:700;
+      text-transform:capitalize;
+    }
+
+    .badge.fast{
+      background:#dcfce7;
+      color:#166534;
+    }
+
+    .badge.normal{
+      background:#dbeafe;
+      color:#1d4ed8;
+    }
+
+    .badge.slow{
+      background:#fee2e2;
+      color:#b91c1c;
+    }
+
+    .action-btns{
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+    }
+
+    .btn-edit{
+      background:#0ea5e9;
+      color:#fff;
+      border:none;
+      border-radius:10px;
+      padding:8px 12px;
+      font-size:13px;
+      cursor:pointer;
+      font-weight:700;
+    }
+
+    .btn-delete{
+      background:#ef4444;
+      color:#fff;
+      border:none;
+      border-radius:10px;
+      padding:8px 12px;
+      font-size:13px;
+      cursor:pointer;
+      font-weight:700;
+    }
+
+    .empty-state{
+      text-align:center;
+      padding:40px 20px;
+      color:#64748b;
+      font-size:15px;
+    }
+
+    .message{
+      margin-bottom:15px;
+      padding:12px 14px;
+      border-radius:12px;
+      font-size:14px;
+      display:none;
+    }
+
+    .message.success{
+      background:#dcfce7;
+      color:#166534;
+      display:block;
+    }
+
+    .message.error{
+      background:#fee2e2;
+      color:#991b1b;
+      display:block;
+    }
+
+    @media (max-width: 980px){
+      .main-grid{
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (max-width: 600px){
+      .page-header h1{
+        font-size:22px;
+      }
+
+      .card{
+        padding:16px;
+      }
+
+      .btn{
+        width:100%;
+      }
+
+      .btn-row{
+        flex-direction:column;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="page-header">
+      <div>
+        <h1>Network Delivery Status</h1>
+        <p>Set network delivery mode, delivery time, update records anytime, or delete old settings.</p>
+      </div>
+    </div>
+
+    <div id="messageBox" class="message"></div>
+
+    <div class="main-grid">
+      <!-- FORM CARD -->
+      <div class="card">
+        <h2 id="formTitle">Add Delivery Setting</h2>
+
+        <div class="form-group">
+          <label for="network">Select Network</label>
+          <select id="network">
+            <option value="">-- Select Network --</option>
+            <option value="MTN">MTN</option>
+            <option value="TELECEL">TELECEL</option>
+            <option value="AIRTELTIGO">AIRTELTIGO</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label for="deliveryStatus">Delivery Status</label>
+          <select id="deliveryStatus">
+            <option value="">-- Select Status --</option>
+            <option value="fast delivery">Fast Delivery</option>
+            <option value="normal delivery">Normal Delivery</option>
+            <option value="slow delivery">Slow Delivery</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label for="deliveryTime">Delivery Time</label>
+          <input type="text" id="deliveryTime" placeholder="Example: 1 - 2 hours" />
+        </div>
+
+        <div class="btn-row">
+          <button class="btn btn-primary" id="saveBtn">Save Setting</button>
+          <button class="btn btn-secondary" id="clearBtn" type="button">Clear</button>
+        </div>
+      </div>
+
+      <!-- TABLE CARD -->
+      <div class="card">
+        <div class="top-tools">
+          <h2>Saved Delivery Settings</h2>
+          <div class="search-box">
+            <input type="text" id="searchInput" placeholder="Search by network, status, or time..." />
+          </div>
+        </div>
+
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Network</th>
+                <th>Status</th>
+                <th>Delivery Time</th>
+                <th>Updated At</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="tableBody">
+              <tr>
+                <td colspan="6" class="empty-state">Loading records...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const API_BASE =
+      location.hostname === "localhost" || location.hostname === "127.0.0.1"
+        ? "http://localhost:5000"
+        : "https://edatagh.com/edatagh-backend";
+
+    const networkEl = document.getElementById("network");
+    const deliveryStatusEl = document.getElementById("deliveryStatus");
+    const deliveryTimeEl = document.getElementById("deliveryTime");
+    const saveBtn = document.getElementById("saveBtn");
+    const clearBtn = document.getElementById("clearBtn");
+    const formTitle = document.getElementById("formTitle");
+    const tableBody = document.getElementById("tableBody");
+    const searchInput = document.getElementById("searchInput");
+    const messageBox = document.getElementById("messageBox");
+
+    let editingId = null;
+    let allRows = [];
+
+    function showMessage(text, type = "success") {
+      messageBox.className = "message " + type;
+      messageBox.textContent = text;
+
+      setTimeout(() => {
+        messageBox.className = "message";
+        messageBox.textContent = "";
+      }, 3000);
+    }
+
+    function formatDateTime(dateStr) {
+      if (!dateStr) return "-";
+      const d = new Date(dateStr);
+      if (isNaN(d)) return dateStr;
+
+      return d.toLocaleString();
+    }
+
+    function getBadgeClass(status) {
+      const s = String(status || "").toLowerCase();
+      if (s.includes("fast")) return "fast";
+      if (s.includes("slow")) return "slow";
+      return "normal";
+    }
+
+    function clearForm() {
+      editingId = null;
+      formTitle.textContent = "Add Delivery Setting";
+      saveBtn.textContent = "Save Setting";
+      networkEl.value = "";
+      deliveryStatusEl.value = "";
+      deliveryTimeEl.value = "";
+    }
+
+    async function loadDeliverySettings() {
+      try {
+        tableBody.innerHTML = `
+          <tr>
+            <td colspan="6" class="empty-state">Loading records...</td>
+          </tr>
+        `;
+
+        const res = await fetch(`${API_BASE}/api/admin/network-delivery-status`);
+        const data = await res.json();
+
+        if (!res.ok || !data.success) {
+          throw new Error(data.message || "Failed to load data");
+        }
+
+        allRows = data.data || [];
+        renderTable(allRows);
+      } catch (err) {
+        console.error(err);
+        tableBody.innerHTML = `
+          <tr>
+            <td colspan="6" class="empty-state">Failed to load records.</td>
+          </tr>
+        `;
+      }
+    }
+
+    function renderTable(rows) {
+      if (!rows.length) {
+        tableBody.innerHTML = `
+          <tr>
+            <td colspan="6" class="empty-state">No delivery settings found.</td>
+          </tr>
+        `;
+        return;
+      }
+
+      tableBody.innerHTML = rows.map((row, index) => `
+        <tr>
+          <td>${index + 1}</td>
+          <td>${row.network}</td>
+          <td>
+            <span class="badge ${getBadgeClass(row.delivery_status)}">
+              ${row.delivery_status}
+            </span>
+          </td>
+          <td>${row.delivery_time}</td>
+          <td>${formatDateTime(row.updated_at)}</td>
+          <td>
+            <div class="action-btns">
+              <button class="btn-edit" onclick="editRow(${row.id})">Update</button>
+              <button class="btn-delete" onclick="deleteRow(${row.id})">Delete</button>
+            </div>
+          </td>
+        </tr>
+      `).join("");
+    }
+
+    async function saveSetting() {
+      const network = networkEl.value.trim();
+      const delivery_status = deliveryStatusEl.value.trim();
+      const delivery_time = deliveryTimeEl.value.trim();
+
+      if (!network || !delivery_status || !delivery_time) {
+        showMessage("Please fill all fields.", "error");
+        return;
+      }
+
+      saveBtn.disabled = true;
+      saveBtn.textContent = editingId ? "Updating..." : "Saving...";
+
+      try {
+        const url = editingId
+          ? `${API_BASE}/api/admin/network-delivery-status/${editingId}`
+          : `${API_BASE}/api/admin/network-delivery-status`;
+
+        const method = editingId ? "PUT" : "POST";
+
+        const res = await fetch(url, {
+          method,
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            network,
+            delivery_status,
+            delivery_time
+          })
+        });
+
+        const data = await res.json();
+
+        if (!res.ok || !data.success) {
+          throw new Error(data.message || "Operation failed");
+        }
+
+        showMessage(data.message || "Saved successfully", "success");
+        clearForm();
+        loadDeliverySettings();
+      } catch (err) {
+        console.error(err);
+        showMessage(err.message || "Something went wrong", "error");
+      } finally {
+        saveBtn.disabled = false;
+        saveBtn.textContent = editingId ? "Update Setting" : "Save Setting";
+      }
+    }
+
+    window.editRow = function(id) {
+      const row = allRows.find(item => item.id === id);
+      if (!row) return;
+
+      editingId = row.id;
+      formTitle.textContent = "Update Delivery Setting";
+      saveBtn.textContent = "Update Setting";
+
+      networkEl.value = row.network;
+      deliveryStatusEl.value = row.delivery_status;
+      deliveryTimeEl.value = row.delivery_time;
+
+      window.scrollTo({
+        top: 0,
+        behavior: "smooth"
+      });
+    }
+
+    window.deleteRow = async function(id) {
+      const ok = confirm("Are you sure you want to delete this record?");
+      if (!ok) return;
+
+      try {
+        const res = await fetch(`${API_BASE}/api/admin/network-delivery-status/${id}`, {
+          method: "DELETE"
+        });
+
+        const data = await res.json();
+
+        if (!res.ok || !data.success) {
+          throw new Error(data.message || "Delete failed");
+        }
+
+        showMessage(data.message || "Deleted successfully", "success");
+        loadDeliverySettings();
+      } catch (err) {
+        console.error(err);
+        showMessage(err.message || "Failed to delete record", "error");
+      }
+    }
+
+    searchInput.addEventListener("input", function() {
+      const value = this.value.toLowerCase().trim();
+
+      const filtered = allRows.filter(row =>
+        String(row.network).toLowerCase().includes(value) ||
+        String(row.delivery_status).toLowerCase().includes(value) ||
+        String(row.delivery_time).toLowerCase().includes(value) ||
+        String(row.updated_at).toLowerCase().includes(value)
+      );
+
+      renderTable(filtered);
+    });
+
+    saveBtn.addEventListener("click", saveSetting);
+    clearBtn.addEventListener("click", clearForm);
+
+    loadDeliverySettings();
+  </script>
+</body>
+</html>
