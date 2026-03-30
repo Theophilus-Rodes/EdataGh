@@ -3165,6 +3165,37 @@ app.delete("/api/admin/network-delivery-status/:id", (req, res) => {
   });
 });
 
+///// Check Network
+app.get("/api/network-delivery-status", (req, res) => {
+  const sql = `
+    SELECT t1.id, t1.network, t1.delivery_status, t1.delivery_time, t1.updated_at
+    FROM network_delivery_status t1
+    INNER JOIN (
+      SELECT network, MAX(updated_at) AS latest_updated
+      FROM network_delivery_status
+      GROUP BY network
+    ) t2
+    ON t1.network = t2.network
+    AND t1.updated_at = t2.latest_updated
+    ORDER BY t1.updated_at DESC
+  `;
+
+  db.query(sql, (err, results) => {
+    if (err) {
+      console.error("Error fetching latest delivery status:", err);
+      return res.status(500).json({
+        success: false,
+        message: "Database error"
+      });
+    }
+
+    res.json({
+      success: true,
+      data: results
+    });
+  });
+});
+
 /////////////////////////////////////////////////////////////////////////////////////////////////////////
 // ================================
 // AFA: CREATE DRAFT
