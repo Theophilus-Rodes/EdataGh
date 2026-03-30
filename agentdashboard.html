@@ -681,7 +681,7 @@
       </div>
 
       <div class="right">
-        <button class="iconbtn" id="cartBtn" aria-label="Cart" style="position:relative;">
+      <button class="iconbtn" id="cartBtn" aria-label="Cart" style="position:relative;">
   <span id="cartBadge" style="
     display:none;
     position:absolute;
@@ -698,6 +698,7 @@
     line-height:18px;
     text-align:center;
     box-shadow:0 4px 10px rgba(0,0,0,.18);
+    z-index:5;
   ">0</span>
 
   <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
@@ -1570,6 +1571,48 @@ function logoutConfirm(){
 
 
 
+async function loadCartCount() {
+  try {
+    console.log("Cart badge agentId:", agentId);
+
+    if (!agentId) {
+      console.warn("No agent id found for cart badge");
+      return;
+    }
+
+    const res = await fetch(`${API_BASE}/api/cart/count/${agentId}`);
+    const result = await res.json();
+
+    console.log("Cart badge response:", result);
+
+    if (!res.ok || !result.ok) {
+      console.warn("Cart badge request failed");
+      return;
+    }
+
+    const count = Number(result.count || 0);
+    const badge = document.getElementById("cartBadge");
+
+    if (!badge) {
+      console.warn("cartBadge not found");
+      return;
+    }
+
+    if (count > 0) {
+      badge.style.display = "inline-block";
+      badge.textContent = count;
+    } else {
+      badge.style.display = "none";
+      badge.textContent = "0";
+    }
+  } catch (error) {
+    console.error("Cart count error:", error);
+  }
+}
+
+
+
+
 async function loadNotificationCount() {
   try {
     
@@ -1598,6 +1641,7 @@ async function loadNotificationCount() {
 }
 
 loadNotificationCount();
+console.log("agentId =", agentId);
 loadCartCount();
 
 if (!sessionStorage.getItem("agent_dashboard_loaded_once")) {
@@ -1692,32 +1736,6 @@ if (!sessionStorage.getItem("agent_dashboard_loaded_once")) {
     box.style.display = "block";
   } else {
     box.style.display = "none";
-  }
-}
-
-async function loadCartCount() {
-  try {
-    if (!agentId) return;
-
-    const res = await fetch(`${API_BASE}/api/cart/count/${agentId}`);
-    const result = await res.json();
-
-    if (!res.ok || !result.ok) return;
-
-    const count = Number(result.count || 0);
-    const badge = document.getElementById("cartBadge");
-
-    if (!badge) return;
-
-    if (count > 0) {
-      badge.style.display = "inline-block";
-      badge.textContent = count;
-    } else {
-      badge.style.display = "none";
-      badge.textContent = "0";
-    }
-  } catch (error) {
-    console.error("Cart count error:", error);
   }
 }
 
