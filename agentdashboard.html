@@ -681,14 +681,32 @@
       </div>
 
       <div class="right">
-        <button class="iconbtn" id="cartBtn" aria-label="Cart">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-            <path d="M7 6h14l-2 8H8L7 6Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
-            <path d="M7 6 6 3H3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-            <circle cx="9" cy="19" r="1.6" fill="currentColor"/>
-            <circle cx="18" cy="19" r="1.6" fill="currentColor"/>
-          </svg>
-        </button>
+        <button class="iconbtn" id="cartBtn" aria-label="Cart" style="position:relative;">
+  <span id="cartBadge" style="
+    display:none;
+    position:absolute;
+    top:-6px;
+    right:-6px;
+    min-width:18px;
+    height:18px;
+    padding:0 5px;
+    border-radius:999px;
+    background:#ef4444;
+    color:#fff;
+    font-size:11px;
+    font-weight:900;
+    line-height:18px;
+    text-align:center;
+    box-shadow:0 4px 10px rgba(0,0,0,.18);
+  ">0</span>
+
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+    <path d="M7 6h14l-2 8H8L7 6Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+    <path d="M7 6 6 3H3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+    <circle cx="9" cy="19" r="1.6" fill="currentColor"/>
+    <circle cx="18" cy="19" r="1.6" fill="currentColor"/>
+  </svg>
+</button>
 
         <button class="iconbtn" id="notifBtn" aria-label="Notifications">
           <span class="badge" id="notifBadge">4</span>
@@ -1580,6 +1598,7 @@ async function loadNotificationCount() {
 }
 
 loadNotificationCount();
+loadCartCount();
 
 if (!sessionStorage.getItem("agent_dashboard_loaded_once")) {
   sessionStorage.setItem("agent_dashboard_loaded_once", "yes");
@@ -1673,6 +1692,32 @@ if (!sessionStorage.getItem("agent_dashboard_loaded_once")) {
     box.style.display = "block";
   } else {
     box.style.display = "none";
+  }
+}
+
+async function loadCartCount() {
+  try {
+    if (!agentId) return;
+
+    const res = await fetch(`${API_BASE}/api/cart/count/${agentId}`);
+    const result = await res.json();
+
+    if (!res.ok || !result.ok) return;
+
+    const count = Number(result.count || 0);
+    const badge = document.getElementById("cartBadge");
+
+    if (!badge) return;
+
+    if (count > 0) {
+      badge.style.display = "inline-block";
+      badge.textContent = count;
+    } else {
+      badge.style.display = "none";
+      badge.textContent = "0";
+    }
+  } catch (error) {
+    console.error("Cart count error:", error);
   }
 }
 
