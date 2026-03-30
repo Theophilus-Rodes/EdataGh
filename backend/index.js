@@ -2345,7 +2345,7 @@ app.post("/api/cart/buy-from-account", (req, res) => {
     });
   }
 
-  const getAgentSql = `SELECT id, balance FROM agents WHERE id = ? LIMIT 1`;
+  const getAgentSql = `SELECT id, balance, overdraft FROM agents WHERE id = ? LIMIT 1`;
   const getCartSql = `
     SELECT id, agent_id, package_id, network, package_name, amount, quantity, total, recipient_number
     FROM cart
@@ -2371,6 +2371,8 @@ app.post("/api/cart/buy-from-account", (req, res) => {
 
     const agent = agentRows[0];
     const currentBalance = parseFloat(agent.balance || 0);
+    const currentOverdraft = parseFloat(agent.overdraft || 0);
+    const availableToSpend = currentBalance + currentOverdraft;
 
     db.query(getCartSql, [agent_id], (cartErr, cartRows) => {
       if (cartErr) {
@@ -2388,13 +2390,17 @@ app.post("/api/cart/buy-from-account", (req, res) => {
         });
       }
 
-      const totalCartAmount = cartRows.reduce((sum, item) => sum + parseFloat(item.total || 0), 0);
+      const totalCartAmount = cartRows.reduce((sum, item) => {
+        return sum + parseFloat(item.total || 0);
+      }, 0);
 
-      if (currentBalance < totalCartAmount) {
+      if (availableToSpend < totalCartAmount) {
         return res.status(400).json({
           ok: false,
-          message: "You do not have enough amount in your account",
+          message: "You do not have enough amount in your account and overdraft",
           balance: currentBalance,
+          overdraft: currentOverdraft,
+          available_to_spend: availableToSpend,
           total: totalCartAmount
         });
       }
@@ -2416,17 +2422,17 @@ app.post("/api/cart/buy-from-account", (req, res) => {
         const orderValues = cartRows.map(item => {
           const transactionId = `ACC-${Date.now()}-${Math.floor(Math.random() * 100000)}`;
           return [
-  transactionId,
-  agent_id,
-  item.network,
-  item.package_id,
-  item.package_name,
-  item.amount,
-  item.recipient_number || "",
-  "", // momo_number empty because payment is from account
-  "approved",
-  now
-];
+            transactionId,
+            agent_id,
+            item.network,
+            item.package_id,
+            item.package_name,
+            item.amount,
+            item.recipient_number || "",
+            "", // momo_number empty because payment is from account
+            "approved",
+            now
+          ];
         });
 
         const insertOrdersSql = `
@@ -2459,7 +2465,10 @@ app.post("/api/cart/buy-from-account", (req, res) => {
               ok: true,
               message: "Payment completed successfully from account",
               deducted: totalCartAmount,
+              previous_balance: currentBalance,
+              overdraft: currentOverdraft,
               balance_left: newBalance,
+              available_to_spend_left: newBalance + currentOverdraft,
               orders_inserted: orderResult.affectedRows
             });
           });
@@ -2468,7 +2477,6 @@ app.post("/api/cart/buy-from-account", (req, res) => {
     });
   });
 });
-
 
 
 
