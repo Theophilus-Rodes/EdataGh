@@ -681,26 +681,10 @@
       </div>
 
       <div class="right">
-      <button class="iconbtn" id="cartBtn" aria-label="Cart" style="position:relative;">
-  <span id="cartBadge" style="
-    display:none;
-    position:absolute;
-    top:-6px;
-    right:-6px;
-    min-width:18px;
-    height:18px;
-    padding:0 5px;
-    border-radius:999px;
-    background:#ef4444;
-    color:#fff;
-    font-size:11px;
-    font-weight:900;
-    line-height:18px;
-    text-align:center;
-    box-shadow:0 4px 10px rgba(0,0,0,.18);
-    z-index:5;
-  ">0</span>
+   
 
+        <button class="iconbtn" id="cartBtn" aria-label="Cart">
+  <span class="badge" id="cartBadge">0</span>
   <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
     <path d="M7 6h14l-2 8H8L7 6Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
     <path d="M7 6 6 3H3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
@@ -1570,40 +1554,28 @@ function logoutConfirm(){
 
 
 
-
 async function loadCartCount() {
   try {
-    console.log("Cart badge agentId:", agentId);
-
-    if (!agentId) {
-      console.warn("No agent id found for cart badge");
-      return;
-    }
+    if (!agentId) return;
 
     const res = await fetch(`${API_BASE}/api/cart/count/${agentId}`);
     const result = await res.json();
 
-    console.log("Cart badge response:", result);
+    const badge = document.getElementById("cartBadge");
+    if (!badge) return;
 
     if (!res.ok || !result.ok) {
-      console.warn("Cart badge request failed");
+      badge.style.display = "none";
       return;
     }
 
     const count = Number(result.count || 0);
-    const badge = document.getElementById("cartBadge");
-
-    if (!badge) {
-      console.warn("cartBadge not found");
-      return;
-    }
 
     if (count > 0) {
-      badge.style.display = "inline-block";
       badge.textContent = count;
+      badge.style.display = "flex";
     } else {
       badge.style.display = "none";
-      badge.textContent = "0";
     }
   } catch (error) {
     console.error("Cart count error:", error);
