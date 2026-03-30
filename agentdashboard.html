@@ -662,6 +662,159 @@
 #verifyOtpBtn:disabled {
   color: #0f172a;
 }
+
+.delivery-status-section{
+  margin-top: 28px;
+  margin-bottom: 30px;
+}
+
+.delivery-status-header{
+  margin-bottom: 16px;
+}
+
+.delivery-status-header h3{
+  font-size: 24px;
+  font-weight: 800;
+  color: #0f172a;
+  margin-bottom: 6px;
+}
+
+.delivery-status-header p{
+  font-size: 14px;
+  color: #64748b;
+}
+
+.delivery-status-grid{
+  display: grid;
+  grid-template-columns: repeat(2, minmax(260px, 1fr));
+  gap: 16px;
+}
+
+.delivery-card{
+  background: #fff;
+  border-radius: 18px;
+  padding: 18px 18px 16px;
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.06);
+  border: 2px solid #e5e7eb;
+  transition: 0.2s ease;
+}
+
+.delivery-card:hover{
+  transform: translateY(-2px);
+}
+
+.delivery-card.mtn{
+  border-color: #f4c84a;
+  background: linear-gradient(180deg, #fffdf7 0%, #ffffff 100%);
+}
+
+.delivery-card.telecel{
+  border-color: #f59aa0;
+  background: linear-gradient(180deg, #fff7f7 0%, #ffffff 100%);
+}
+
+.delivery-card.airteltigo{
+  border-color: #7aa9ff;
+  background: linear-gradient(180deg, #f7fbff 0%, #ffffff 100%);
+}
+
+.delivery-card.default{
+  border-color: #dbe2ea;
+  background: #ffffff;
+}
+
+.delivery-card-top{
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.delivery-network{
+  font-size: 20px;
+  font-weight: 800;
+  color: #0f172a;
+  line-height: 1.15;
+  text-transform: uppercase;
+}
+
+.delivery-badge{
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 9px 14px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 700;
+  min-width: 132px;
+  text-align: center;
+  line-height: 1.15;
+}
+
+.delivery-badge.fast,
+.delivery-badge.instant{
+  background: #dcfce7;
+  color: #166534;
+}
+
+.delivery-badge.normal{
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+.delivery-badge.slow{
+  background: #fef3c7;
+  color: #b45309;
+}
+
+.delivery-badge.default{
+  background: #f1f5f9;
+  color: #334155;
+}
+
+.delivery-time{
+  font-size: 24px;
+  font-weight: 800;
+  color: #0f172a;
+  margin-bottom: 10px;
+}
+
+.delivery-updated{
+  font-size: 14px;
+  color: #64748b;
+  font-weight: 500;
+}
+
+.delivery-loading-card,
+.delivery-empty-card{
+  grid-column: 1 / -1;
+  background: #fff;
+  border-radius: 16px;
+  padding: 20px;
+  text-align: center;
+  color: #64748b;
+  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.05);
+}
+
+@media (max-width: 900px){
+  .delivery-status-grid{
+    grid-template-columns: 1fr;
+  }
+
+  .delivery-card-top{
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .delivery-badge{
+    min-width: auto;
+  }
+
+  .delivery-time{
+    font-size: 20px;
+  }
+}
   </style>
 </head>
 
@@ -769,6 +922,19 @@
       </div>
     </div>
   </div>
+
+<!-- DELIVERY STATUS SECTION -->
+<section class="delivery-status-section">
+  <div class="delivery-status-header">
+    <h3>Network Delivery Updates</h3>
+    <p>Live delivery time and status for available networks.</p>
+  </div>
+
+  <div id="deliveryStatusGrid" class="delivery-status-grid">
+    <div class="delivery-loading-card">Loading delivery updates...</div>
+  </div>
+</section>
+
 
   <div class="drawer-overlay" id="drawerOverlay"></div>
     <!-- CART MODAL -->
@@ -889,6 +1055,8 @@
       </button>
     </div>
   </aside>
+
+
 
   <script>
     const API_BASE =
@@ -1710,6 +1878,103 @@ if (!sessionStorage.getItem("agent_dashboard_loaded_once")) {
     box.style.display = "none";
   }
 }
+
+async function loadNetworkDeliveryStatus() {
+    const wrap = document.getElementById("deliveryStatusGrid");
+    if (!wrap) return;
+
+    wrap.innerHTML = `<div class="delivery-loading-card">Loading delivery updates...</div>`;
+
+    try {
+      const res = await fetch(`${API_BASE}/api/network-delivery-status`);
+      const data = await res.json();
+
+      if (!res.ok || !data.success) {
+        throw new Error(data.message || "Failed to load delivery updates");
+      }
+
+      const rows = Array.isArray(data.data) ? data.data : [];
+
+      if (!rows.length) {
+        wrap.innerHTML = `<div class="delivery-empty-card">No delivery updates available at the moment.</div>`;
+        return;
+      }
+
+      wrap.innerHTML = rows.map(row => {
+        const networkClass = getNetworkClass(row.network);
+        const badgeClass = getBadgeClass(row.delivery_status);
+
+        return `
+          <div class="delivery-card ${networkClass}">
+            <div class="delivery-card-top">
+              <div class="delivery-network">${escapeHtml(row.network || "-")}</div>
+              <div class="delivery-badge ${badgeClass}">
+                ${escapeHtml(formatStatus(row.delivery_status))}
+              </div>
+            </div>
+
+            <div class="delivery-time">${escapeHtml(row.delivery_time || "-")}</div>
+            <div class="delivery-updated">Updated: ${escapeHtml(formatShortDate(row.updated_at))}</div>
+          </div>
+        `;
+      }).join("");
+
+    } catch (err) {
+      console.error("Error loading delivery status:", err);
+      wrap.innerHTML = `<div class="delivery-empty-card">Failed to load delivery updates.</div>`;
+    }
+  }
+
+  function getNetworkClass(network) {
+    const n = String(network || "").toLowerCase();
+
+    if (n.includes("mtn")) return "mtn";
+    if (n.includes("telecel")) return "telecel";
+    if (n.includes("airtel")) return "airteltigo";
+    return "default";
+  }
+
+  function getBadgeClass(status) {
+    const s = String(status || "").toLowerCase();
+
+    if (s.includes("fast")) return "fast";
+    if (s.includes("instant")) return "instant";
+    if (s.includes("normal")) return "normal";
+    if (s.includes("slow")) return "slow";
+    return "default";
+  }
+
+  function formatStatus(status) {
+    const s = String(status || "").trim();
+    if (!s) return "-";
+
+    return s.replace(/\b\w/g, c => c.toUpperCase());
+  }
+
+  function formatShortDate(dateStr) {
+    if (!dateStr) return "-";
+
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return dateStr;
+
+    const day = d.getDate();
+    const month = d.toLocaleString("en-GB", { month: "short" });
+    const hours = String(d.getHours()).padStart(2, "0");
+    const minutes = String(d.getMinutes()).padStart(2, "0");
+
+    return `${day} ${month}, ${hours}:${minutes}`;
+  }
+
+  function escapeHtml(str) {
+    return String(str)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#039;");
+  }
+
+  loadNetworkDeliveryStatus();
 
   </script>
 
