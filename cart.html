@@ -413,501 +413,634 @@
   
 
   <script>
-    const API_BASE =
-      location.hostname === "localhost"
-        ? "http://localhost:8080"
-        : "https://edatagh.com/edatagh-backend";
+  const API_BASE =
+    location.hostname === "localhost"
+      ? "http://localhost:8080"
+      : "https://edatagh.com/edatagh-backend";
 
-    const agentId =
-      localStorage.getItem("agent_id") ||
-      localStorage.getItem("EDATA_AGENT_ID") ||
-      localStorage.getItem("user_id") ||
-      sessionStorage.getItem("agent_id");
+  const agentId =
+    localStorage.getItem("agent_id") ||
+    localStorage.getItem("EDATA_AGENT_ID") ||
+    localStorage.getItem("user_id") ||
+    sessionStorage.getItem("agent_id");
 
-    let currentCartRows = [];
+  let currentCartRows = [];
+  let cartMomoOtpSessionId = null;
+  let cartMomoVerified = false;
+  let cartMomoPollTimer = null;
+  let cartCurrentTransactionId = null;
 
-    function goBack(){
-      window.location.href = "agentdashboard.html";
+  function goBack() {
+    window.location.href = "agentdashboard.html";
+  }
+
+  function getDotColor(networkName) {
+    const n = String(networkName || "").toUpperCase();
+    if (n.includes("MTN")) return "#F5B400";
+    if (n.includes("TELECEL")) return "#E54545";
+    return "#3B82F6";
+  }
+
+  function showNiceMessage(message, success = true) {
+    let box = document.getElementById("niceMessageBox");
+
+    if (!box) {
+      box = document.createElement("div");
+      box.id = "niceMessageBox";
+      box.style.position = "fixed";
+      box.style.left = "50%";
+      box.style.bottom = "24px";
+      box.style.transform = "translateX(-50%)";
+      box.style.padding = "14px 18px";
+      box.style.borderRadius = "16px";
+      box.style.fontWeight = "900";
+      box.style.zIndex = "200";
+      box.style.boxShadow = "0 12px 30px rgba(0,0,0,.18)";
+      box.style.maxWidth = "90vw";
+      box.style.textAlign = "center";
+      document.body.appendChild(box);
     }
 
-    function getDotColor(networkName){
-      const n = String(networkName || "").toUpperCase();
-      if (n.includes("MTN")) return "#F5B400";
-      if (n.includes("TELECEL")) return "#E54545";
-      return "#3B82F6";
-    }
+    box.textContent = message;
+    box.style.background = success ? "#1FAF6B" : "#EF4444";
+    box.style.color = "#fff";
+    box.style.display = "block";
 
-    async function loadCartItems(){
-      try{
-        if (!agentId) {
-          document.getElementById("cartItemsContainer").innerHTML = `
-            <div class="empty-state">Agent not logged in.</div>
-          `;
-          updateSummary([]);
-          return;
-        }
+    clearTimeout(window.__niceMsgTimer);
+    window.__niceMsgTimer = setTimeout(() => {
+      box.style.display = "none";
+    }, 3000);
+  }
 
-        const res = await fetch(`${API_BASE}/api/cart/${agentId}`);
-        const result = await res.json();
+  function updateSummary(rows) {
+    const count = rows.length;
+    const total = rows.reduce((sum, item) => sum + Number(item.total || 0), 0);
 
-        if (!res.ok || !result.ok) {
-          throw new Error(result.message || "Failed to load cart");
-        }
+    document.getElementById("cartCountBadge").textContent = `${count} item(s)`;
+    document.getElementById("summaryItemCount").textContent = count;
+    document.getElementById("summarySubtotal").textContent = `GH₵${total.toFixed(2)}`;
+    document.getElementById("summaryGrandTotal").textContent = `GH₵${total.toFixed(2)}`;
+  }
 
-        const rows = result.rows || [];
-        currentCartRows = rows;
-
-        if (rows.length === 0) {
-          document.getElementById("cartItemsContainer").innerHTML = `
-            <div class="empty-state">Your cart is empty.</div>
-          `;
-          updateSummary([]);
-          return;
-        }
-
-        document.getElementById("cartItemsContainer").innerHTML = rows.map(item => {
-          const network = String(item.network || "").toUpperCase();
-          const dotColor = getDotColor(network);
-          return `
-            <div class="cart-item">
-              <div class="item-left">
-                <div class="network-pill">
-                  <span class="dot" style="background:${dotColor}"></span>
-                  <span>${network}</span>
-                </div>
-
-                <h3 class="item-title">${item.package_name || "Package"}</h3>
-                <div class="item-meta">Package ID: ${item.package_id}</div>
-                <div class="item-meta">Quantity: ${item.quantity}</div>
-                <div class="item-meta">Amount each: GH₵${Number(item.amount || 0).toFixed(2)}</div>
-                <div class="item-meta">Recipient: ${item.recipient_number || "-"}</div>
-
-              </div>
-
-              <div class="item-right">
-                <p class="item-price">GH₵${Number(item.total || 0).toFixed(2)}</p>
-                <button class="remove-btn" onclick="removeCartItem(${item.id})">Remove</button>
-              </div>
-            </div>
-          `;
-        }).join("");
-
-        updateSummary(rows);
-
-      }catch(error){
-        console.error("Load cart error:", error);
+  async function loadCartItems() {
+    try {
+      if (!agentId) {
         document.getElementById("cartItemsContainer").innerHTML = `
-          <div class="empty-state">${error.message || "Failed to load cart."}</div>
+          <div class="empty-state">Agent not logged in.</div>
         `;
         updateSummary([]);
+        return;
       }
-    }
 
-    function updateSummary(rows){
-      const count = rows.length;
-      const total = rows.reduce((sum, item) => sum + Number(item.total || 0), 0);
+      const res = await fetch(`${API_BASE}/api/cart/${agentId}`);
+      const result = await res.json();
 
-      document.getElementById("cartCountBadge").textContent = `${count} item(s)`;
-      document.getElementById("summaryItemCount").textContent = count;
-      document.getElementById("summarySubtotal").textContent = `GH₵${total.toFixed(2)}`;
-      document.getElementById("summaryGrandTotal").textContent = `GH₵${total.toFixed(2)}`;
-    }
-
-    async function removeCartItem(id){
-      const ok = confirm("Remove this item from cart?");
-      if (!ok) return;
-
-      try{
-        const res = await fetch(`${API_BASE}/api/cart/${id}`, {
-          method: "DELETE"
-        });
-
-        const result = await res.json();
-
-        if (!res.ok || !result.ok) {
-          throw new Error(result.message || "Failed to remove item");
-        }
-
-        alert("Item removed from cart");
-        loadCartItems();
-      }catch(error){
-        console.error("Remove cart error:", error);
-        alert(error.message || "Failed to remove item");
+      if (!res.ok || !result.ok) {
+        throw new Error(result.message || "Failed to load cart");
       }
-    }
 
-   function buyFromAccount(){
-  if (!currentCartRows.length) {
-    showNiceMessage("Your cart is empty.", false);
-    return;
+      const rows = result.rows || [];
+      currentCartRows = rows;
+
+      if (rows.length === 0) {
+        document.getElementById("cartItemsContainer").innerHTML = `
+          <div class="empty-state">Your cart is empty.</div>
+        `;
+        updateSummary([]);
+        return;
+      }
+
+      document.getElementById("cartItemsContainer").innerHTML = rows.map(item => {
+        const network = String(item.network || "").toUpperCase();
+        const dotColor = getDotColor(network);
+
+        return `
+          <div class="cart-item">
+            <div class="item-left">
+              <div class="network-pill">
+                <span class="dot" style="background:${dotColor}"></span>
+                <span>${network}</span>
+              </div>
+
+              <h3 class="item-title">${item.package_name || "Package"}</h3>
+              <div class="item-meta">Package ID: ${item.package_id}</div>
+              <div class="item-meta">Quantity: ${item.quantity}</div>
+              <div class="item-meta">Amount each: GH₵${Number(item.amount || 0).toFixed(2)}</div>
+              <div class="item-meta">Recipient: ${item.recipient_number || "-"}</div>
+            </div>
+
+            <div class="item-right">
+              <p class="item-price">GH₵${Number(item.total || 0).toFixed(2)}</p>
+              <button class="remove-btn" onclick="removeCartItem(${item.id})">Remove</button>
+            </div>
+          </div>
+        `;
+      }).join("");
+
+      updateSummary(rows);
+    } catch (error) {
+      console.error("Load cart error:", error);
+      document.getElementById("cartItemsContainer").innerHTML = `
+        <div class="empty-state">${error.message || "Failed to load cart."}</div>
+      `;
+      updateSummary([]);
+    }
   }
 
-  const total = currentCartRows.reduce((sum, item) => sum + Number(item.total || 0), 0);
+  async function removeCartItem(id) {
+    const ok = confirm("Remove this item from cart?");
+    if (!ok) return;
 
-  document.getElementById("confirmAccountItemCount").textContent = currentCartRows.length;
-  document.getElementById("confirmAccountTotal").textContent = `GH₵${total.toFixed(2)}`;
-  document.getElementById("accountConfirmModal").style.display = "flex";
-}
+    try {
+      const res = await fetch(`${API_BASE}/api/cart/${id}`, {
+        method: "DELETE"
+      });
 
-function closeAccountConfirmModal(){
-  document.getElementById("accountConfirmModal").style.display = "none";
-}
+      const result = await res.json();
 
-async function confirmBuyFromAccount(){
-  try {
-    if (!agentId) {
-      showNiceMessage("Agent not logged in.", false);
+      if (!res.ok || !result.ok) {
+        throw new Error(result.message || "Failed to remove item");
+      }
+
+      showNiceMessage("Item removed from cart", true);
+      loadCartItems();
+    } catch (error) {
+      console.error("Remove cart error:", error);
+      showNiceMessage(error.message || "Failed to remove item", false);
+    }
+  }
+
+  function buyFromAccount() {
+    if (!currentCartRows.length) {
+      showNiceMessage("Your cart is empty.", false);
       return;
     }
 
-    const res = await fetch(`${API_BASE}/api/cart/buy-from-account`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        agent_id: Number(agentId)
-      })
-    });
+    const total = currentCartRows.reduce((sum, item) => sum + Number(item.total || 0), 0);
 
-    const result = await res.json();
-
-    if (!res.ok || !result.ok) {
-      throw new Error(result.message || "Payment failed");
-    }
-
-    closeAccountConfirmModal();
-    showNiceMessage(`Payment successful. Balance left: GH₵${Number(result.balance_left || 0).toFixed(2)}`, true);
-    loadCartItems();
-  } catch (error) {
-    console.error("Buy from account error:", error);
-    closeAccountConfirmModal();
-    showNiceMessage(error.message || "Payment failed", false);
-  }
-}
-
-  
-
-
-let cartMomoOtpSessionId = null;
-let cartMomoVerified = false;
-let cartMomoPollTimer = null;
-let cartCurrentTransactionId = null;
-
-function buyWithMomo(){
-  if (!currentCartRows.length) {
-    showNiceMessage("Your cart is empty.", false);
-    return;
+    document.getElementById("confirmAccountItemCount").textContent = currentCartRows.length;
+    document.getElementById("confirmAccountTotal").textContent = `GH₵${total.toFixed(2)}`;
+    document.getElementById("accountConfirmModal").style.display = "flex";
   }
 
-  const total = currentCartRows.reduce((sum, item) => sum + Number(item.total || 0), 0);
-
-  document.getElementById("cartMomoItemCount").textContent = currentCartRows.length;
-  document.getElementById("cartMomoTotal").textContent = `GH₵${total.toFixed(2)}`;
-  document.getElementById("cartMomoNumberInput").value = "";
-  document.getElementById("cartOtpInput").value = "";
-  document.getElementById("cartOtpArea").style.display = "none";
-  document.getElementById("cartMomoStatusText").textContent = "";
-
-  const verifyBtn = document.getElementById("cartVerifyOtpBtn");
-  verifyBtn.disabled = true;
-  verifyBtn.style.background = "#cbd5e1";
-  verifyBtn.style.color = "#0f172a";
-  verifyBtn.style.opacity = "1";
-
-  const payBtn = document.getElementById("cartConfirmMomoBtn");
-
-  
-  payBtn.disabled = true;
-  payBtn.style.background = "#86d3ad";
-  payBtn.style.color = "#ffffff";
-  payBtn.style.opacity = ".55";
-
-  cartMomoOtpSessionId = null;
-  cartMomoVerified = false;
-  cartCurrentTransactionId = null;
-
-  document.getElementById("cartMomoModal").style.display = "flex";
-}
-
-function closeCartMomoModal(){
-  document.getElementById("cartMomoModal").style.display = "none";
-
-  if (cartMomoPollTimer) {
-    clearInterval(cartMomoPollTimer);
-    cartMomoPollTimer = null;
+  function closeAccountConfirmModal() {
+    document.getElementById("accountConfirmModal").style.display = "none";
   }
-}
 
-async function sendCartMomoOtp(){
-  try {
-    const momo_number = document.getElementById("cartMomoNumberInput").value.trim();
+  async function confirmBuyFromAccount() {
+    try {
+      if (!agentId) {
+        showNiceMessage("Agent not logged in.", false);
+        return;
+      }
 
-    if (!momo_number) {
-      showNiceMessage("Enter MoMo number.", false);
-      return;
+      const res = await fetch(`${API_BASE}/api/cart/buy-from-account`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          agent_id: Number(agentId)
+        })
+      });
+
+      const result = await res.json();
+
+      if (!res.ok || !result.ok) {
+        throw new Error(result.message || "Payment failed");
+      }
+
+      closeAccountConfirmModal();
+      showNiceMessage(`Payment successful. Balance left: GH₵${Number(result.balance_left || 0).toFixed(2)}`, true);
+      loadCartItems();
+    } catch (error) {
+      console.error("Buy from account error:", error);
+      closeAccountConfirmModal();
+      showNiceMessage(error.message || "Payment failed", false);
     }
-
-    document.getElementById("cartMomoStatusText").textContent = "Sending OTP...";
-
-    const res = await fetch(`${API_BASE}/api/send-momo-otp`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({ momo_number })
-    });
-
-    const result = await res.json();
-
-    if (!res.ok || !result.ok) {
-      throw new Error(result.message || "Failed to send OTP");
-    }
-
-    cartMomoOtpSessionId = result.session_id;
-    document.getElementById("cartOtpArea").style.display = "block";
-
-    const verifyBtn = document.getElementById("cartVerifyOtpBtn");
-    verifyBtn.disabled = false;
-    verifyBtn.style.background = "#0f172a";
-    verifyBtn.style.color = "#ffffff";
-    verifyBtn.style.opacity = "1";
-
-    document.getElementById("cartMomoStatusText").textContent = "OTP sent successfully. Enter the code to verify.";
-    showNiceMessage("OTP sent successfully.", true);
-  } catch (error) {
-    console.error("Send cart OTP error:", error);
-    document.getElementById("cartMomoStatusText").textContent = error.message || "Failed to send OTP";
-    showNiceMessage(error.message || "Failed to send OTP", false);
   }
-}
 
-async function verifyCartMomoOtp(){
-  try {
-    const momo_number = document.getElementById("cartMomoNumberInput").value.trim();
-    const otp = document.getElementById("cartOtpInput").value.trim();
-
-    if (!momo_number) {
-      showNiceMessage("Enter MoMo number.", false);
-      return;
-    }
-
-    if (!otp) {
-      showNiceMessage("Enter OTP.", false);
-      return;
-    }
-
-    document.getElementById("cartMomoStatusText").textContent = "Verifying OTP...";
-
-    const res = await fetch(`${API_BASE}/api/verify-momo-otp`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        momo_number,
-        otp,
-        session_id: cartMomoOtpSessionId
-      })
-    });
-
-    const result = await res.json();
-
-    if (!res.ok || !result.ok) {
-      throw new Error(result.message || "OTP verification failed");
-    }
-
-    cartMomoVerified = true;
-    cartMomoOtpSessionId = result.session_id || cartMomoOtpSessionId;
-
+  function resetCartMomoPayButton() {
     const payBtn = document.getElementById("cartConfirmMomoBtn");
-    payBtn.disabled = false;
-    payBtn.style.opacity = "1";
-    payBtn.style.background = "#1FAF6B";
-    payBtn.style.color = "#ffffff";
-
-    document.getElementById("cartMomoStatusText").textContent = "OTP verified. You can now continue payment.";
-    showNiceMessage("OTP verified successfully.", true);
-  } catch (error) {
-    console.error("Verify cart OTP error:", error);
-    document.getElementById("cartMomoStatusText").textContent = error.message || "OTP verification failed";
-    showNiceMessage(error.message || "OTP verification failed", false);
-  }
-}
-
-
-
-async function confirmCartMomoPayment(){
-  const payBtn = document.getElementById("cartConfirmMomoBtn");
-
-  if (payBtn.disabled) return;
-
-  try {
-    if (!agentId) {
-      showNiceMessage("Agent not logged in.", false);
-      return;
-    }
-
-    if (!cartMomoVerified) {
-      showNiceMessage("Please verify OTP first.", false);
-      return;
-    }
-
-    const momo_number = document.getElementById("cartMomoNumberInput").value.trim();
-    if (!momo_number) {
-      showNiceMessage("Enter MoMo number.", false);
-      return;
-    }
-
-    payBtn.disabled = true;
-    payBtn.textContent = "Processing...";
-    payBtn.style.background = "#86d3ad";
-    payBtn.style.color = "#ffffff";
-    payBtn.style.opacity = ".55";
-
-    document.getElementById("cartMomoStatusText").textContent =
-      "Sending payment prompt to your phone... Do not close this page until payment is confirmed.";
-
-    const res = await fetch(`${API_BASE}/api/cart/buy-with-momo`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        agent_id: Number(agentId),
-        momo_number,
-        otp_session_id: cartMomoOtpSessionId
-      })
-    });
-
-    const result = await res.json();
-
-    if (!res.ok || !result.ok) {
-      throw new Error(result.message || "Payment could not be initiated");
-    }
-
-    cartCurrentTransactionId = result.transaction_id;
-    document.getElementById("cartMomoStatusText").textContent =
-      "Prompt sent. Please approve on your phone. If payment delays, check your MoMo approvals.";
-    showNiceMessage("Prompt sent. Approve on your phone.", true);
-
-    if (result.transaction_id) {
-      startCartMomoStatusPolling(result.transaction_id);
-    } else {
-      payBtn.disabled = false;
-      payBtn.textContent = "Confirm & Pay";
-      payBtn.style.background = "#1FAF6B";
-      payBtn.style.color = "#ffffff";
-      payBtn.style.opacity = "1";
-    }
-
-  } catch (error) {
-    console.error("Cart MoMo payment error:", error);
+    if (!payBtn) return;
 
     payBtn.disabled = false;
     payBtn.textContent = "Confirm & Pay";
     payBtn.style.background = "#1FAF6B";
     payBtn.style.color = "#ffffff";
     payBtn.style.opacity = "1";
-
-    document.getElementById("cartMomoStatusText").textContent = error.message || "Payment failed";
-    showNiceMessage(error.message || "Payment failed", false);
-  }
-}
-
-function startCartMomoStatusPolling(transactionId){
-  if (cartMomoPollTimer) {
-    clearInterval(cartMomoPollTimer);
   }
 
-  let tries = 0;
-  const maxTries = 30;
+  function disableCartMomoPayButton() {
+    const payBtn = document.getElementById("cartConfirmMomoBtn");
+    if (!payBtn) return;
 
-  cartMomoPollTimer = setInterval(async () => {
-    tries++;
+    payBtn.disabled = true;
+    payBtn.textContent = "Processing...";
+    payBtn.style.background = "#86d3ad";
+    payBtn.style.color = "#ffffff";
+    payBtn.style.opacity = ".55";
+  }
 
+  function showCartCheckStatusButton(show = true) {
+    const btn = document.getElementById("cartCheckStatusBtn");
+    if (!btn) return;
+
+    btn.style.display = show ? "block" : "none";
+    if (show) {
+      btn.style.height = "50px";
+      btn.style.border = "1px solid #cbd5e1";
+      btn.style.borderRadius = "14px";
+      btn.style.background = "#f8fafc";
+      btn.style.color = "#0f172a";
+      btn.style.fontWeight = "900";
+      btn.style.cursor = "pointer";
+    }
+  }
+
+  async function finalizeSuccessfulCartMomo(transactionId) {
+    const clearRes = await fetch(`${API_BASE}/api/cart/clear-after-momo-success`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        agent_id: Number(agentId),
+        transaction_id: transactionId
+      })
+    });
+
+    let clearResult = {};
     try {
-      const res = await fetch(`${API_BASE}/api/theteller-status?transaction_id=${encodeURIComponent(transactionId)}`);
+      clearResult = await clearRes.json();
+    } catch (_) {}
+
+    if (!clearRes.ok || (clearResult.ok === false)) {
+      throw new Error(clearResult.message || "Payment succeeded but failed to clear cart");
+    }
+
+    document.getElementById("cartMomoStatusText").textContent = "Payment successful.";
+    showNiceMessage("Payment successful.", true);
+
+    if (cartMomoPollTimer) {
+      clearTimeout(cartMomoPollTimer);
+      cartMomoPollTimer = null;
+    }
+
+    showCartCheckStatusButton(false);
+    closeCartMomoModal();
+    loadCartItems();
+  }
+
+  function buyWithMomo() {
+    if (!currentCartRows.length) {
+      showNiceMessage("Your cart is empty.", false);
+      return;
+    }
+
+    const total = currentCartRows.reduce((sum, item) => sum + Number(item.total || 0), 0);
+
+    document.getElementById("cartMomoItemCount").textContent = currentCartRows.length;
+    document.getElementById("cartMomoTotal").textContent = `GH₵${total.toFixed(2)}`;
+    document.getElementById("cartMomoNumberInput").value = "";
+    document.getElementById("cartOtpInput").value = "";
+    document.getElementById("cartOtpArea").style.display = "none";
+    document.getElementById("cartMomoStatusText").textContent = "";
+
+    const verifyBtn = document.getElementById("cartVerifyOtpBtn");
+    verifyBtn.disabled = true;
+    verifyBtn.style.background = "#cbd5e1";
+    verifyBtn.style.color = "#0f172a";
+    verifyBtn.style.opacity = "1";
+
+    const payBtn = document.getElementById("cartConfirmMomoBtn");
+    payBtn.disabled = true;
+    payBtn.textContent = "Confirm & Pay";
+    payBtn.style.background = "#86d3ad";
+    payBtn.style.color = "#ffffff";
+    payBtn.style.opacity = ".55";
+
+    cartMomoOtpSessionId = null;
+    cartMomoVerified = false;
+    cartCurrentTransactionId = null;
+
+    if (cartMomoPollTimer) {
+      clearTimeout(cartMomoPollTimer);
+      cartMomoPollTimer = null;
+    }
+
+    showCartCheckStatusButton(false);
+    document.getElementById("cartMomoModal").style.display = "flex";
+  }
+
+  function closeCartMomoModal() {
+    document.getElementById("cartMomoModal").style.display = "none";
+
+    if (cartMomoPollTimer) {
+      clearTimeout(cartMomoPollTimer);
+      cartMomoPollTimer = null;
+    }
+
+    cartCurrentTransactionId = null;
+    showCartCheckStatusButton(false);
+
+    const payBtn = document.getElementById("cartConfirmMomoBtn");
+    if (payBtn) {
+      payBtn.textContent = "Confirm & Pay";
+      payBtn.style.background = "#1FAF6B";
+      payBtn.style.color = "#ffffff";
+      payBtn.style.opacity = "1";
+      payBtn.disabled = !cartMomoVerified;
+    }
+  }
+
+  async function sendCartMomoOtp() {
+    try {
+      const momo_number = document.getElementById("cartMomoNumberInput").value.trim();
+
+      if (!momo_number) {
+        showNiceMessage("Enter MoMo number.", false);
+        return;
+      }
+
+      document.getElementById("cartMomoStatusText").textContent = "Sending OTP...";
+
+      const res = await fetch(`${API_BASE}/api/send-momo-otp`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ momo_number })
+      });
+
       const result = await res.json();
 
-      if (!res.ok || !result.ok) return;
+      if (!res.ok || !result.ok) {
+        throw new Error(result.message || "Failed to send OTP");
+      }
+
+      cartMomoOtpSessionId = result.session_id;
+      document.getElementById("cartOtpArea").style.display = "block";
+
+      const verifyBtn = document.getElementById("cartVerifyOtpBtn");
+      verifyBtn.disabled = false;
+      verifyBtn.style.background = "#0f172a";
+      verifyBtn.style.color = "#ffffff";
+      verifyBtn.style.opacity = "1";
+
+      document.getElementById("cartMomoStatusText").textContent = "OTP sent successfully. Enter the code to verify.";
+      showNiceMessage("OTP sent successfully.", true);
+    } catch (error) {
+      console.error("Send cart OTP error:", error);
+      document.getElementById("cartMomoStatusText").textContent = error.message || "Failed to send OTP";
+      showNiceMessage(error.message || "Failed to send OTP", false);
+    }
+  }
+
+  async function verifyCartMomoOtp() {
+    try {
+      const momo_number = document.getElementById("cartMomoNumberInput").value.trim();
+      const otp = document.getElementById("cartOtpInput").value.trim();
+
+      if (!momo_number) {
+        showNiceMessage("Enter MoMo number.", false);
+        return;
+      }
+
+      if (!otp) {
+        showNiceMessage("Enter OTP.", false);
+        return;
+      }
+
+      document.getElementById("cartMomoStatusText").textContent = "Verifying OTP...";
+
+      const res = await fetch(`${API_BASE}/api/verify-momo-otp`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          momo_number,
+          otp,
+          session_id: cartMomoOtpSessionId
+        })
+      });
+
+      const result = await res.json();
+
+      if (!res.ok || !result.ok) {
+        throw new Error(result.message || "OTP verification failed");
+      }
+
+      cartMomoVerified = true;
+      cartMomoOtpSessionId = result.session_id || cartMomoOtpSessionId;
+
+      const payBtn = document.getElementById("cartConfirmMomoBtn");
+      payBtn.disabled = false;
+      payBtn.style.opacity = "1";
+      payBtn.style.background = "#1FAF6B";
+      payBtn.style.color = "#ffffff";
+      payBtn.textContent = "Confirm & Pay";
+
+      document.getElementById("cartMomoStatusText").textContent = "OTP verified. You can now continue payment.";
+      showNiceMessage("OTP verified successfully.", true);
+    } catch (error) {
+      console.error("Verify cart OTP error:", error);
+      document.getElementById("cartMomoStatusText").textContent = error.message || "OTP verification failed";
+      showNiceMessage(error.message || "OTP verification failed", false);
+    }
+  }
+
+  async function confirmCartMomoPayment() {
+    const payBtn = document.getElementById("cartConfirmMomoBtn");
+
+    if (payBtn.disabled) return;
+
+    try {
+      if (!agentId) {
+        showNiceMessage("Agent not logged in.", false);
+        return;
+      }
+
+      if (!cartMomoVerified) {
+        showNiceMessage("Please verify OTP first.", false);
+        return;
+      }
+
+      const momo_number = document.getElementById("cartMomoNumberInput").value.trim();
+      if (!momo_number) {
+        showNiceMessage("Enter MoMo number.", false);
+        return;
+      }
+
+      disableCartMomoPayButton();
+      showCartCheckStatusButton(false);
+
+      document.getElementById("cartMomoStatusText").textContent =
+        "Sending payment prompt to your phone... Do not close this page until payment is confirmed.";
+
+      const res = await fetch(`${API_BASE}/api/cart/buy-with-momo`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          agent_id: Number(agentId),
+          momo_number,
+          otp_session_id: cartMomoOtpSessionId
+        })
+      });
+
+      const result = await res.json();
+
+      if (!res.ok || !result.ok) {
+        throw new Error(result.message || "Payment could not be initiated");
+      }
+
+      cartCurrentTransactionId = result.transaction_id;
+
+      document.getElementById("cartMomoStatusText").textContent =
+        "Prompt sent. Please approve on your phone. If it delays after approval, tap 'Check Payment Status'.";
+      showNiceMessage("Prompt sent. Approve on your phone.", true);
+
+      showCartCheckStatusButton(true);
+
+      if (result.transaction_id) {
+        startCartMomoStatusPolling(result.transaction_id);
+      } else {
+        resetCartMomoPayButton();
+      }
+    } catch (error) {
+      console.error("Cart MoMo payment error:", error);
+
+      resetCartMomoPayButton();
+      showCartCheckStatusButton(false);
+
+      document.getElementById("cartMomoStatusText").textContent = error.message || "Payment failed";
+      showNiceMessage(error.message || "Payment failed", false);
+    }
+  }
+
+  function startCartMomoStatusPolling(transactionId) {
+    if (cartMomoPollTimer) {
+      clearTimeout(cartMomoPollTimer);
+      cartMomoPollTimer = null;
+    }
+
+    let tries = 0;
+    const maxTries = 25;
+
+    const poll = async () => {
+      tries++;
+
+      try {
+        const res = await fetch(`${API_BASE}/api/theteller-status?transaction_id=${encodeURIComponent(transactionId)}`);
+        const result = await res.json();
+
+        if (res.ok && result.ok) {
+          if (result.status === "approved") {
+            cartMomoPollTimer = null;
+            await finalizeSuccessfulCartMomo(transactionId);
+            return;
+          }
+
+          if (result.status === "failed") {
+            cartMomoPollTimer = null;
+            document.getElementById("cartMomoStatusText").textContent = "Payment failed or was cancelled.";
+            showNiceMessage("Payment failed.", false);
+            resetCartMomoPayButton();
+            showCartCheckStatusButton(true);
+            return;
+          }
+        }
+
+        if (tries >= maxTries) {
+          cartMomoPollTimer = null;
+          document.getElementById("cartMomoStatusText").textContent =
+            "Still pending. If you have already approved on your phone, tap 'Check Payment Status'.";
+          resetCartMomoPayButton();
+          showCartCheckStatusButton(true);
+          return;
+        }
+
+        const nextDelay = tries <= 6 ? 2000 : 4000;
+        cartMomoPollTimer = setTimeout(poll, nextDelay);
+      } catch (error) {
+        console.error("Cart status polling error:", error);
+
+        if (tries >= maxTries) {
+          cartMomoPollTimer = null;
+          document.getElementById("cartMomoStatusText").textContent =
+            "Unable to confirm payment now. Tap 'Check Payment Status' shortly.";
+          resetCartMomoPayButton();
+          showCartCheckStatusButton(true);
+          return;
+        }
+
+        const nextDelay = tries <= 6 ? 2000 : 4000;
+        cartMomoPollTimer = setTimeout(poll, nextDelay);
+      }
+    };
+
+    poll();
+  }
+
+  async function checkCartMomoStatusNow() {
+    try {
+      if (!cartCurrentTransactionId) {
+        showNiceMessage("No active payment found to check.", false);
+        return;
+      }
+
+      document.getElementById("cartMomoStatusText").textContent = "Checking payment status...";
+
+      const res = await fetch(
+        `${API_BASE}/api/theteller-status?transaction_id=${encodeURIComponent(cartCurrentTransactionId)}`
+      );
+      const result = await res.json();
+
+      if (!res.ok || !result.ok) {
+        throw new Error(result.message || "Could not check payment status");
+      }
 
       if (result.status === "approved") {
-        clearInterval(cartMomoPollTimer);
-        cartMomoPollTimer = null;
-
-        await fetch(`${API_BASE}/api/cart/clear-after-momo-success`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json"
-          },
-          body: JSON.stringify({
-            agent_id: Number(agentId),
-            transaction_id: transactionId
-          })
-        });
-
-        document.getElementById("cartMomoStatusText").textContent = "Payment successful.";
-        showNiceMessage("Payment successful.", true);
-        closeCartMomoModal();
-        loadCartItems();
+        await finalizeSuccessfulCartMomo(cartCurrentTransactionId);
         return;
       }
 
       if (result.status === "failed") {
-        clearInterval(cartMomoPollTimer);
-        cartMomoPollTimer = null;
         document.getElementById("cartMomoStatusText").textContent = "Payment failed or was cancelled.";
         showNiceMessage("Payment failed.", false);
+        resetCartMomoPayButton();
         return;
       }
 
-      if (tries >= maxTries) {
-        clearInterval(cartMomoPollTimer);
-        cartMomoPollTimer = null;
-        document.getElementById("cartMomoStatusText").textContent = "Still pending. Please check again shortly.";
-      }
+      document.getElementById("cartMomoStatusText").textContent =
+        "Payment is still pending. If you have not yet approved, check your phone.";
+      showNiceMessage("Payment still pending.", false);
     } catch (error) {
-      console.error("Cart status polling error:", error);
+      console.error("Manual cart status check error:", error);
+      document.getElementById("cartMomoStatusText").textContent =
+        error.message || "Could not check payment status";
+      showNiceMessage(error.message || "Could not check payment status", false);
     }
-  }, 5000);
-}
-
-
-
-    function showNiceMessage(message, success = true){
-  let box = document.getElementById("niceMessageBox");
-
-  if (!box) {
-    box = document.createElement("div");
-    box.id = "niceMessageBox";
-    box.style.position = "fixed";
-    box.style.left = "50%";
-    box.style.bottom = "24px";
-    box.style.transform = "translateX(-50%)";
-    box.style.padding = "14px 18px";
-    box.style.borderRadius = "16px";
-    box.style.fontWeight = "900";
-    box.style.zIndex = "200";
-    box.style.boxShadow = "0 12px 30px rgba(0,0,0,.18)";
-    box.style.maxWidth = "90vw";
-    box.style.textAlign = "center";
-    document.body.appendChild(box);
   }
 
-  box.textContent = message;
-  box.style.background = success ? "#1FAF6B" : "#EF4444";
-  box.style.color = "#fff";
-  box.style.display = "block";
+  window.addEventListener("click", function(e) {
+    const accountModal = document.getElementById("accountConfirmModal");
+    const momoModal = document.getElementById("cartMomoModal");
 
-  clearTimeout(window.__niceMsgTimer);
-  window.__niceMsgTimer = setTimeout(() => {
-    box.style.display = "none";
-  }, 3000);
-}
+    if (e.target === accountModal) {
+      closeAccountConfirmModal();
+    }
 
-    loadCartItems();
-  </script>
+    if (e.target === momoModal) {
+      closeCartMomoModal();
+    }
+  });
+
+  loadCartItems();
+</script>
 
 
 <div id="accountConfirmModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,.45); z-index:150; align-items:center; justify-content:center; padding:16px;">
@@ -999,6 +1132,11 @@ function startCartMomoStatusPolling(transactionId){
         style="height:52px; border:none; border-radius:14px; background:#1FAF6B; color:#fff; font-weight:900; cursor:pointer; opacity:.55;">
         Confirm & Pay
       </button>
+
+    <button id="cartCheckStatusBtn" type="button" onclick="checkCartMomoStatusNow()"
+  style="display:none; height:50px; border:1px solid #cbd5e1; border-radius:14px; background:#f8fafc; color:#0f172a; font-weight:900; cursor:pointer;">
+  Check Payment Status
+</button>
 
       <div id="cartMomoStatusText" style="font-size:14px; color:#64748b; text-align:center;"></div>
     </div>
