@@ -380,25 +380,20 @@
     <div class="table-card">
       <div class="table-wrap">
         <table>
-          <thead>
-            <tr>
-              <th>ID</th>
-              <th>Agent Name</th>
-              <th>Phone</th>
-              <th>Email</th>
-              <th>Gender</th>
-              <th>Address</th>
-              <th>Status</th>
-              <th>Balance</th>
-              <th>Sales Deposit</th>
-              <th>Overdraft</th>
-              <th>Created At</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
+      <thead>
+  <tr>
+    <th>ID</th>
+    <th>Agent Name</th>
+    <th>Phone</th>
+    <th>Balance</th>
+    <th>Sales Deposit</th>
+    <th>Overdraft</th>
+    <th>Actions</th>
+  </tr>
+</thead>
           <tbody id="agentsBody">
             <tr>
-              <td colspan="12" class="empty">Loading agents...</td>
+              <td colspan="7" class="empty">Loading agents...</td>
             </tr>
           </tbody>
         </table>
@@ -514,7 +509,7 @@
 
     async function loadAgents(search = "") {
       const tbody = document.getElementById("agentsBody");
-      tbody.innerHTML = `<tr><td colspan="12" class="empty">Loading agents...</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="7" class="empty">Loading agents...</td></tr>`;
 
       try {
         const res = await fetch(`${API_BASE}/api/admin-agent-wallet-list?search=${encodeURIComponent(search)}`);
@@ -529,49 +524,44 @@
         const rows = Array.isArray(result.data) ? result.data : [];
 
         if (!rows.length) {
-          tbody.innerHTML = `<tr><td colspan="12" class="empty">No agents found.</td></tr>`;
+          tbody.innerHTML = `<tr><td colspan="7" class="empty">No agents found.</td></tr>`;
           return;
         }
 
-        tbody.innerHTML = rows.map(agent => {
-          const fullName = `${agent.first_name || ""} ${agent.last_name || ""}`.trim();
+    tbody.innerHTML = rows.map(agent => {
+  const fullName = `${agent.first_name || ""} ${agent.last_name || ""}`.trim();
 
-          return `
-            <tr>
-              <td>${escapeHtml(agent.id)}</td>
-              <td><strong>${escapeHtml(fullName)}</strong></td>
-              <td>${escapeHtml(agent.phone || "")}</td>
-              <td>${escapeHtml(agent.email || "")}</td>
-              <td>${escapeHtml(agent.gender || "")}</td>
-              <td>${escapeHtml(agent.address || "")}</td>
-              <td>${getStatusBadge(agent.status)}</td>
-              <td class="money">GHS ${money(agent.balance)}</td>
-              <td class="money">GHS ${money(agent.sales_deposit)}</td>
-              <td class="money">GHS ${money(agent.overdraft)}</td>
-              <td>${agent.created_at ? new Date(agent.created_at).toLocaleString() : ""}</td>
-              <td>
-                <div class="actions">
-                  <button class="btn deposit" onclick='openModal(${Number(agent.id)}, ${JSON.stringify(fullName)}, "deposit_balance")'>
-                    Deposit Balance
-                  </button>
-                  <button class="btn balance-minus" onclick='openModal(${Number(agent.id)}, ${JSON.stringify(fullName)}, "deduct_balance")'>
-                    Deduct Balance
-                  </button>
-                  <button class="btn od-plus" onclick='openModal(${Number(agent.id)}, ${JSON.stringify(fullName)}, "add_overdraft")'>
-                    Add Overdraft
-                  </button>
-                  <button class="btn od-minus" onclick='openModal(${Number(agent.id)}, ${JSON.stringify(fullName)}, "deduct_overdraft")'>
-                    Deduct Overdraft
-                  </button>
-                </div>
-              </td>
-            </tr>
-          `;
-        }).join("");
+  return `
+    <tr>
+      <td>${agent.id}</td>
+      <td><strong>${fullName}</strong></td>
+      <td>${agent.phone || ""}</td>
+      <td class="money">GHS ${money(agent.balance)}</td>
+      <td class="money">GHS ${money(agent.sales_deposit)}</td>
+      <td class="money">GHS ${money(agent.overdraft)}</td>
+      <td>
+        <div class="actions">
+          <button class="btn deposit" onclick='openModal(${agent.id}, ${JSON.stringify(fullName)}, "deposit_balance")'>
+            Deposit Balance
+          </button>
+          <button class="btn balance-minus" onclick='openModal(${agent.id}, ${JSON.stringify(fullName)}, "deduct_balance")'>
+            Deduct Balance
+          </button>
+          <button class="btn od-plus" onclick='openModal(${agent.id}, ${JSON.stringify(fullName)}, "add_overdraft")'>
+            Add Overdraft
+          </button>
+          <button class="btn od-minus" onclick='openModal(${agent.id}, ${JSON.stringify(fullName)}, "deduct_overdraft")'>
+            Deduct Overdraft
+          </button>
+        </div>
+      </td>
+    </tr>
+  `;
+}).join("");
 
       } catch (err) {
         console.error("Error loading agents:", err);
-        tbody.innerHTML = `<tr><td colspan="12" class="empty">Failed to load agents.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="7" class="empty">Failed to load agents.</td></tr>`;
         showToast(err.message || "Error loading agents", true);
       }
     }
