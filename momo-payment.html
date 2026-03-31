@@ -358,6 +358,9 @@
     let pollTimer = null;
     let pollingStopped = false;
     let isAutoChecking = false;
+    let paymentStartedAt = Date.now();
+    let failedSeenCount = 0;
+    let lastStatus = "";
 
     function setText(id, value) {
       const el = document.getElementById(id);
@@ -393,6 +396,7 @@
     }
 
     function updateStatus(text) {
+      lastStatus = text;
       setText("paymentStatusLabel", text);
     }
 
@@ -405,6 +409,7 @@
       sessionStorage.setItem("single_momo_payment_momo", momoNumberValue);
       sessionStorage.setItem("single_momo_payment_vendor_id", vendorId);
       sessionStorage.setItem("single_momo_payment_otp", otpSessionId);
+      sessionStorage.setItem("single_momo_payment_started_at", String(paymentStartedAt));
     }
 
     function clearPaymentState() {
@@ -416,10 +421,20 @@
       sessionStorage.removeItem("single_momo_payment_momo");
       sessionStorage.removeItem("single_momo_payment_vendor_id");
       sessionStorage.removeItem("single_momo_payment_otp");
+      sessionStorage.removeItem("single_momo_payment_started_at");
     }
 
     function goBackToDashboard() {
       window.location.href = "agentdashboard.html";
+    }
+
+    function getElapsedMs() {
+      return Date.now() - paymentStartedAt;
+    }
+
+    function shouldTreatFailedAsFinal() {
+      const elapsed = getElapsedMs();
+      return elapsed >= 20000 && failedSeenCount >= 2;
     }
 
     async function finalizeSuccessfulPayment() {
@@ -430,6 +445,7 @@
 
       hideLoader();
       updateStatus("Successful");
+      clearMessages();
       showSuccess("Payment made successfully. Returning to dashboard...");
       clearPaymentState();
 
@@ -467,7 +483,7 @@
       return "";
     }
 
-    async function checkPaymentStatus() {
+    async function checkPaymentStatusDetailed() {
       if (!transactionId) {
         await recoverTransactionId();
       }
@@ -483,7 +499,7 @@
         throw new Error(result.message || "Unable to check payment status");
       }
 
-      return result.status;
+      return result;
     }
 
     async function manualCheckPayment() {
@@ -492,21 +508,33 @@
         showLoader("Checking if your payment has been completed...");
         updateStatus("Checking...");
 
-        const status = await checkPaymentStatus();
+        const result = await checkPaymentStatusDetailed();
+        const status = String(result.status || "").toLowerCase().trim();
+
         hideLoader();
 
         if (status === "approved") {
+          failedSeenCount = 0;
           updateStatus("Approved");
           await finalizeSuccessfulPayment();
           return;
         }
 
         if (status === "failed") {
+          failedSeenCount++;
+
+          if (!shouldTreatFailedAsFinal()) {
+            updateStatus("Pending");
+            showError("The payment is still being confirmed. If you already approved it, wait a moment and tap again.");
+            return;
+          }
+
           updateStatus("Failed");
           showError("Payment failed or was cancelled.");
           return;
         }
 
+        failedSeenCount = 0;
         updateStatus("Pending");
         showError("Payment is still pending. Please check your phone approvals and try again.");
       } catch (error) {
@@ -522,9 +550,11 @@
       try {
         isAutoChecking = true;
 
-        const status = await checkPaymentStatus();
+        const result = await checkPaymentStatusDetailed();
+        const status = String(result.status || "").toLowerCase().trim();
 
         if (status === "approved") {
+          failedSeenCount = 0;
           clearMessages();
           updateStatus("Approved");
           await finalizeSuccessfulPayment();
@@ -532,11 +562,19 @@
         }
 
         if (status === "failed") {
+          failedSeenCount++;
+
+          if (!shouldTreatFailedAsFinal()) {
+            updateStatus("Waiting for approval...");
+            return;
+          }
+
           updateStatus("Failed");
           showError("Payment failed or was cancelled.");
           return;
         }
 
+        failedSeenCount = 0;
         clearMessages();
         updateStatus("Waiting for approval...");
       } catch (error) {
@@ -548,7 +586,7 @@
 
     function startPolling() {
       let tries = 0;
-      const maxTries = 40;
+      const maxTries = 45;
 
       if (pollTimer) {
         clearTimeout(pollTimer);
@@ -561,22 +599,32 @@
         tries++;
 
         try {
-          const status = await checkPaymentStatus();
+          const result = await checkPaymentStatusDetailed();
+          const status = String(result.status || "").toLowerCase().trim();
 
           if (status === "approved") {
+            failedSeenCount = 0;
             updateStatus("Approved");
             await finalizeSuccessfulPayment();
             return;
           }
 
           if (status === "failed") {
-            updateStatus("Failed");
-            showError("Payment failed or was cancelled.");
-            return;
-          }
+            failedSeenCount++;
 
-          clearMessages();
-          updateStatus("Waiting for approval...");
+            if (shouldTreatFailedAsFinal()) {
+              updateStatus("Failed");
+              showError("Payment failed or was cancelled.");
+              return;
+            }
+
+            clearMessages();
+            updateStatus("Waiting for approval...");
+          } else {
+            failedSeenCount = 0;
+            clearMessages();
+            updateStatus("Waiting for approval...");
+          }
 
           if (tries >= maxTries) {
             updateStatus("Pending");
@@ -584,7 +632,7 @@
             return;
           }
 
-          pollTimer = setTimeout(poll, tries <= 8 ? 3000 : 5000);
+          pollTimer = setTimeout(poll, tries <= 10 ? 2500 : 4500);
         } catch (error) {
           console.error("Polling error:", error);
           updateStatus("Pending");
@@ -594,7 +642,7 @@
             return;
           }
 
-          pollTimer = setTimeout(poll, tries <= 8 ? 3000 : 5000);
+          pollTimer = setTimeout(poll, tries <= 10 ? 2500 : 4500);
         }
       };
 
@@ -611,6 +659,7 @@
 
         if (transactionId) {
           updateStatus("Checking existing transaction...");
+          clearMessages();
           showSuccess("Resuming your payment session...");
           startPolling();
           return;
@@ -650,6 +699,9 @@
 
         if (res.ok && result && result.ok) {
           if (transactionId) {
+            paymentStartedAt = Date.now();
+            savePaymentState();
+            failedSeenCount = 0;
             updateStatus("Prompt sent");
             showSuccess("Payment prompt sent successfully. Please approve it on your phone.");
             startPolling();
@@ -662,11 +714,15 @@
         }
 
         if (result && result.transaction_id) {
+          paymentStartedAt = Date.now();
+          savePaymentState();
+          failedSeenCount = 0;
           updateStatus("Pending");
           showError(
             result.message ||
             "Payment may already be in progress. Please check your phone, approve the payment, then tap 'I’ve completed the payment'."
           );
+          startPolling();
           return;
         }
 
@@ -691,6 +747,11 @@
     }
 
     function initPage() {
+      const savedStartedAt = Number(sessionStorage.getItem("single_momo_payment_started_at") || 0);
+      if (savedStartedAt > 0) {
+        paymentStartedAt = savedStartedAt;
+      }
+
       setText("payAmount", `GHS ${amountValue.toFixed(2)}`);
       setText("packageName", packageNameValue || `Package #${packageId}`);
       setText("recipientNumber", recipientNumberValue || "-");
@@ -700,23 +761,27 @@
       initiatePayment();
     }
 
-    window.addEventListener("focus", () => {
-      autoResumePaymentCheck();
-    });
+    let autoResumeDebounce = null;
 
-    window.addEventListener("pageshow", () => {
-      autoResumePaymentCheck();
-    });
+    function queueAutoResumeCheck() {
+      if (autoResumeDebounce) {
+        clearTimeout(autoResumeDebounce);
+      }
+      autoResumeDebounce = setTimeout(() => {
+        autoResumePaymentCheck();
+      }, 900);
+    }
+
+    window.addEventListener("focus", queueAutoResumeCheck);
+    window.addEventListener("pageshow", queueAutoResumeCheck);
 
     document.addEventListener("visibilitychange", () => {
       if (!document.hidden) {
-        autoResumePaymentCheck();
+        queueAutoResumeCheck();
       }
     });
 
-    window.addEventListener("online", () => {
-      autoResumePaymentCheck();
-    });
+    window.addEventListener("online", queueAutoResumeCheck);
 
     initPage();
   </script>

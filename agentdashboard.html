@@ -1465,6 +1465,7 @@ payBtn.style.background = "#1FAF6B";
 payBtn.style.cursor = "pointer";
   }
 }
+
 async function confirmMomoPayment() {
   const payBtn = document.getElementById("confirmMomoPaymentBtn");
 
@@ -1493,7 +1494,7 @@ async function confirmMomoPayment() {
     }
 
     payBtn.disabled = true;
-    payBtn.textContent = "Processing...";
+    payBtn.textContent = "Opening...";
     payBtn.style.background = "#94a3b8";
     payBtn.style.cursor = "not-allowed";
 
@@ -1518,6 +1519,8 @@ async function confirmMomoPayment() {
     payBtn.style.cursor = "pointer";
   }
 }
+
+
 function startMomoStatusPolling(transactionId){
   if (momoStatusPollTimer) {
     clearInterval(momoStatusPollTimer);
