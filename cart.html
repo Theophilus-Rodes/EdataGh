@@ -851,75 +851,44 @@
     }
   }
 
-  async function confirmCartMomoPayment() {
-    const payBtn = document.getElementById("cartConfirmMomoBtn");
 
-    if (payBtn.disabled) return;
-
-    try {
-      if (!agentId) {
-        showNiceMessage("Agent not logged in.", false);
-        return;
-      }
-
-      if (!cartMomoVerified) {
-        showNiceMessage("Please verify OTP first.", false);
-        return;
-      }
-
-      const momo_number = document.getElementById("cartMomoNumberInput").value.trim();
-      if (!momo_number) {
-        showNiceMessage("Enter MoMo number.", false);
-        return;
-      }
-
-      disableCartMomoPayButton();
-      showCartCheckStatusButton(false);
-
-      document.getElementById("cartMomoStatusText").textContent =
-        "Sending payment prompt to your phone... Do not close this page until payment is confirmed.";
-
-      const res = await fetch(`${API_BASE}/api/cart/buy-with-momo`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          agent_id: Number(agentId),
-          momo_number,
-          otp_session_id: cartMomoOtpSessionId
-        })
-      });
-
-      const result = await res.json();
-
-      if (!res.ok || !result.ok) {
-        throw new Error(result.message || "Payment could not be initiated");
-      }
-
-      cartCurrentTransactionId = result.transaction_id;
-
-      document.getElementById("cartMomoStatusText").textContent =
-        "Prompt sent. Please approve on your phone. If it delays after approval, tap 'Check Payment Status'.";
-      showNiceMessage("Prompt sent. Approve on your phone.", true);
-
-      showCartCheckStatusButton(true);
-
-      if (result.transaction_id) {
-        startCartMomoStatusPolling(result.transaction_id);
-      } else {
-        resetCartMomoPayButton();
-      }
-    } catch (error) {
-      console.error("Cart MoMo payment error:", error);
-
-      resetCartMomoPayButton();
-      showCartCheckStatusButton(false);
-
-      document.getElementById("cartMomoStatusText").textContent = error.message || "Payment failed";
-      showNiceMessage(error.message || "Payment failed", false);
+async function confirmCartMomoPayment() {
+  try {
+    if (!agentId) {
+      showNiceMessage("Agent not logged in.", false);
+      return;
     }
+
+    if (!cartMomoVerified) {
+      showNiceMessage("Please verify OTP first.", false);
+      return;
+    }
+
+    const momo_number = document.getElementById("cartMomoNumberInput").value.trim();
+    if (!momo_number) {
+      showNiceMessage("Enter MoMo number.", false);
+      return;
+    }
+
+    const total = currentCartRows.reduce((sum, item) => sum + Number(item.total || 0), 0);
+    const items = currentCartRows.length;
+
+    const query = new URLSearchParams({
+      agent_id: agentId,
+      momo_number,
+      otp_session_id: cartMomoOtpSessionId || "",
+      amount: total.toFixed(2),
+      items: items
+    });
+
+    window.location.href = `cart-payment.html?${query.toString()}`;
+  } catch (error) {
+    console.error("Redirect to payment page error:", error);
+    showNiceMessage(error.message || "Could not continue payment", false);
   }
+}
+
+
 
   function startCartMomoStatusPolling(transactionId) {
     if (cartMomoPollTimer) {
