@@ -1,0 +1,601 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Complete Payment</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+  <style>
+    :root{
+      --primary:#1FAF6B;
+      --primary-dark:#169457;
+      --bg:#f5f7fb;
+      --card:#ffffff;
+      --text:#0f172a;
+      --muted:#64748b;
+      --border:#e2e8f0;
+      --danger:#ef4444;
+      --shadow:0 20px 50px rgba(15,23,42,.10);
+    }
+
+    *{box-sizing:border-box}
+
+    body{
+      margin:0;
+      font-family:'Inter',sans-serif;
+      background:var(--bg);
+      color:var(--text);
+      min-height:100vh;
+    }
+
+    .page{
+      min-height:100vh;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      padding:24px 16px;
+    }
+
+    .card{
+      width:min(480px, 100%);
+      background:var(--card);
+      border:1px solid var(--border);
+      border-radius:28px;
+      box-shadow:var(--shadow);
+      padding:28px 22px;
+      text-align:center;
+    }
+
+    .top{
+      display:flex;
+      justify-content:space-between;
+      align-items:flex-start;
+      gap:12px;
+      margin-bottom:24px;
+      text-align:left;
+    }
+
+    .brand{
+      display:flex;
+      align-items:center;
+      gap:10px;
+    }
+
+    .menu-icon{
+      width:42px;
+      height:42px;
+      border-radius:14px;
+      background:#e8fff3;
+      color:var(--primary);
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      font-size:22px;
+      font-weight:900;
+    }
+
+    .brand-text h2{
+      margin:0;
+      font-size:18px;
+      font-weight:900;
+    }
+
+    .brand-text p{
+      margin:3px 0 0;
+      font-size:13px;
+      color:var(--muted);
+    }
+
+    .pay-info{
+      text-align:right;
+    }
+
+    .pay-info .email{
+      font-size:13px;
+      color:var(--muted);
+      word-break:break-word;
+    }
+
+    .pay-info .amount{
+      margin-top:4px;
+      font-size:22px;
+      font-weight:900;
+      color:var(--primary);
+    }
+
+    .icon-wrap{
+      width:74px;
+      height:74px;
+      border-radius:22px;
+      margin:8px auto 18px;
+      background:#ecfdf5;
+      border:1px solid #bbf7d0;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      font-size:34px;
+    }
+
+    .title{
+      font-size:28px;
+      font-weight:900;
+      margin:0 0 10px;
+      line-height:1.15;
+    }
+
+    .desc{
+      color:var(--muted);
+      font-size:15px;
+      line-height:1.65;
+      margin:0 auto 20px;
+      max-width:360px;
+    }
+
+    .status-box{
+      margin:0 0 18px;
+      background:#f8fafc;
+      border:1px solid var(--border);
+      border-radius:18px;
+      padding:14px;
+      text-align:left;
+    }
+
+    .status-row{
+      display:flex;
+      justify-content:space-between;
+      gap:12px;
+      margin:6px 0;
+      font-size:14px;
+    }
+
+    .status-row span:first-child{
+      color:var(--muted);
+    }
+
+    .status-row strong{
+      color:var(--text);
+    }
+
+    .notice{
+      background:#fff7ed;
+      border:1px solid #fdba74;
+      color:#9a3412;
+      padding:13px 14px;
+      border-radius:14px;
+      font-size:14px;
+      line-height:1.5;
+      font-weight:700;
+      margin:0 0 18px;
+      text-align:left;
+    }
+
+    .btn{
+      width:100%;
+      height:54px;
+      border:none;
+      border-radius:16px;
+      font-weight:900;
+      font-size:16px;
+      cursor:pointer;
+      transition:.2s ease;
+      margin-top:12px;
+    }
+
+    .btn.primary{
+      background:#f8fafc;
+      border:1px solid var(--border);
+      color:var(--text);
+    }
+
+    .btn.primary:hover{
+      background:#eef2f7;
+    }
+
+    .btn.cancel{
+      background:#fff;
+      border:1px solid var(--border);
+      color:#475569;
+    }
+
+    .btn.cancelpay{
+      background:#f8fafc;
+      border:1px solid var(--border);
+      color:#0f172a;
+    }
+
+    .btn:disabled{
+      opacity:.6;
+      cursor:not-allowed;
+    }
+
+    .footer{
+      margin-top:18px;
+      color:#64748b;
+      font-size:13px;
+      font-weight:700;
+    }
+
+    .secure{
+      display:inline-flex;
+      align-items:center;
+      gap:6px;
+      padding:8px 12px;
+      border-radius:999px;
+      background:#f8fafc;
+      border:1px solid var(--border);
+    }
+
+    .loader-wrap{
+      display:none;
+      margin-top:16px;
+      align-items:center;
+      justify-content:center;
+      gap:10px;
+      color:var(--muted);
+      font-size:14px;
+      font-weight:700;
+    }
+
+    .spinner{
+      width:18px;
+      height:18px;
+      border:3px solid #dbeafe;
+      border-top:3px solid var(--primary);
+      border-radius:50%;
+      animation:spin .8s linear infinite;
+    }
+
+    @keyframes spin{
+      100%{ transform:rotate(360deg); }
+    }
+
+    .success-box,
+    .error-box{
+      display:none;
+      margin-top:16px;
+      padding:14px;
+      border-radius:14px;
+      font-size:14px;
+      font-weight:800;
+      line-height:1.5;
+    }
+
+    .success-box{
+      background:#ecfdf5;
+      color:#166534;
+      border:1px solid #bbf7d0;
+    }
+
+    .error-box{
+      background:#fef2f2;
+      color:#b91c1c;
+      border:1px solid #fecaca;
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <div class="card">
+      <div class="top">
+        <div class="brand">
+          <div class="menu-icon">≡</div>
+          <div class="brand-text">
+            <h2>EDATA Checkout</h2>
+            <p>Authorize payment on your phone</p>
+          </div>
+        </div>
+
+        <div class="pay-info">
+          <div class="email" id="payerEmail">agent@edata.com</div>
+          <div class="amount" id="payAmount">GHS 0.00</div>
+        </div>
+      </div>
+
+      <div class="icon-wrap">📱</div>
+
+      <h1 class="title">Complete the authorisation</h1>
+      <p class="desc">
+        Please complete the payment by entering your mobile money PIN on your phone.
+      </p>
+
+      <div class="status-box">
+        <div class="status-row">
+          <span>Items</span>
+          <strong id="itemCount">0</strong>
+        </div>
+        <div class="status-row">
+          <span>MoMo Number</span>
+          <strong id="momoNumber">-</strong>
+        </div>
+        <div class="status-row">
+          <span>Status</span>
+          <strong id="paymentStatusLabel">Initiating...</strong>
+        </div>
+      </div>
+
+      <div class="notice">
+        If the prompt delays, check your MoMo approvals and approve the payment there. After approving, tap <b>I’ve completed the payment</b>.
+      </div>
+
+      <button class="btn primary" id="completedBtn" onclick="manualCheckPayment()">
+        I’ve completed the payment
+      </button>
+
+      <button class="btn cancel" onclick="goBackToCart()">
+        Cancel
+      </button>
+
+      <button class="btn cancelpay" id="cancelPaymentBtn" onclick="cancelPaymentFlow()">
+        × Cancel Payment
+      </button>
+
+      <div class="loader-wrap" id="loaderWrap">
+        <div class="spinner"></div>
+        <span id="loaderText">Checking payment status...</span>
+      </div>
+
+      <div class="success-box" id="successBox"></div>
+      <div class="error-box" id="errorBox"></div>
+
+      <div class="footer">
+        <span class="secure">🔒 Secured by EDATA</span>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const API_BASE =
+      location.hostname === "localhost"
+        ? "http://localhost:8080"
+        : "https://edatagh.com/edatagh-backend";
+
+    const params = new URLSearchParams(window.location.search);
+
+    const agentId = params.get("agent_id") || "";
+    const momoNumberValue = params.get("momo_number") || "";
+    const otpSessionId = params.get("otp_session_id") || "";
+    const totalAmount = Number(params.get("amount") || 0);
+    const itemCountValue = Number(params.get("items") || 0);
+
+    let transactionId = null;
+    let pollTimer = null;
+    let pollingStopped = false;
+
+    function setText(id, value) {
+      const el = document.getElementById(id);
+      if (el) el.textContent = value;
+    }
+
+    function showLoader(message = "Checking payment status...") {
+      document.getElementById("loaderWrap").style.display = "flex";
+      document.getElementById("loaderText").textContent = message;
+    }
+
+    function hideLoader() {
+      document.getElementById("loaderWrap").style.display = "none";
+    }
+
+    function showSuccess(message) {
+      const box = document.getElementById("successBox");
+      box.style.display = "block";
+      box.textContent = message;
+      document.getElementById("errorBox").style.display = "none";
+    }
+
+    function showError(message) {
+      const box = document.getElementById("errorBox");
+      box.style.display = "block";
+      box.textContent = message;
+      document.getElementById("successBox").style.display = "none";
+    }
+
+    function updateStatus(text) {
+      setText("paymentStatusLabel", text);
+    }
+
+    function goBackToCart() {
+      window.location.href = "cart.html";
+    }
+
+    async function finalizeSuccessfulPayment() {
+      try {
+        showLoader("Finalizing your payment...");
+        updateStatus("Finalizing...");
+
+        const res = await fetch(`${API_BASE}/api/cart/clear-after-momo-success`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            agent_id: Number(agentId),
+            transaction_id: transactionId
+          })
+        });
+
+        let result = {};
+        try {
+          result = await res.json();
+        } catch (_) {}
+
+        if (!res.ok || result.ok === false) {
+          throw new Error(result.message || "Payment succeeded but cart could not be updated");
+        }
+
+        hideLoader();
+        updateStatus("Successful");
+        showSuccess("Payment made successfully. Returning to cart...");
+
+        setTimeout(() => {
+          window.location.href = "cart.html?payment=success";
+        }, 1500);
+
+      } catch (error) {
+        hideLoader();
+        updateStatus("Completed but not finalized");
+        showError(error.message || "Payment was approved but something went wrong while updating the cart.");
+      }
+    }
+
+    async function checkPaymentStatus() {
+      if (!transactionId) {
+        throw new Error("No active transaction found.");
+      }
+
+      const res = await fetch(`${API_BASE}/api/theteller-status?transaction_id=${encodeURIComponent(transactionId)}`);
+      const result = await res.json();
+
+      if (!res.ok || !result.ok) {
+        throw new Error(result.message || "Unable to check payment status");
+      }
+
+      return result.status;
+    }
+
+    async function manualCheckPayment() {
+      try {
+        showLoader("Checking if your payment has been completed...");
+        updateStatus("Checking...");
+
+        const status = await checkPaymentStatus();
+
+        hideLoader();
+
+        if (status === "approved") {
+          updateStatus("Approved");
+          await finalizeSuccessfulPayment();
+          return;
+        }
+
+        if (status === "failed") {
+          updateStatus("Failed");
+          showError("Payment failed or was cancelled.");
+          return;
+        }
+
+        updateStatus("Pending");
+        showError("Payment is still pending. Please check your phone approvals and try again.");
+      } catch (error) {
+        hideLoader();
+        updateStatus("Check failed");
+        showError(error.message || "Could not confirm payment.");
+      }
+    }
+
+    function startPolling() {
+      let tries = 0;
+      const maxTries = 20;
+
+      const poll = async () => {
+        if (pollingStopped) return;
+
+        tries++;
+
+        try {
+          const status = await checkPaymentStatus();
+
+          if (status === "approved") {
+            updateStatus("Approved");
+            await finalizeSuccessfulPayment();
+            return;
+          }
+
+          if (status === "failed") {
+            updateStatus("Failed");
+            showError("Payment failed or was cancelled.");
+            return;
+          }
+
+          updateStatus("Waiting for approval...");
+
+          if (tries >= maxTries) {
+            updateStatus("Pending");
+            showError("Still waiting for approval. If you have approved the payment already, click 'I’ve completed the payment'.");
+            return;
+          }
+
+          pollTimer = setTimeout(poll, tries <= 6 ? 2500 : 4000);
+        } catch (error) {
+          if (tries >= maxTries) {
+            updateStatus("Pending");
+            showError("We could not confirm the payment automatically. If you have approved it, click 'I’ve completed the payment'.");
+            return;
+          }
+
+          pollTimer = setTimeout(poll, tries <= 6 ? 2500 : 4000);
+        }
+      };
+
+      poll();
+    }
+
+    async function initiatePayment() {
+      try {
+        if (!agentId || !momoNumberValue || !otpSessionId) {
+          showError("Missing payment details. Please go back and try again.");
+          updateStatus("Invalid session");
+          return;
+        }
+
+        showLoader("Sending payment prompt to your phone...");
+        updateStatus("Sending prompt...");
+
+        const res = await fetch(`${API_BASE}/api/cart/buy-with-momo`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            agent_id: Number(agentId),
+            momo_number: momoNumberValue,
+            otp_session_id: otpSessionId
+          })
+        });
+
+        const result = await res.json();
+
+        if (!res.ok || !result.ok) {
+          throw new Error(result.message || "Payment could not be initiated");
+        }
+
+        transactionId = result.transaction_id;
+
+        hideLoader();
+        updateStatus("Prompt sent");
+        showSuccess("Payment prompt sent successfully. Please approve it on your phone.");
+
+        if (transactionId) {
+          startPolling();
+        } else {
+          showError("Transaction started but no transaction ID was returned.");
+        }
+      } catch (error) {
+        hideLoader();
+        updateStatus("Failed");
+        showError(error.message || "Payment could not be initiated.");
+      }
+    }
+
+    function cancelPaymentFlow() {
+      pollingStopped = true;
+      if (pollTimer) {
+        clearTimeout(pollTimer);
+        pollTimer = null;
+      }
+      goBackToCart();
+    }
+
+    function initPage() {
+      setText("payerEmail", "Payment Authorization");
+      setText("payAmount", `GHS ${totalAmount.toFixed(2)}`);
+      setText("itemCount", itemCountValue);
+      setText("momoNumber", momoNumberValue || "-");
+      updateStatus("Initiating...");
+      initiatePayment();
+    }
+
+    initPage();
+  </script>
+</body>
+</html>
