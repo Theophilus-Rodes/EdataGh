@@ -357,6 +357,7 @@
 
     let pollTimer = null;
     let pollingStopped = false;
+    let isAutoChecking = false;
 
     function setText(id, value) {
       const el = document.getElementById(id);
@@ -422,6 +423,11 @@
     }
 
     async function finalizeSuccessfulPayment() {
+      if (pollTimer) {
+        clearTimeout(pollTimer);
+        pollTimer = null;
+      }
+
       hideLoader();
       updateStatus("Successful");
       showSuccess("Payment made successfully. Returning to dashboard...");
@@ -452,7 +458,7 @@
         const result = await res.json();
 
         if (res.ok && result.ok && result.transaction_id) {
-          transactionId = result.transaction_id;
+          transactionId = String(result.transaction_id).trim();
           savePaymentState();
           return transactionId;
         }
@@ -506,16 +512,52 @@
       } catch (error) {
         hideLoader();
         updateStatus("Pending");
-        showError(error.message || "Could not confirm payment.");
+        showError("We could not confirm the payment yet. Please wait a moment and try again.");
+      }
+    }
+
+    async function autoResumePaymentCheck() {
+      if (pollingStopped || isAutoChecking) return;
+
+      try {
+        isAutoChecking = true;
+
+        const status = await checkPaymentStatus();
+
+        if (status === "approved") {
+          clearMessages();
+          updateStatus("Approved");
+          await finalizeSuccessfulPayment();
+          return;
+        }
+
+        if (status === "failed") {
+          updateStatus("Failed");
+          showError("Payment failed or was cancelled.");
+          return;
+        }
+
+        clearMessages();
+        updateStatus("Waiting for approval...");
+      } catch (error) {
+        updateStatus("Pending");
+      } finally {
+        isAutoChecking = false;
       }
     }
 
     function startPolling() {
       let tries = 0;
-      const maxTries = 30;
+      const maxTries = 40;
+
+      if (pollTimer) {
+        clearTimeout(pollTimer);
+        pollTimer = null;
+      }
 
       const poll = async () => {
         if (pollingStopped) return;
+
         tries++;
 
         try {
@@ -533,19 +575,22 @@
             return;
           }
 
+          clearMessages();
           updateStatus("Waiting for approval...");
 
           if (tries >= maxTries) {
             updateStatus("Pending");
-            showError("Still waiting for approval. If you have approved the payment already, click 'I’ve completed the payment'.");
+            showError("Still waiting for approval. If you have already approved on your phone, tap 'I’ve completed the payment'.");
             return;
           }
 
           pollTimer = setTimeout(poll, tries <= 8 ? 3000 : 5000);
         } catch (error) {
+          console.error("Polling error:", error);
+          updateStatus("Pending");
+
           if (tries >= maxTries) {
-            updateStatus("Pending");
-            showError("We could not confirm the payment automatically. If you have approved it, click 'I’ve completed the payment'.");
+            showError("We could not confirm the payment automatically yet. If you have already approved on your phone, tap 'I’ve completed the payment'.");
             return;
           }
 
@@ -654,6 +699,24 @@
       savePaymentState();
       initiatePayment();
     }
+
+    window.addEventListener("focus", () => {
+      autoResumePaymentCheck();
+    });
+
+    window.addEventListener("pageshow", () => {
+      autoResumePaymentCheck();
+    });
+
+    document.addEventListener("visibilitychange", () => {
+      if (!document.hidden) {
+        autoResumePaymentCheck();
+      }
+    });
+
+    window.addEventListener("online", () => {
+      autoResumePaymentCheck();
+    });
 
     initPage();
   </script>
