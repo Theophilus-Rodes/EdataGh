@@ -1368,7 +1368,10 @@ app.post("/api/buy-data-theteller", async (req, res) => {
 // GET /api/theteller-status?transaction_id=...
 app.get("/api/theteller-status", async (req, res) => {
   const transaction_id = String(req.query.transaction_id || "").trim();
-  if (!transaction_id) return res.json({ ok: false, status: "unknown" });
+
+  if (!transaction_id) {
+    return res.json({ ok: false, status: "unknown", message: "transaction_id is required" });
+  }
 
   try {
     const url = `${THETELLER.statusBase}/${encodeURIComponent(transaction_id)}/status`;
@@ -1391,17 +1394,19 @@ app.get("/api/theteller-status", async (req, res) => {
 
     const approved =
       code === "000" || code === "00" || code === "0" ||
-      status.includes("success") || status.includes("approved") || status.includes("paid") || status.includes("complete");
+      status.includes("success") || status.includes("approved") ||
+      status.includes("paid") || status.includes("complete");
 
     const failed =
-      status.includes("fail") || status.includes("decline") || status.includes("cancel") ||
-      ["failed","declined","cancelled","canceled","reversed"].includes(status);
+      status.includes("fail") || status.includes("decline") ||
+      status.includes("cancel") ||
+      ["failed", "declined", "cancelled", "canceled", "reversed"].includes(status);
 
     const pending =
-      status.includes("pending") || status.includes("processing") || status.includes("progress") ||
-      status.includes("initiated") || status.includes("queued") || code === "099";
+      status.includes("pending") || status.includes("processing") ||
+      status.includes("progress") || status.includes("initiated") ||
+      status.includes("queued") || code === "099";
 
-    // ✅ APPROVED -> UPDATE ORDER
     if (approved) {
       await db.promise().query(
         `UPDATE orders
@@ -1410,10 +1415,9 @@ app.get("/api/theteller-status", async (req, res) => {
         [JSON.stringify(raw), transaction_id]
       );
 
-      return res.json({ ok: true, status: "approved", raw });
+      return res.json({ ok: true, transaction_id, status: "approved", raw });
     }
 
-    // ✅ FAILED -> UPDATE ORDER
     if (failed) {
       await db.promise().query(
         `UPDATE orders
@@ -1422,19 +1426,38 @@ app.get("/api/theteller-status", async (req, res) => {
         [JSON.stringify(raw), transaction_id]
       );
 
-      return res.json({ ok: true, status: "failed", raw });
+      return res.json({ ok: true, transaction_id, status: "failed", raw });
     }
 
-    // ✅ PENDING -> keep as pending (no update needed)
-    if (pending) return res.json({ ok: true, status: "pending", raw });
+    if (pending) {
+      await db.promise().query(
+        `UPDATE orders
+         SET raw_status=?
+         WHERE transaction_id=?`,
+        [JSON.stringify(raw), transaction_id]
+      );
 
-    return res.json({ ok: true, status: status || "unknown", raw });
+      return res.json({ ok: true, transaction_id, status: "pending", raw });
+    }
+
+    await db.promise().query(
+      `UPDATE orders
+       SET raw_status=?
+       WHERE transaction_id=?`,
+      [JSON.stringify(raw), transaction_id]
+    );
+
+    return res.json({ ok: true, transaction_id, status: status || "unknown", raw });
   } catch (e) {
     console.error("❌ TheTeller status error:", e.response?.data || e.message);
-    return res.json({ ok: false, status: "unknown" });
+    return res.json({
+      ok: false,
+      transaction_id,
+      status: "unknown",
+      message: e.response?.data?.message || e.message || "Status check failed"
+    });
   }
 });
-
 
 
 
@@ -2488,6 +2511,11 @@ app.post("/api/cart/buy-with-momo", async (req, res) => {
     return res.json({ ok: false, message: "agent_id and momo_number are required." });
   }
 
+  let transactionId = "";
+  let cartCount = 0;
+  let grandTotal = 0;
+  let ordersInserted = false;
+
   try {
     // 1. Verify OTP
     const otpCheck = await isOtpVerifiedNow(momo_number, otp_session_id);
@@ -2495,7 +2523,31 @@ app.post("/api/cart/buy-with-momo", async (req, res) => {
       return res.json({ ok: false, message: "OTP not verified. Please verify OTP first." });
     }
 
-    // 2. Consume OTP so it cannot be reused
+    // 2. Load cart rows first
+    const [cartRows] = await db.promise().query(
+      `SELECT id, agent_id, package_id, network, package_name, amount, quantity, total, recipient_number
+       FROM cart
+       WHERE agent_id = ? AND status = 'active'
+       ORDER BY id ASC`,
+      [agent_id]
+    );
+
+    if (!cartRows.length) {
+      return res.json({ ok: false, message: "Your cart is empty." });
+    }
+
+    cartCount = cartRows.length;
+    grandTotal = cartRows.reduce((sum, item) => sum + Number(item.total || 0), 0);
+
+    const payerNet = detectMomoNetwork(momo_number);
+    const rSwitch = getSwitchCode(payerNet);
+    if (!rSwitch) {
+      return res.json({ ok: false, message: "Unsupported payer network." });
+    }
+
+    transactionId = makeTransactionId();
+
+    // 3. Consume OTP only after everything else is ready
     try {
       const conn = await db.promise().getConnection();
       try {
@@ -2504,7 +2556,7 @@ app.post("/api/cart/buy-with-momo", async (req, res) => {
         const [sessRows] = await conn.query(
           `SELECT session_id, consumed_at, verified_until
            FROM momo_otp_sessions
-           WHERE session_id=?
+           WHERE session_id=? 
            FOR UPDATE`,
           [otpCheck.session_id]
         );
@@ -2516,6 +2568,7 @@ app.post("/api/cart/buy-with-momo", async (req, res) => {
         }
 
         const sess = sessRows[0];
+
         if (!sess.verified_until || new Date(sess.verified_until).getTime() <= Date.now()) {
           await conn.rollback();
           conn.release();
@@ -2546,31 +2599,7 @@ app.post("/api/cart/buy-with-momo", async (req, res) => {
       return res.status(500).json({ ok: false, message: "Could not start payment." });
     }
 
-    // 3. Load cart rows
-    const [cartRows] = await db.promise().query(
-      `SELECT id, agent_id, package_id, network, package_name, amount, quantity, total, recipient_number
-       FROM cart
-       WHERE agent_id = ? AND status = 'active'
-       ORDER BY id ASC`,
-      [agent_id]
-    );
-
-    if (!cartRows.length) {
-      return res.json({ ok: false, message: "Your cart is empty." });
-    }
-
-    // 4. Sum total
-    const grandTotal = cartRows.reduce((sum, item) => sum + Number(item.total || 0), 0);
-
-    const payerNet = detectMomoNetwork(momo_number);
-    const rSwitch = getSwitchCode(payerNet);
-    if (!rSwitch) {
-      return res.json({ ok: false, message: "Unsupported payer network." });
-    }
-
-    const transactionId = makeTransactionId();
-
-    // 5. Insert all cart rows into orders as pending first
+    // 4. Insert pending orders first with transaction_id
     const orderValues = cartRows.map(item => ([
       transactionId,
       Number(agent_id),
@@ -2590,7 +2619,9 @@ app.post("/api/cart/buy-with-momo", async (req, res) => {
       [orderValues]
     );
 
-    // 6. TheTeller prompt for total amount
+    ordersInserted = true;
+
+    // 5. Send prompt
     const payload = {
       amount: thetellerAmount12(grandTotal),
       processing_code: "000200",
@@ -2608,41 +2639,118 @@ app.post("/api/cart/buy-with-momo", async (req, res) => {
         Authorization: `Basic ${THETELLER.basicToken}`,
         "Cache-Control": "no-cache",
       },
-      timeout: 30000,
+      timeout: 45000,
     });
+
+    await db.promise().query(
+      `UPDATE orders
+       SET raw_status=?
+       WHERE transaction_id=?`,
+      [JSON.stringify(tt.data || {}), transactionId]
+    );
 
     if (!isInitAccepted(tt.data)) {
       await db.promise().query(
         `UPDATE orders
          SET status='failed', raw_status=?
          WHERE transaction_id=? AND status='pending'`,
-        [JSON.stringify(tt.data), transactionId]
+        [JSON.stringify(tt.data || {}), transactionId]
       );
 
-      return res.json({ ok: false, message: "Payment prompt not accepted.", theteller: tt.data });
+      return res.json({
+        ok: false,
+        message: "Payment prompt not accepted.",
+        transaction_id: transactionId,
+        total_amount: grandTotal,
+        item_count: cartCount,
+        theteller: tt.data || {}
+      });
     }
-
-    await db.promise().query(
-      `UPDATE orders
-       SET raw_status=?
-       WHERE transaction_id=? AND status='pending'`,
-      [JSON.stringify(tt.data), transactionId]
-    );
 
     return res.json({
       ok: true,
-      message: "✅ Prompt sent. Please approve on your phone.",
+      message: "Prompt sent. Please approve on your phone.",
       transaction_id: transactionId,
       total_amount: grandTotal,
-      item_count: cartRows.length
+      item_count: cartCount
     });
 
   } catch (err) {
     console.error("❌ Cart MoMo INIT error:", err.response?.data || err.message);
-    return res.status(500).json({ ok: false, message: "Payment could not be initiated." });
+
+    // Important: if we already created transaction/order rows,
+    // return the transaction_id so frontend can still track it.
+    if (transactionId && ordersInserted) {
+      try {
+        await db.promise().query(
+          `UPDATE orders
+           SET raw_status=?
+           WHERE transaction_id=?`,
+          [JSON.stringify(err.response?.data || { error: err.message }), transactionId]
+        );
+      } catch (_) {}
+
+      return res.status(200).json({
+        ok: false,
+        recoverable: true,
+        message: "Payment request may still be processing. If you received a prompt or have already paid, tap 'I've completed the payment'.",
+        transaction_id: transactionId,
+        total_amount: grandTotal,
+        item_count: cartCount
+      });
+    }
+
+    return res.status(500).json({
+      ok: false,
+      message: "Payment could not be initiated."
+    });
   }
 });
 
+
+app.post("/api/cart/recover-momo-transaction", async (req, res) => {
+  const { agent_id, momo_number } = req.body;
+
+  if (!agent_id || !momo_number) {
+    return res.status(400).json({
+      ok: false,
+      message: "agent_id and momo_number are required"
+    });
+  }
+
+  try {
+    const [rows] = await db.promise().query(
+      `SELECT transaction_id, status, raw_status
+       FROM orders
+       WHERE vendor_id = ?
+         AND momo_number = ?
+         AND transaction_id IS NOT NULL
+       ORDER BY id DESC
+       LIMIT 1`,
+      [agent_id, momo_number]
+    );
+
+    if (!rows.length) {
+      return res.json({
+        ok: false,
+        message: "No recent transaction found"
+      });
+    }
+
+    return res.json({
+      ok: true,
+      transaction_id: rows[0].transaction_id,
+      status: rows[0].status || "pending",
+      raw_status: rows[0].raw_status || null
+    });
+  } catch (err) {
+    console.error("Recover momo transaction error:", err.message);
+    return res.status(500).json({
+      ok: false,
+      message: "Could not recover transaction"
+    });
+  }
+});
 
 
 app.post("/api/cart/clear-after-momo-success", async (req, res) => {
