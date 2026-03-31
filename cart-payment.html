@@ -485,6 +485,33 @@
       return result;
     }
 
+async function recoverTransactionId() {
+  if (transactionId) return transactionId;
+
+  const res = await fetch(`${API_BASE}/api/cart/recover-momo-transaction`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      agent_id: Number(agentId),
+      momo_number: momoNumberValue
+    })
+  });
+
+  const result = await res.json();
+
+  if (res.ok && result.ok && result.transaction_id) {
+    transactionId = result.transaction_id;
+    sessionStorage.setItem("cart_payment_transaction_id", transactionId);
+    return transactionId;
+  }
+
+  return "";
+}
+
+
+
     async function recoverTransactionId() {
       if (transactionId) return transactionId;
 
@@ -512,18 +539,24 @@
       return "";
     }
 
-    async function checkPaymentStatus() {
-      if (!transactionId) {
-        await recoverTransactionId();
-      }
+   async function checkPaymentStatus() {
+  if (!transactionId) {
+    await recoverTransactionId();
+  }
 
-      if (!transactionId) {
-        throw new Error("No active transaction found.");
-      }
+  if (!transactionId) {
+    throw new Error("No active transaction found.");
+  }
 
-      const result = await tryGetStatusByTransaction(transactionId);
-      return result.status;
-    }
+  const res = await fetch(`${API_BASE}/api/theteller-status?transaction_id=${encodeURIComponent(transactionId)}`);
+  const result = await res.json();
+
+  if (!res.ok || !result.ok) {
+    throw new Error(result.message || "Unable to check payment status");
+  }
+
+  return result.status;
+}
 
     async function manualCheckPayment() {
       try {
@@ -603,68 +636,87 @@
       poll();
     }
 
-    async function initiatePayment() {
-      try {
-        if (!agentId || !momoNumberValue || !otpSessionId) {
-          showError("Missing payment details. Please go back and try again.");
-          updateStatus("Invalid session");
-          return;
-        }
-
-        if (transactionId) {
-          updateStatus("Checking existing transaction...");
-          showSuccess("Resuming your payment session...");
-          startPolling();
-          return;
-        }
-
-        showLoader("Sending payment prompt to your phone...");
-        updateStatus("Sending prompt...");
-
-        const res = await fetch(`${API_BASE}/api/cart/buy-with-momo`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json"
-          },
-          body: JSON.stringify({
-            agent_id: Number(agentId),
-            momo_number: momoNumberValue,
-            otp_session_id: otpSessionId
-          })
-        });
-
-        let result = {};
-        try {
-          result = await res.json();
-        } catch (_) {}
-
-        if (result && result.transaction_id) {
-          transactionId = result.transaction_id;
-          savePaymentState();
-        }
-
-        hideLoader();
-
-        if (result && result.ok && result.transaction_id) {
-          updateStatus("Prompt sent");
-          showSuccess("Payment prompt sent successfully. Please approve it on your phone.");
-          startPolling();
-          return;
-        }
-
-        if (result && result.transaction_id) {
-          updateStatus("Prompt may have been sent");
-          showError("The prompt may already be on your phone. Please approve it, then tap 'I’ve completed the payment'.");
-          return;
-        }
-
-        throw new Error((result && result.message) || "Payment could not be initiated");
-      } catch (error) {
-        hideLoader();
-        updateStatus("Pending");
-        showError(error.message || "Payment could not be initiated. If you were already charged, tap 'I’ve completed the payment'.");
-      }
+   async function initiatePayment() {
+  try {
+    if (!agentId || !momoNumberValue || !otpSessionId) {
+      showError("Missing payment details. Please go back and try again.");
+      updateStatus("Invalid session");
+      return;
     }
+
+    if (transactionId) {
+      updateStatus("Checking existing transaction...");
+      showSuccess("Resuming your payment session...");
+      startPolling();
+      return;
+    }
+
+    clearMessages();
+    showLoader("Sending payment prompt to your phone...");
+    updateStatus("Sending prompt...");
+
+    const res = await fetch(`${API_BASE}/api/cart/buy-with-momo`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        agent_id: Number(agentId),
+        momo_number: momoNumberValue,
+        otp_session_id: otpSessionId
+      })
+    });
+
+    let result = {};
+    try {
+      result = await res.json();
+    } catch (_) {
+      result = {};
+    }
+
+    // save transaction id whenever backend returns it
+    if (result && result.transaction_id) {
+      transactionId = String(result.transaction_id).trim();
+      savePaymentState();
+    }
+
+    hideLoader();
+
+    // normal success
+    if (res.ok && result && result.ok) {
+      if (transactionId) {
+        updateStatus("Prompt sent");
+        showSuccess("Payment prompt sent successfully. Please approve it on your phone.");
+        startPolling();
+        return;
+      }
+
+      updateStatus("Pending");
+      showError("Prompt may have started, but no transaction reference was returned. Please approve on your phone, then tap 'I’ve completed the payment'.");
+      return;
+    }
+
+    // recoverable case:
+    // backend says false, but still returned transaction_id
+    if (result && result.transaction_id) {
+      updateStatus("Pending");
+      showError(
+        result.message ||
+        "Payment may already be in progress. Please check your phone, approve the payment, then tap 'I’ve completed the payment'."
+      );
+      return;
+    }
+
+    throw new Error((result && result.message) || "Payment could not be initiated");
+  } catch (error) {
+    hideLoader();
+    updateStatus("Pending");
+    showError(
+      error.message ||
+      "Payment could not be initiated. If the prompt appeared on your phone or you were charged, tap 'I’ve completed the payment'."
+    );
+  }
+}
 
     function cancelPaymentFlow() {
       pollingStopped = true;
