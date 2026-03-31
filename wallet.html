@@ -624,13 +624,11 @@
 
   <div class="toast" id="toast"></div>
 
-   <!-- Deposit Modal -->
+  <!-- Deposit Modal -->
   <div class="modal-backdrop" id="depositModal">
     <div class="modal">
       <h3>Deposit Money</h3>
-      <p style="color:#EF4444;">
-        Enter the amount and payment details. First verify OTP, then continue to the payment page.
-      </p>
+      <p  style="color: #EF4444;">Enter the amount and payment details. You will receive a prompt on your phone to approve the payment. PLEASE STAY ON THIS PAGE UNTIL PAYMENT IS APPROVED. THE PAGE WILL CLOSE IF SUCCESSFUL</p>
 
       <div class="field">
         <label>Amount (GH₵)</label>
@@ -651,16 +649,6 @@
         </select>
       </div>
 
-      <div class="field" id="depositOtpArea" style="display:none;">
-        <label>Enter OTP</label>
-        <input type="text" id="depositOtpInput" placeholder="Enter OTP">
-      </div>
-
-      <div class="modal-actions">
-        <button class="modal-btn secondary" type="button" onclick="sendDepositOtp()">Send OTP</button>
-        <button class="modal-btn secondary" type="button" id="verifyDepositOtpBtn" onclick="verifyDepositOtp()" disabled>Verify OTP</button>
-      </div>
-
       <div class="status-box" id="depositStatusBox"></div>
 
       <div class="modal-actions">
@@ -670,274 +658,236 @@
     </div>
   </div>
 
- <script>
-  const API_BASE =
-    location.hostname === "localhost"
-      ? "http://localhost:8080"
-      : "https://edatagh.com/edatagh-backend";
+  <script>
+    const API_BASE =
+      location.hostname === "localhost"
+        ? "http://localhost:8080"
+        : "https://edatagh.com/edatagh-backend";
 
-  const drawer = document.getElementById('drawer');
-  const overlay = document.getElementById('drawerOverlay');
-  const menuBtn = document.getElementById('menuBtn');
-  const toastEl = document.getElementById('toast');
+    const drawer = document.getElementById('drawer');
+    const overlay = document.getElementById('drawerOverlay');
+    const menuBtn = document.getElementById('menuBtn');
+    const toastEl = document.getElementById('toast');
 
-  const depositModal = document.getElementById('depositModal');
-  const depositAmount = document.getElementById('depositAmount');
-  const depositPhone = document.getElementById('depositPhone');
-  const depositNetwork = document.getElementById('depositNetwork');
-  const depositStatusBox = document.getElementById('depositStatusBox');
-  const confirmDepositBtn = document.getElementById('confirmDepositBtn');
+    const depositModal = document.getElementById('depositModal');
+    const depositAmount = document.getElementById('depositAmount');
+    const depositPhone = document.getElementById('depositPhone');
+    const depositNetwork = document.getElementById('depositNetwork');
+    const depositStatusBox = document.getElementById('depositStatusBox');
+    const confirmDepositBtn = document.getElementById('confirmDepositBtn');
 
-  let depositOtpSessionId = null;
-  let depositOtpVerified = false;
-
-  function openDrawer(){
-    overlay.style.display = 'block';
-    drawer.classList.add('open');
-  }
-
-  function closeDrawer(){
-    overlay.style.display = 'none';
-    drawer.classList.remove('open');
-  }
-
-  menuBtn.addEventListener('click', openDrawer);
-  overlay.addEventListener('click', closeDrawer);
-
-  window.addEventListener('keydown', (e)=>{
-    if(e.key === 'Escape') {
-      closeDrawer();
-      closeDepositModal();
-    }
-  });
-
-  document.getElementById('themeBtn').addEventListener('click', ()=>{
-    const html = document.documentElement;
-    const current = html.getAttribute('data-theme') || 'light';
-    const next = current === 'dark' ? 'light' : 'dark';
-    html.setAttribute('data-theme', next);
-    localStorage.setItem('edata_theme', next);
-    toast(next === 'dark' ? 'Dark theme' : 'Light theme');
-  });
-
-  (function(){
-    const saved = localStorage.getItem('edata_theme');
-    if(saved === 'light' || saved === 'dark'){
-      document.documentElement.setAttribute('data-theme', saved);
-    }
-  })();
-
-  function toast(message){
-    toastEl.textContent = message;
-    toastEl.classList.add('show');
-    clearTimeout(window.__toastTimer);
-    window.__toastTimer = setTimeout(()=>{
-      toastEl.classList.remove('show');
-    }, 1800);
-  }
-
-  function logoutConfirm(){
-    const ok = confirm("Do you want to logout?");
-    if(!ok) return;
-    window.location.href = "agentlogin.html";
-  }
-
-  function openDepositModal(){
-    depositStatusBox.classList.remove('show');
-    depositStatusBox.textContent = '';
-    document.getElementById("depositOtpArea").style.display = "none";
-    document.getElementById("depositOtpInput").value = "";
-    document.getElementById("verifyDepositOtpBtn").disabled = true;
-    document.getElementById("verifyDepositOtpBtn").textContent = "Verify OTP";
-    confirmDepositBtn.disabled = false;
-    confirmDepositBtn.textContent = "Continue";
-    depositOtpSessionId = null;
-    depositOtpVerified = false;
-    depositModal.classList.add('show');
-  }
-
-  function closeDepositModal(){
-    depositModal.classList.remove('show');
-    confirmDepositBtn.disabled = false;
-    confirmDepositBtn.textContent = 'Continue';
-  }
-
-  function showDepositStatus(text){
-    depositStatusBox.textContent = text;
-    depositStatusBox.classList.add('show');
-  }
-
-  async function loadWallet(){
-    const agentId = localStorage.getItem("user_id") || localStorage.getItem("EDATA_AGENT_ID");
-
-    if(!agentId){
-      toast("Agent not found. Please login again.");
-      return;
+    function openDrawer(){
+      overlay.style.display = 'block';
+      drawer.classList.add('open');
     }
 
-    try{
-      const res = await fetch(`${API_BASE}/api/wallet/${agentId}`);
-      const text = await res.text();
-      let data;
+    function closeDrawer(){
+      overlay.style.display = 'none';
+      drawer.classList.remove('open');
+    }
 
-      try {
-        data = JSON.parse(text);
-      } catch {
-        throw new Error(text || `HTTP ${res.status}`);
+    menuBtn.addEventListener('click', openDrawer);
+    overlay.addEventListener('click', closeDrawer);
+    window.addEventListener('keydown', (e)=>{
+      if(e.key === 'Escape') {
+        closeDrawer();
+        closeDepositModal();
       }
+    });
 
-      if(!res.ok || !data.ok){
-        throw new Error(data.message || "Failed to load wallet");
+    document.getElementById('themeBtn').addEventListener('click', ()=>{
+      const html = document.documentElement;
+      const current = html.getAttribute('data-theme') || 'light';
+      const next = current === 'dark' ? 'light' : 'dark';
+      html.setAttribute('data-theme', next);
+      localStorage.setItem('edata_theme', next);
+      toast(next === 'dark' ? 'Dark theme' : 'Light theme');
+    });
+
+    (function(){
+      const saved = localStorage.getItem('edata_theme');
+      if(saved === 'light' || saved === 'dark'){
+        document.documentElement.setAttribute('data-theme', saved);
       }
+    })();
 
-      document.getElementById('balanceAmount').textContent =
-        `GH₵${Number(data.data.balance || 0).toFixed(2)}`;
-
-      document.getElementById('salesAmount').textContent =
-        `GH₵${Number(data.data.sales_deposit || 0).toFixed(2)}`;
-
-      document.getElementById('overdraftAmount').textContent =
-        `GH₵${Number(data.data.overdraft || 0).toFixed(2)}`;
-
-    }catch(err){
-      console.error("Wallet load error:", err);
-      toast(err.message || "Failed to load wallet");
+    function toast(message){
+      toastEl.textContent = message;
+      toastEl.classList.add('show');
+      clearTimeout(window.__toastTimer);
+      window.__toastTimer = setTimeout(()=>{
+        toastEl.classList.remove('show');
+      }, 1800);
     }
+
+    function logoutConfirm(){
+      const ok = confirm("Do you want to logout?");
+      if(!ok) return;
+      window.location.href = "agentlogin.html";
+    }
+
+    function openDepositModal(){
+      depositStatusBox.classList.remove('show');
+      depositStatusBox.textContent = '';
+      depositModal.classList.add('show');
+    }
+
+    function closeDepositModal(){
+      depositModal.classList.remove('show');
+      confirmDepositBtn.disabled = false;
+      confirmDepositBtn.textContent = 'Continue';
+    }
+
+    function showDepositStatus(text){
+      depositStatusBox.textContent = text;
+      depositStatusBox.classList.add('show');
+    }
+
+   async function loadWallet(){
+  const agentId = localStorage.getItem("user_id") || localStorage.getItem("EDATA_AGENT_ID");
+
+  if(!agentId){
+    toast("Agent not found. Please login again.");
+    return;
   }
 
-  async function sendDepositOtp(){
-    try{
+  try{
+    const res = await fetch(`${API_BASE}/api/wallet/${agentId}`);
+
+    const text = await res.text();
+    let data;
+
+    try {
+      data = JSON.parse(text);
+    } catch {
+      throw new Error(text || `HTTP ${res.status}`);
+    }
+
+    console.log("Wallet response:", data);
+
+    if(!res.ok || !data.ok){
+      throw new Error(data.message || "Failed to load wallet");
+    }
+
+    document.getElementById('balanceAmount').textContent =
+      `GH₵${Number(data.data.balance || 0).toFixed(2)}`;
+
+    document.getElementById('salesAmount').textContent =
+      `GH₵${Number(data.data.sales_deposit || 0).toFixed(2)}`;
+
+    document.getElementById('overdraftAmount').textContent =
+      `GH₵${Number(data.data.overdraft || 0).toFixed(2)}`;
+
+  }catch(err){
+    console.error("Wallet load error:", err);
+    toast(err.message || "Failed to load wallet");
+  }
+}
+
+    async function submitDeposit(){
+      const user_id = localStorage.getItem("user_id");
+      const amount = depositAmount.value.trim();
       const phone = depositPhone.value.trim();
+      const network = depositNetwork.value;
+
+      if(!user_id){
+        showDepositStatus("User not found. Please login again.");
+        return;
+      }
+
+      if(!amount || Number(amount) <= 0){
+        showDepositStatus("Enter a valid amount.");
+        return;
+      }
 
       if(!phone){
         showDepositStatus("Enter your MoMo number.");
         return;
       }
 
-      showDepositStatus("Sending OTP...");
+      confirmDepositBtn.disabled = true;
+      confirmDepositBtn.textContent = "Processing...";
 
-      const res = await fetch(`${API_BASE}/api/send-momo-otp`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({ momo_number: phone })
-      });
+      try{
+        showDepositStatus("Sending request. Please wait...");
 
-      const data = await res.json();
+        const res = await fetch(`${API_BASE}/api/wallet/deposit`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ user_id, phone, network, amount })
+        });
 
-      if(!res.ok || !data.ok){
-        throw new Error(data.message || "Failed to send OTP");
+        const data = await res.json();
+
+        if(!data.ok){
+          throw new Error(data.message || "Deposit failed");
+        }
+
+        showDepositStatus("Payment request sent. Approve the prompt on your phone.");
+
+        // Poll verification
+        await verifyDeposit(data.transaction_id);
+
+      }catch(err){
+        console.error("Deposit error:", err);
+        showDepositStatus(err.message || "Something went wrong");
+        confirmDepositBtn.disabled = false;
+        confirmDepositBtn.textContent = "Continue";
       }
-
-      depositOtpSessionId = data.session_id;
-      document.getElementById("depositOtpArea").style.display = "block";
-      document.getElementById("verifyDepositOtpBtn").disabled = false;
-
-      showDepositStatus("OTP sent successfully. Enter the code to verify.");
-      toast("OTP sent successfully");
-    }catch(err){
-      console.error("Deposit OTP send error:", err);
-      showDepositStatus(err.message || "Failed to send OTP");
     }
-  }
+async function verifyDeposit(transactionId){
+  let attempts = 0;
+  const maxAttempts = 8;
 
-  async function verifyDepositOtp(){
+  const timer = setInterval(async () => {
+    attempts++;
+
     try{
-      const phone = depositPhone.value.trim();
-      const otp = document.getElementById("depositOtpInput").value.trim();
-
-      if(!phone){
-        showDepositStatus("Enter your MoMo number.");
-        return;
-      }
-
-      if(!otp){
-        showDepositStatus("Enter OTP.");
-        return;
-      }
-
-      showDepositStatus("Verifying OTP...");
-
-      const res = await fetch(`${API_BASE}/api/verify-momo-otp`, {
+      const res = await fetch(`${API_BASE}/api/wallet/deposit/complete`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          momo_number: phone,
-          otp,
-          session_id: depositOtpSessionId
+          transaction_id: transactionId,
+          status: "success"
         })
       });
 
       const data = await res.json();
 
-      if(!res.ok || !data.ok){
-        throw new Error(data.message || "OTP verification failed");
+      if(data.ok){
+        clearInterval(timer);
+        showDepositStatus("Deposit successful. Wallet updated.");
+        toast("Deposit successful");
+        await loadWallet();
+
+        setTimeout(() => {
+          closeDepositModal();
+          depositAmount.value = "";
+          depositPhone.value = "";
+          depositNetwork.value = "mtn";
+        }, 1500);
+        return;
       }
 
-      depositOtpVerified = true;
-      depositOtpSessionId = data.session_id || depositOtpSessionId;
-
-      showDepositStatus("OTP verified successfully. You can now continue.");
-      toast("OTP verified successfully");
+      if(attempts >= maxAttempts){
+        clearInterval(timer);
+        showDepositStatus(data.message || "Payment not completed yet.");
+        confirmDepositBtn.disabled = false;
+        confirmDepositBtn.textContent = "Continue";
+      }
     }catch(err){
-      console.error("Deposit OTP verify error:", err);
-      showDepositStatus(err.message || "OTP verification failed");
+      console.error("Complete error:", err);
+
+      if(attempts >= maxAttempts){
+        clearInterval(timer);
+        showDepositStatus("Could not confirm payment right now. Please check again shortly.");
+        confirmDepositBtn.disabled = false;
+        confirmDepositBtn.textContent = "Continue";
+      }
     }
-  }
-
-  async function submitDeposit(){
-    const user_id = localStorage.getItem("user_id") || localStorage.getItem("EDATA_AGENT_ID");
-    const amount = depositAmount.value.trim();
-    const phone = depositPhone.value.trim();
-    const network = depositNetwork.value;
-
-    if(!user_id){
-      showDepositStatus("User not found. Please login again.");
-      return;
-    }
-
-    if(!amount || Number(amount) <= 0){
-      showDepositStatus("Enter a valid amount.");
-      return;
-    }
-
-    if(!phone){
-      showDepositStatus("Enter your MoMo number.");
-      return;
-    }
-
-    if(!depositOtpVerified){
-      showDepositStatus("Please verify OTP first.");
-      return;
-    }
-
-    confirmDepositBtn.disabled = true;
-    confirmDepositBtn.textContent = "Opening...";
-
-    try{
-      const query = new URLSearchParams({
-        user_id: user_id,
-        amount: amount,
-        phone: phone,
-        network: network,
-        otp_session_id: depositOtpSessionId || ""
-      });
-
-      window.location.href = `wallet-deposit-payment.html?${query.toString()}`;
-    }catch(err){
-      console.error("Deposit redirect error:", err);
-      showDepositStatus(err.message || "Could not continue");
-      confirmDepositBtn.disabled = false;
-      confirmDepositBtn.textContent = "Continue";
-    }
-  }
-
-  loadWallet();
-</script>
-
-
+  }, 5000);
+}
+    loadWallet();
+  </script>
 </body>
 </html>
