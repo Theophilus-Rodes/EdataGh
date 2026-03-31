@@ -4056,6 +4056,54 @@ app.get("/api/admin/afa/download", async (req, res) => {
 });
 
 
+/////Agent Momo Front
+app.post("/api/recover-buy-data-transaction", async (req, res) => {
+  const { vendor_id, momo_number, recipient_number, package_id } = req.body;
+
+  if (!vendor_id || !momo_number || !recipient_number || !package_id) {
+    return res.status(400).json({
+      ok: false,
+      message: "vendor_id, momo_number, recipient_number and package_id are required"
+    });
+  }
+
+  try {
+    const [rows] = await db.promise().query(
+      `SELECT transaction_id, status, raw_status
+       FROM orders
+       WHERE vendor_id = ?
+         AND momo_number = ?
+         AND recipient_number = ?
+         AND package_id = ?
+         AND transaction_id IS NOT NULL
+       ORDER BY id DESC
+       LIMIT 1`,
+      [vendor_id, momo_number, recipient_number, package_id]
+    );
+
+    if (!rows.length) {
+      return res.json({
+        ok: false,
+        message: "No recent transaction found"
+      });
+    }
+
+    return res.json({
+      ok: true,
+      transaction_id: rows[0].transaction_id,
+      status: rows[0].status || "pending",
+      raw_status: rows[0].raw_status || null
+    });
+  } catch (err) {
+    console.error("Recover buy-data transaction error:", err.message);
+    return res.status(500).json({
+      ok: false,
+      message: "Could not recover transaction"
+    });
+  }
+});
+
+
 // ================================
 // MARK batch as delivered
 // ================================
