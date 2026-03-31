@@ -259,6 +259,7 @@
       font-size:14px;
       font-weight:800;
       line-height:1.5;
+      text-align:left;
     }
 
     .success-box{
@@ -287,7 +288,7 @@
         </div>
 
         <div class="pay-info">
-          <div class="email" id="payerEmail">agent@edata.com</div>
+          <div class="email" id="payerEmail">Payment Authorization</div>
           <div class="amount" id="payAmount">GHS 0.00</div>
         </div>
       </div>
@@ -310,7 +311,7 @@
         </div>
         <div class="status-row">
           <span>Status</span>
-          <strong id="paymentStatusLabel">Initiating...</strong>
+          <strong id="paymentStatusLabel">Preparing...</strong>
         </div>
       </div>
 
@@ -352,15 +353,21 @@
 
     const params = new URLSearchParams(window.location.search);
 
-    const agentId = params.get("agent_id") || "";
-    const momoNumberValue = params.get("momo_number") || "";
-    const otpSessionId = params.get("otp_session_id") || "";
-    const totalAmount = Number(params.get("amount") || 0);
-    const itemCountValue = Number(params.get("items") || 0);
+    const agentId = params.get("agent_id") || sessionStorage.getItem("cart_payment_agent_id") || "";
+    const momoNumberValue = params.get("momo_number") || sessionStorage.getItem("cart_payment_momo_number") || "";
+    const otpSessionId = params.get("otp_session_id") || sessionStorage.getItem("cart_payment_otp_session_id") || "";
+    const totalAmount = Number(params.get("amount") || sessionStorage.getItem("cart_payment_amount") || 0);
+    const itemCountValue = Number(params.get("items") || sessionStorage.getItem("cart_payment_items") || 0);
 
-    let transactionId = null;
+    let transactionId =
+      params.get("transaction_id") ||
+      sessionStorage.getItem("cart_payment_transaction_id") ||
+      localStorage.getItem("cart_payment_transaction_id") ||
+      "";
+
     let pollTimer = null;
     let pollingStopped = false;
+    let initiatedOnce = sessionStorage.getItem("cart_payment_initiated_once") === "yes";
 
     function setText(id, value) {
       const el = document.getElementById(id);
@@ -390,8 +397,37 @@
       document.getElementById("successBox").style.display = "none";
     }
 
+    function clearMessages() {
+      document.getElementById("successBox").style.display = "none";
+      document.getElementById("errorBox").style.display = "none";
+    }
+
     function updateStatus(text) {
       setText("paymentStatusLabel", text);
+    }
+
+    function savePaymentState() {
+      sessionStorage.setItem("cart_payment_agent_id", agentId);
+      sessionStorage.setItem("cart_payment_momo_number", momoNumberValue);
+      sessionStorage.setItem("cart_payment_otp_session_id", otpSessionId);
+      sessionStorage.setItem("cart_payment_amount", String(totalAmount));
+      sessionStorage.setItem("cart_payment_items", String(itemCountValue));
+
+      if (transactionId) {
+        sessionStorage.setItem("cart_payment_transaction_id", transactionId);
+        localStorage.setItem("cart_payment_transaction_id", transactionId);
+      }
+    }
+
+    function clearPaymentState() {
+      sessionStorage.removeItem("cart_payment_agent_id");
+      sessionStorage.removeItem("cart_payment_momo_number");
+      sessionStorage.removeItem("cart_payment_otp_session_id");
+      sessionStorage.removeItem("cart_payment_amount");
+      sessionStorage.removeItem("cart_payment_items");
+      sessionStorage.removeItem("cart_payment_transaction_id");
+      sessionStorage.removeItem("cart_payment_initiated_once");
+      localStorage.removeItem("cart_payment_transaction_id");
     }
 
     function goBackToCart() {
@@ -426,11 +462,11 @@
         hideLoader();
         updateStatus("Successful");
         showSuccess("Payment made successfully. Returning to cart...");
+        clearPaymentState();
 
         setTimeout(() => {
           window.location.href = "cart.html?payment=success";
         }, 1500);
-
       } catch (error) {
         hideLoader();
         updateStatus("Completed but not finalized");
@@ -438,23 +474,60 @@
       }
     }
 
-    async function checkPaymentStatus() {
-      if (!transactionId) {
-        throw new Error("No active transaction found.");
-      }
-
-      const res = await fetch(`${API_BASE}/api/theteller-status?transaction_id=${encodeURIComponent(transactionId)}`);
+    async function tryGetStatusByTransaction(transaction_id) {
+      const res = await fetch(`${API_BASE}/api/theteller-status?transaction_id=${encodeURIComponent(transaction_id)}`);
       const result = await res.json();
 
       if (!res.ok || !result.ok) {
         throw new Error(result.message || "Unable to check payment status");
       }
 
+      return result;
+    }
+
+    async function recoverTransactionId() {
+      if (transactionId) return transactionId;
+
+      try {
+        const res = await fetch(`${API_BASE}/api/cart/recover-momo-transaction`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            agent_id: Number(agentId),
+            momo_number: momoNumberValue
+          })
+        });
+
+        const result = await res.json();
+
+        if (res.ok && result.ok && result.transaction_id) {
+          transactionId = result.transaction_id;
+          savePaymentState();
+          return transactionId;
+        }
+      } catch (_) {}
+
+      return "";
+    }
+
+    async function checkPaymentStatus() {
+      if (!transactionId) {
+        await recoverTransactionId();
+      }
+
+      if (!transactionId) {
+        throw new Error("No active transaction found.");
+      }
+
+      const result = await tryGetStatusByTransaction(transactionId);
       return result.status;
     }
 
     async function manualCheckPayment() {
       try {
+        clearMessages();
         showLoader("Checking if your payment has been completed...");
         updateStatus("Checking...");
 
@@ -478,14 +551,14 @@
         showError("Payment is still pending. Please check your phone approvals and try again.");
       } catch (error) {
         hideLoader();
-        updateStatus("Check failed");
+        updateStatus("Pending");
         showError(error.message || "Could not confirm payment.");
       }
     }
 
     function startPolling() {
       let tries = 0;
-      const maxTries = 20;
+      const maxTries = 30;
 
       const poll = async () => {
         if (pollingStopped) return;
@@ -515,7 +588,7 @@
             return;
           }
 
-          pollTimer = setTimeout(poll, tries <= 6 ? 2500 : 4000);
+          pollTimer = setTimeout(poll, tries <= 8 ? 3000 : 5000);
         } catch (error) {
           if (tries >= maxTries) {
             updateStatus("Pending");
@@ -523,7 +596,7 @@
             return;
           }
 
-          pollTimer = setTimeout(poll, tries <= 6 ? 2500 : 4000);
+          pollTimer = setTimeout(poll, tries <= 8 ? 3000 : 5000);
         }
       };
 
@@ -535,6 +608,13 @@
         if (!agentId || !momoNumberValue || !otpSessionId) {
           showError("Missing payment details. Please go back and try again.");
           updateStatus("Invalid session");
+          return;
+        }
+
+        if (transactionId) {
+          updateStatus("Checking existing transaction...");
+          showSuccess("Resuming your payment session...");
+          startPolling();
           return;
         }
 
@@ -553,27 +633,36 @@
           })
         });
 
-        const result = await res.json();
+        let result = {};
+        try {
+          result = await res.json();
+        } catch (_) {}
 
-        if (!res.ok || !result.ok) {
-          throw new Error(result.message || "Payment could not be initiated");
+        if (result && result.transaction_id) {
+          transactionId = result.transaction_id;
+          savePaymentState();
         }
-
-        transactionId = result.transaction_id;
 
         hideLoader();
-        updateStatus("Prompt sent");
-        showSuccess("Payment prompt sent successfully. Please approve it on your phone.");
 
-        if (transactionId) {
+        if (result && result.ok && result.transaction_id) {
+          updateStatus("Prompt sent");
+          showSuccess("Payment prompt sent successfully. Please approve it on your phone.");
           startPolling();
-        } else {
-          showError("Transaction started but no transaction ID was returned.");
+          return;
         }
+
+        if (result && result.transaction_id) {
+          updateStatus("Prompt may have been sent");
+          showError("The prompt may already be on your phone. Please approve it, then tap 'I’ve completed the payment'.");
+          return;
+        }
+
+        throw new Error((result && result.message) || "Payment could not be initiated");
       } catch (error) {
         hideLoader();
-        updateStatus("Failed");
-        showError(error.message || "Payment could not be initiated.");
+        updateStatus("Pending");
+        showError(error.message || "Payment could not be initiated. If you were already charged, tap 'I’ve completed the payment'.");
       }
     }
 
@@ -587,12 +676,24 @@
     }
 
     function initPage() {
-      setText("payerEmail", "Payment Authorization");
       setText("payAmount", `GHS ${totalAmount.toFixed(2)}`);
       setText("itemCount", itemCountValue);
       setText("momoNumber", momoNumberValue || "-");
-      updateStatus("Initiating...");
-      initiatePayment();
+      updateStatus("Preparing...");
+      savePaymentState();
+
+      if (!initiatedOnce) {
+        sessionStorage.setItem("cart_payment_initiated_once", "yes");
+        initiatePayment();
+      } else {
+        if (transactionId) {
+          updateStatus("Resuming...");
+          showSuccess("Resuming your payment session...");
+          startPolling();
+        } else {
+          initiatePayment();
+        }
+      }
     }
 
     initPage();
