@@ -3422,6 +3422,50 @@ app.get("/api/afa/status", async (req, res) => {
   }
 });
 
+///// Approve check status 
+app.post("/api/cart/recover-momo-transaction", (req, res) => {
+  const { agent_id, momo_number } = req.body;
+
+  if (!agent_id || !momo_number) {
+    return res.status(400).json({
+      ok: false,
+      message: "agent_id and momo_number are required"
+    });
+  }
+
+  const sql = `
+    SELECT transaction_id
+    FROM momo_transactions
+    WHERE agent_id = ?
+      AND momo_number = ?
+      AND transaction_id IS NOT NULL
+    ORDER BY id DESC
+    LIMIT 1
+  `;
+
+  db.query(sql, [agent_id, momo_number], (err, rows) => {
+    if (err) {
+      console.error("Recover transaction error:", err);
+      return res.status(500).json({
+        ok: false,
+        message: "Database error"
+      });
+    }
+
+    if (!rows.length) {
+      return res.json({
+        ok: false,
+        message: "No recent transaction found"
+      });
+    }
+
+    res.json({
+      ok: true,
+      transaction_id: rows[0].transaction_id
+    });
+  });
+});
+
 
 
 ///// Annouce pop
