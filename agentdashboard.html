@@ -1465,15 +1465,9 @@ payBtn.style.background = "#1FAF6B";
 payBtn.style.cursor = "pointer";
   }
 }
-
-async function confirmMomoPayment(){
-
+async function confirmMomoPayment() {
   const payBtn = document.getElementById("confirmMomoPaymentBtn");
 
-payBtn.disabled = true;
-payBtn.textContent = "Processing...";
-payBtn.style.background = "#94a3b8";
-payBtn.style.cursor = "not-allowed";
   try {
     if (!momoPurchaseItem) {
       toast("No package selected");
@@ -1498,43 +1492,32 @@ payBtn.style.cursor = "not-allowed";
       return;
     }
 
-    document.getElementById("momoStatusText").textContent = "Sending payment prompt to your phone...";
+    payBtn.disabled = true;
+    payBtn.textContent = "Processing...";
+    payBtn.style.background = "#94a3b8";
+    payBtn.style.cursor = "not-allowed";
 
-    const payload = {
+    const query = new URLSearchParams({
       package_id: momoPurchaseItem.package_id,
-      momo_number,
+      package_name: momoPurchaseItem.package_name || "",
+      amount: momoPurchaseItem.amount || momoPurchaseItem.price || 0,
       recipient_number,
+      momo_number,
       vendor_id: Number(agentId || 1),
-      otp_session_id: momoOtpSessionId
-    };
-
-    const res = await fetch(`${API_BASE}/api/buy-data-theteller`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify(payload)
+      otp_session_id: momoOtpSessionId || ""
     });
 
-    const result = await res.json();
-
-    if (!res.ok || !result.ok) {
-      throw new Error(result.message || "Payment could not be initiated");
-    }
-
-    document.getElementById("momoStatusText").textContent = "Prompt sent. Please approve on your phone.";
-    toast("Prompt sent. Approve on your phone.");
-
-    if (result.transaction_id) {
-      startMomoStatusPolling(result.transaction_id);
-    }
+    window.location.href = `momo-payment.html?${query.toString()}`;
   } catch (error) {
-    console.error("Confirm payment error:", error);
-    document.getElementById("momoStatusText").textContent = error.message || "Payment failed";
-    toast(error.message || "Payment failed");
+    console.error("Confirm payment redirect error:", error);
+    toast(error.message || "Could not continue payment");
+
+    payBtn.disabled = false;
+    payBtn.textContent = "Confirm & Pay";
+    payBtn.style.background = "#1FAF6B";
+    payBtn.style.cursor = "pointer";
   }
 }
-
 function startMomoStatusPolling(transactionId){
   if (momoStatusPollTimer) {
     clearInterval(momoStatusPollTimer);
