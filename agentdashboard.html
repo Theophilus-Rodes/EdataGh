@@ -877,7 +877,9 @@
 
   <div class="container">
     <div class="quick-actions">
-      <button class="qbtn primary"  onclick="window.location.href='delivery-status.html'">Check Delivery<br/>Status</button>
+      <button class="qbtn primary" onclick="document.getElementById('deliveryStatusSection').scrollIntoView({ behavior: 'smooth' });">
+  Check Delivery<br/>Status
+</button>
       <button class="qbtn" onclick="downloadBulkTemplate()">Download<br>Template</button>
    <button class="qbtn" onclick="window.location.href='bulk-upload.html'">Bulk<br/>Upload</button>
     </div>
@@ -926,25 +928,24 @@
         </span>
       </div>
     </div>
-
-    <div id="offersWrapper" style="margin-top:18px;">
-      <div id="offersContainer" class="offers-grid">
-        <div class="empty-state">Select a network to load available offers.</div>
-      </div>
-    </div>
+<div id="offersWrapper" style="margin-top:18px;">
+  <div id="offersContainer" class="offers-grid">
+    <div class="loading-state">Loading MTN offers...</div>
+  </div>
+</div>
   </div>
 
 <!-- DELIVERY STATUS SECTION -->
-<section class="delivery-status-section">
+<section class="delivery-status-section" id="deliveryStatusSection">
   <div class="delivery-inner">
-  <div class="delivery-status-header">
-    <h3>Network Delivery Updates</h3>
-    <p>Live delivery time and status for available networks.</p>
-  </div>
+    <div class="delivery-status-header">
+      <h3>Network Delivery Updates</h3>
+      <p>Live delivery time and status for available networks.</p>
+    </div>
 
-  <div id="deliveryStatusGrid" class="delivery-status-grid">
-    <div class="delivery-loading-card">Loading delivery updates...</div>
-  </div>
+    <div id="deliveryStatusGrid" class="delivery-status-grid">
+      <div class="delivery-loading-card">Loading delivery updates...</div>
+    </div>
   </div>
 </section>
 
@@ -1974,6 +1975,7 @@ async function loadNetworkDeliveryStatus() {
   }
 
   loadNetworkDeliveryStatus();
+  selectNet('MTN', 'mtn');
 
   </script>
 
