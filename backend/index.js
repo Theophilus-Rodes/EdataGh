@@ -4198,6 +4198,7 @@ app.post("/api/admin/delete-selected-errors", (req, res) => {
 
 ///// API KEYS
 // GENERATE AGENT API KEY
+
 app.post("/api/developer/generate-key", (req, res) => {
   const { phone, pin } = req.body;
 
@@ -4208,6 +4209,39 @@ app.post("/api/developer/generate-key", (req, res) => {
     });
   }
 
+  function normalizeGhanaPhone(number) {
+    let value = String(number || "").trim();
+
+    // remove spaces, dashes, brackets
+    value = value.replace(/[\s\-()]/g, "");
+
+    // convert +233xxxxxxxxx => 233xxxxxxxxx
+    if (value.startsWith("+233")) {
+      value = "233" + value.slice(4);
+    }
+
+    // convert 0xxxxxxxxx => 233xxxxxxxxx
+    if (/^0\d{9}$/.test(value)) {
+      value = "233" + value.slice(1);
+    }
+
+    // keep 233xxxxxxxxx as it is
+    if (/^233\d{9}$/.test(value)) {
+      return value;
+    }
+
+    return null;
+  }
+
+  const normalizedPhone = normalizeGhanaPhone(phone);
+
+  if (!normalizedPhone) {
+    return res.status(400).json({
+      success: false,
+      message: "Enter a valid Ghana phone number"
+    });
+  }
+
   const sql = `
     SELECT id, first_name, last_name, phone, pin_hash, status
     FROM agents
@@ -4215,7 +4249,7 @@ app.post("/api/developer/generate-key", (req, res) => {
     LIMIT 1
   `;
 
-  db.query(sql, [phone.trim()], async (err, results) => {
+  db.query(sql, [normalizedPhone], async (err, results) => {
     if (err) {
       console.error("Error checking agent:", err);
       return res.status(500).json({
