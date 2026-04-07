@@ -4196,6 +4196,345 @@ app.post("/api/admin/delete-selected-errors", (req, res) => {
 
 
 
+///// API KEYS
+// GENERATE AGENT API KEY
+app.post("/api/developer/generate-key", (req, res) => {
+  const { phone, pin } = req.body;
+
+  if (!phone || !pin) {
+    return res.status(400).json({
+      success: false,
+      message: "Phone and PIN are required"
+    });
+  }
+
+  const sql = `
+    SELECT id, first_name, last_name, phone, pin_hash, status
+    FROM agents
+    WHERE phone = ?
+    LIMIT 1
+  `;
+
+  db.query(sql, [phone.trim()], async (err, results) => {
+    if (err) {
+      console.error("Error checking agent:", err);
+      return res.status(500).json({
+        success: false,
+        message: "Database error"
+      });
+    }
+
+    if (!results.length) {
+      return res.status(404).json({
+        success: false,
+        message: "Agent not found"
+      });
+    }
+
+    const agent = results[0];
+
+    if (String(agent.status).toLowerCase() !== "active") {
+      return res.status(403).json({
+        success: false,
+        message: "Your account is not active"
+      });
+    }
+
+    try {
+      const pinOk = await bcrypt.compare(pin.trim(), agent.pin_hash);
+
+      if (!pinOk) {
+        return res.status(401).json({
+          success: false,
+          message: "Invalid PIN"
+        });
+      }
+
+      const apiKey = "eda_" + crypto.randomBytes(24).toString("hex");
+
+      const insertSql = `
+        INSERT INTO agent_api_keys (agent_id, api_key, status)
+        VALUES (?, ?, 'active')
+      `;
+
+      db.query(insertSql, [agent.id, apiKey], (insertErr) => {
+        if (insertErr) {
+          console.error("Error saving API key:", insertErr);
+          return res.status(500).json({
+            success: false,
+            message: "Could not save API key"
+          });
+        }
+
+        return res.json({
+          success: true,
+          message: "API key generated successfully",
+          data: {
+            agent_id: agent.id,
+            name: `${agent.first_name} ${agent.last_name}`,
+            phone: agent.phone,
+            api_key: apiKey,
+            base_url: "https://edatagh.com/edatagh-backend"
+          }
+        });
+      });
+    } catch (e) {
+      console.error("PIN compare error:", e);
+      return res.status(500).json({
+        success: false,
+        message: "Server error"
+      });
+    }
+  });
+});
+
+function verifyAgentApiKey(req, res, next) {
+  const authHeader = req.headers.authorization || "";
+  const apiKey = authHeader.startsWith("Bearer ")
+    ? authHeader.slice(7).trim()
+    : null;
+
+  if (!apiKey) {
+    return res.status(401).json({
+      success: false,
+      message: "Missing API key. Use Authorization: Bearer YOUR_API_KEY"
+    });
+  }
+
+  const sql = `
+    SELECT ak.id, ak.agent_id, ak.api_key, ak.status, a.phone, a.first_name, a.last_name
+    FROM agent_api_keys ak
+    JOIN agents a ON ak.agent_id = a.id
+    WHERE ak.api_key = ?
+      AND ak.status = 'active'
+    LIMIT 1
+  `;
+
+  db.query(sql, [apiKey], (err, results) => {
+    if (err) {
+      console.error("API key verification error:", err);
+      return res.status(500).json({
+        success: false,
+        message: "Server error"
+      });
+    }
+
+    if (!results.length) {
+      return res.status(401).json({
+        success: false,
+        message: "Invalid or revoked API key"
+      });
+    }
+
+    req.agent = results[0];
+    next();
+  });
+}
+
+app.get("/api/dev/auth", verifyAgentApiKey, (req, res) => {
+  res.json({
+    success: true,
+    message: "Authentication successful",
+    data: {
+      agent_id: req.agent.agent_id,
+      name: `${req.agent.first_name} ${req.agent.last_name}`,
+      phone: req.agent.phone
+    }
+  });
+});
+
+app.get("/api/dev/check-balance", verifyAgentApiKey, (req, res) => {
+  const sql = `
+    SELECT COALESCE(SUM(amount), 0) AS balance
+    FROM wallet_deposits
+    WHERE agent_id = ?
+  `;
+
+  db.query(sql, [req.agent.agent_id], (err, results) => {
+    if (err) {
+      console.error("Balance fetch error:", err);
+      return res.status(500).json({
+        success: false,
+        message: "Could not fetch balance"
+      });
+    }
+
+    res.json({
+      success: true,
+      data: {
+        agent_id: req.agent.agent_id,
+        balance: Number(results[0].balance || 0)
+      }
+    });
+  });
+});
+
+app.post("/api/dev/make-order", verifyAgentApiKey, (req, res) => {
+  const { network, package_name, recipient_number, amount } = req.body;
+
+  if (!network || !package_name || !recipient_number || !amount) {
+    return res.status(400).json({
+      success: false,
+      message: "network, package_name, recipient_number and amount are required"
+    });
+  }
+
+  const packageId = "PKG" + Date.now();
+
+  const sql = `
+    INSERT INTO orders (
+      agent_id,
+      network,
+      package_name,
+      recipient_number,
+      amount,
+      status,
+      package_id,
+      created_at
+    )
+    VALUES (?, ?, ?, ?, ?, 'pending', ?, NOW())
+  `;
+
+  db.query(
+    sql,
+    [
+      req.agent.agent_id,
+      network,
+      package_name,
+      recipient_number,
+      amount,
+      packageId
+    ],
+    (err, result) => {
+      if (err) {
+        console.error("Order insert error:", err);
+        return res.status(500).json({
+          success: false,
+          message: "Could not create order"
+        });
+      }
+
+      res.json({
+        success: true,
+        message: "Order created successfully",
+        data: {
+          order_id: result.insertId,
+          package_id: packageId,
+          status: "pending"
+        }
+      });
+    }
+  );
+});
+
+app.get("/api/dev/order-status/:orderId", verifyAgentApiKey, (req, res) => {
+  const { orderId } = req.params;
+
+  const sql = `
+    SELECT id, network, package_name, recipient_number, amount, status, package_id, created_at
+    FROM orders
+    WHERE id = ?
+      AND agent_id = ?
+    LIMIT 1
+  `;
+
+  db.query(sql, [orderId, req.agent.agent_id], (err, results) => {
+    if (err) {
+      console.error("Order status error:", err);
+      return res.status(500).json({
+        success: false,
+        message: "Could not fetch order status"
+      });
+    }
+
+    if (!results.length) {
+      return res.status(404).json({
+        success: false,
+        message: "Order not found"
+      });
+    }
+
+    res.json({
+      success: true,
+      data: results[0]
+    });
+  });
+});
+
+app.post("/api/dev/afa-register", verifyAgentApiKey, (req, res) => {
+  const {
+    first_name,
+    last_name,
+    ghana_card_number,
+    town,
+    occupation,
+    date_of_birth,
+    phone
+  } = req.body;
+
+  if (
+    !first_name ||
+    !last_name ||
+    !ghana_card_number ||
+    !town ||
+    !occupation ||
+    !date_of_birth ||
+    !phone
+  ) {
+    return res.status(400).json({
+      success: false,
+      message: "All AFA registration fields are required"
+    });
+  }
+
+  const sql = `
+    INSERT INTO afa_registrations (
+      agent_id,
+      first_name,
+      last_name,
+      ghana_card_number,
+      town,
+      occupation,
+      date_of_birth,
+      phone,
+      created_at
+    )
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW())
+  `;
+
+  db.query(
+    sql,
+    [
+      req.agent.agent_id,
+      first_name,
+      last_name,
+      ghana_card_number,
+      town,
+      occupation,
+      date_of_birth,
+      phone
+    ],
+    (err, result) => {
+      if (err) {
+        console.error("AFA registration error:", err);
+        return res.status(500).json({
+          success: false,
+          message: "Could not complete AFA registration"
+        });
+      }
+
+      res.json({
+        success: true,
+        message: "AFA registration successful",
+        data: {
+          registration_id: result.insertId
+        }
+      });
+    }
+  );
+});
+
+
 
 
 
