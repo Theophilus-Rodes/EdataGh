@@ -1,0 +1,644 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>EDATA Developer</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root{
+      --primary:#1FAF6B;
+      --primary-dark:#169957;
+      --primary-soft:#EAF8F0;
+      --bg:#F6FBF8;
+      --card:#FFFFFF;
+      --text:#0F172A;
+      --muted:#64748B;
+      --border:#E5E7EB;
+      --danger:#DC2626;
+      --shadow:0 12px 32px rgba(15,23,42,.08);
+      --radius:20px;
+    }
+
+    *{box-sizing:border-box}
+    body{
+      margin:0;
+      font-family:'Inter',sans-serif;
+      background:linear-gradient(135deg,#f8fcf9,#eef8f2);
+      color:var(--text);
+    }
+
+    .page{
+      max-width:1300px;
+      margin:0 auto;
+      padding:24px;
+    }
+
+    .hero{
+      background:linear-gradient(135deg,#0f172a,#1FAF6B);
+      color:#fff;
+      border-radius:28px;
+      padding:28px;
+      box-shadow:var(--shadow);
+      margin-bottom:24px;
+    }
+
+    .hero h1{
+      margin:0 0 10px;
+      font-size:34px;
+      font-weight:800;
+    }
+
+    .hero p{
+      margin:0;
+      color:rgba(255,255,255,.88);
+      max-width:900px;
+      line-height:1.6;
+    }
+
+    .base-url{
+      margin-top:16px;
+      background:rgba(255,255,255,.12);
+      border:1px solid rgba(255,255,255,.15);
+      padding:14px 16px;
+      border-radius:16px;
+      font-size:14px;
+      word-break:break-all;
+    }
+
+    .grid{
+      display:grid;
+      grid-template-columns:360px 1fr;
+      gap:24px;
+    }
+
+    .card{
+      background:var(--card);
+      border:1px solid var(--border);
+      border-radius:var(--radius);
+      box-shadow:var(--shadow);
+    }
+
+    .left{
+      padding:22px;
+      position:sticky;
+      top:20px;
+      height:fit-content;
+    }
+
+    .right{
+      padding:22px;
+    }
+
+    .title{
+      font-size:20px;
+      font-weight:800;
+      margin-bottom:6px;
+    }
+
+    .sub{
+      color:var(--muted);
+      font-size:14px;
+      margin-bottom:20px;
+      line-height:1.6;
+    }
+
+    .field{
+      margin-bottom:16px;
+    }
+
+    .field label{
+      display:block;
+      font-size:14px;
+      font-weight:700;
+      margin-bottom:8px;
+    }
+
+    .input{
+      width:100%;
+      height:50px;
+      border:1px solid var(--border);
+      border-radius:14px;
+      padding:0 14px;
+      outline:none;
+      font-size:15px;
+      background:#fff;
+    }
+
+    .input:focus{
+      border-color:var(--primary);
+      box-shadow:0 0 0 4px rgba(31,175,107,.12);
+    }
+
+    .btn{
+      width:100%;
+      border:none;
+      background:var(--primary);
+      color:#fff;
+      height:52px;
+      border-radius:14px;
+      font-size:15px;
+      font-weight:800;
+      cursor:pointer;
+      transition:.2s ease;
+    }
+
+    .btn:hover{
+      background:var(--primary-dark);
+      transform:translateY(-1px);
+    }
+
+    .api-key-box{
+      margin-top:18px;
+      background:var(--primary-soft);
+      border:1px solid #bde6cb;
+      border-radius:16px;
+      padding:16px;
+      display:none;
+    }
+
+    .api-key-label{
+      font-size:13px;
+      color:var(--muted);
+      margin-bottom:8px;
+      font-weight:700;
+    }
+
+    .api-key-value{
+      font-family:monospace;
+      font-size:14px;
+      background:#fff;
+      padding:12px;
+      border-radius:12px;
+      border:1px solid var(--border);
+      word-break:break-all;
+    }
+
+    .copy-btn{
+      margin-top:12px;
+      width:100%;
+      height:44px;
+      border:none;
+      border-radius:12px;
+      background:#0f172a;
+      color:#fff;
+      font-weight:700;
+      cursor:pointer;
+    }
+
+    .api-list{
+      display:grid;
+      grid-template-columns:repeat(auto-fit,minmax(220px,1fr));
+      gap:14px;
+      margin-bottom:22px;
+    }
+
+    .api-item{
+      border:1px solid var(--border);
+      border-radius:18px;
+      padding:16px;
+      cursor:pointer;
+      transition:.2s ease;
+      background:#fff;
+    }
+
+    .api-item:hover,
+    .api-item.active{
+      border-color:var(--primary);
+      background:var(--primary-soft);
+      transform:translateY(-2px);
+    }
+
+    .api-item h3{
+      margin:0 0 8px;
+      font-size:16px;
+    }
+
+    .api-item p{
+      margin:0;
+      color:var(--muted);
+      font-size:13px;
+      line-height:1.5;
+    }
+
+    .doc-section{
+      margin-top:20px;
+    }
+
+    .doc-label{
+      font-size:13px;
+      font-weight:800;
+      color:var(--muted);
+      text-transform:uppercase;
+      letter-spacing:.08em;
+      margin-bottom:8px;
+    }
+
+    .codebox{
+      background:#0b1220;
+      color:#e2e8f0;
+      border-radius:16px;
+      padding:16px;
+      overflow:auto;
+      white-space:pre-wrap;
+      word-break:break-word;
+      font-size:13px;
+      line-height:1.7;
+      border:1px solid #1e293b;
+      font-family:Consolas, monospace;
+    }
+
+    .endpoint{
+      background:#F8FAFC;
+      border:1px solid var(--border);
+      border-radius:14px;
+      padding:14px;
+      font-size:14px;
+      word-break:break-all;
+    }
+
+    .inline-grid{
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:16px;
+    }
+
+    .msg{
+      margin-top:14px;
+      font-size:14px;
+      font-weight:700;
+      display:none;
+      padding:12px 14px;
+      border-radius:12px;
+    }
+
+    .msg.ok{
+      background:#EAF8F0;
+      color:#11643d;
+      border:1px solid #bfe8cf;
+    }
+
+    .msg.err{
+      background:#FEF2F2;
+      color:#B91C1C;
+      border:1px solid #FECACA;
+    }
+
+    @media (max-width: 980px){
+      .grid{
+        grid-template-columns:1fr;
+      }
+      .left{
+        position:static;
+      }
+      .inline-grid{
+        grid-template-columns:1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <div class="hero">
+      <h1>EDATA Developer API</h1>
+      <p>
+        Generate your API key and integrate EDATA directly into your application.
+        Use the documentation below to authenticate, check balance, make orders,
+        fetch order status, and register AFA from your own software.
+      </p>
+      <div class="base-url">
+        <strong>Base URL:</strong> https://edatagh.com/edatagh-backend
+      </div>
+    </div>
+
+    <div class="grid">
+      <div class="card left">
+        <div class="title">Generate API Key</div>
+        <div class="sub">
+          Enter your registered agent phone number and PIN to generate a secure API key.
+        </div>
+
+        <div class="field">
+          <label>Phone Number</label>
+          <input type="text" id="phone" class="input" placeholder="Enter your phone number">
+        </div>
+
+        <div class="field">
+          <label>PIN</label>
+          <input type="password" id="pin" class="input" placeholder="Enter your PIN">
+        </div>
+
+        <button class="btn" onclick="generateApiKey()">Generate API Key</button>
+
+        <div id="msg" class="msg"></div>
+
+        <div class="api-key-box" id="apiKeyBox">
+          <div class="api-key-label">Generated API Key</div>
+          <div class="api-key-value" id="apiKeyValue"></div>
+          <button class="copy-btn" onclick="copyApiKey()">Copy API Key</button>
+        </div>
+      </div>
+
+      <div class="card right">
+        <div class="title">API Documentation</div>
+        <div class="sub">
+          Select an API below to see endpoint, headers, request body, response example, and ready-to-use code.
+        </div>
+
+        <div class="api-list">
+          <div class="api-item active" onclick="selectApi('auth', this)">
+            <h3>Authentication</h3>
+            <p>Verify your API key and return agent details.</p>
+          </div>
+
+          <div class="api-item" onclick="selectApi('balance', this)">
+            <h3>Check Balance</h3>
+            <p>Get current wallet balance for the authenticated agent.</p>
+          </div>
+
+          <div class="api-item" onclick="selectApi('order', this)">
+            <h3>Make Order</h3>
+            <p>Create a new data order from your application.</p>
+          </div>
+
+          <div class="api-item" onclick="selectApi('status', this)">
+            <h3>Get Order Status</h3>
+            <p>Check the status of an existing order.</p>
+          </div>
+
+          <div class="api-item" onclick="selectApi('afa', this)">
+            <h3>AFA Registration</h3>
+            <p>Submit AFA registration details through the API.</p>
+          </div>
+        </div>
+
+        <div class="doc-section">
+          <div class="doc-label">Endpoint</div>
+          <div class="endpoint" id="endpointBox"></div>
+        </div>
+
+        <div class="doc-section inline-grid">
+          <div>
+            <div class="doc-label">Headers</div>
+            <div class="codebox" id="headersBox"></div>
+          </div>
+
+          <div>
+            <div class="doc-label">Request Body</div>
+            <div class="codebox" id="bodyBox"></div>
+          </div>
+        </div>
+
+        <div class="doc-section">
+          <div class="doc-label">Sample Response</div>
+          <div class="codebox" id="responseBox"></div>
+        </div>
+
+        <div class="doc-section">
+          <div class="doc-label">Example Code (JavaScript Fetch)</div>
+          <div class="codebox" id="codeBox"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const API_BASE = "https://edatagh.com/edatagh-backend";
+    let generatedApiKey = "";
+
+    const docs = {
+      auth: {
+        method: "GET",
+        endpoint: `${API_BASE}/api/dev/auth`,
+        headers: `{
+  "Authorization": "Bearer YOUR_API_KEY"
+}`,
+        body: `No request body required`,
+        response: `{
+  "success": true,
+  "message": "Authentication successful",
+  "data": {
+    "agent_id": 4,
+    "name": "Alpha Beta",
+    "phone": "233504602107"
+  }
+}`,
+        code: `fetch("${API_BASE}/api/dev/auth", {
+  method: "GET",
+  headers: {
+    "Authorization": "Bearer YOUR_API_KEY"
+  }
+})
+  .then(res => res.json())
+  .then(data => console.log(data))
+  .catch(err => console.error(err));`
+      },
+
+      balance: {
+        method: "GET",
+        endpoint: `${API_BASE}/api/dev/check-balance`,
+        headers: `{
+  "Authorization": "Bearer YOUR_API_KEY"
+}`,
+        body: `No request body required`,
+        response: `{
+  "success": true,
+  "data": {
+    "agent_id": 4,
+    "balance": 150.5
+  }
+}`,
+        code: `fetch("${API_BASE}/api/dev/check-balance", {
+  method: "GET",
+  headers: {
+    "Authorization": "Bearer YOUR_API_KEY"
+  }
+})
+  .then(res => res.json())
+  .then(data => console.log(data))
+  .catch(err => console.error(err));`
+      },
+
+      order: {
+        method: "POST",
+        endpoint: `${API_BASE}/api/dev/make-order`,
+        headers: `{
+  "Content-Type": "application/json",
+  "Authorization": "Bearer YOUR_API_KEY"
+}`,
+        body: `{
+  "network": "MTN",
+  "package_name": "5GB",
+  "recipient_number": "233XXXXXXXXX",
+  "amount": 10
+}`,
+        response: `{
+  "success": true,
+  "message": "Order created successfully",
+  "data": {
+    "order_id": 25,
+    "package_id": "PKG1711450000000",
+    "status": "pending"
+  }
+}`,
+        code: `fetch("${API_BASE}/api/dev/make-order", {
+  method: "POST",
+  headers: {
+    "Content-Type": "application/json",
+    "Authorization": "Bearer YOUR_API_KEY"
+  },
+  body: JSON.stringify({
+    network: "MTN",
+    package_name: "5GB",
+    recipient_number: "233XXXXXXXXX",
+    amount: 10
+  })
+})
+  .then(res => res.json())
+  .then(data => console.log(data))
+  .catch(err => console.error(err));`
+      },
+
+      status: {
+        method: "GET",
+        endpoint: `${API_BASE}/api/dev/order-status/25`,
+        headers: `{
+  "Authorization": "Bearer YOUR_API_KEY"
+}`,
+        body: `Pass the order ID in the URL`,
+        response: `{
+  "success": true,
+  "data": {
+    "id": 25,
+    "network": "MTN",
+    "package_name": "5GB",
+    "recipient_number": "233XXXXXXXXX",
+    "amount": 10,
+    "status": "pending",
+    "package_id": "PKG1711450000000",
+    "created_at": "2026-03-26 08:20:00"
+  }
+}`,
+        code: `fetch("${API_BASE}/api/dev/order-status/25", {
+  method: "GET",
+  headers: {
+    "Authorization": "Bearer YOUR_API_KEY"
+  }
+})
+  .then(res => res.json())
+  .then(data => console.log(data))
+  .catch(err => console.error(err));`
+      },
+
+      afa: {
+        method: "POST",
+        endpoint: `${API_BASE}/api/dev/afa-register`,
+        headers: `{
+  "Content-Type": "application/json",
+  "Authorization": "Bearer YOUR_API_KEY"
+}`,
+        body: `{
+  "first_name": "John",
+  "last_name": "Doe",
+  "ghana_card_number": "GHA-123456789-0",
+  "town": "Kumasi",
+  "occupation": "Trader",
+  "date_of_birth": "2000-05-10",
+  "phone": "233XXXXXXXXX"
+}`,
+        response: `{
+  "success": true,
+  "message": "AFA registration successful",
+  "data": {
+    "registration_id": 12
+  }
+}`,
+        code: `fetch("${API_BASE}/api/dev/afa-register", {
+  method: "POST",
+  headers: {
+    "Content-Type": "application/json",
+    "Authorization": "Bearer YOUR_API_KEY"
+  },
+  body: JSON.stringify({
+    first_name: "John",
+    last_name: "Doe",
+    ghana_card_number: "GHA-123456789-0",
+    town: "Kumasi",
+    occupation: "Trader",
+    date_of_birth: "2000-05-10",
+    phone: "233XXXXXXXXX"
+  })
+})
+  .then(res => res.json())
+  .then(data => console.log(data))
+  .catch(err => console.error(err));`
+      }
+    };
+
+    function renderDoc(key){
+      const doc = docs[key];
+      document.getElementById("endpointBox").textContent = `${doc.method}  ${doc.endpoint}`;
+      document.getElementById("headersBox").textContent = doc.headers.replaceAll("YOUR_API_KEY", generatedApiKey || "YOUR_API_KEY");
+      document.getElementById("bodyBox").textContent = doc.body;
+      document.getElementById("responseBox").textContent = doc.response;
+      document.getElementById("codeBox").textContent = doc.code.replaceAll("YOUR_API_KEY", generatedApiKey || "YOUR_API_KEY");
+    }
+
+    function selectApi(key, el){
+      document.querySelectorAll(".api-item").forEach(item => item.classList.remove("active"));
+      el.classList.add("active");
+      renderDoc(key);
+    }
+
+    function showMsg(text, ok = true){
+      const msg = document.getElementById("msg");
+      msg.style.display = "block";
+      msg.className = ok ? "msg ok" : "msg err";
+      msg.textContent = text;
+    }
+
+    async function generateApiKey(){
+      const phone = document.getElementById("phone").value.trim();
+      const pin = document.getElementById("pin").value.trim();
+
+      if(!phone || !pin){
+        showMsg("Please enter phone number and PIN.", false);
+        return;
+      }
+
+      try{
+        const res = await fetch(`${API_BASE}/api/developer/generate-key`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({ phone, pin })
+        });
+
+        const data = await res.json();
+
+        if(!res.ok || !data.success){
+          throw new Error(data.message || "Failed to generate API key");
+        }
+
+        generatedApiKey = data.data.api_key;
+        document.getElementById("apiKeyValue").textContent = generatedApiKey;
+        document.getElementById("apiKeyBox").style.display = "block";
+
+        showMsg("API key generated successfully.");
+        renderDoc(document.querySelector(".api-item.active") ? "auth" : "auth");
+      }catch(err){
+        showMsg(err.message || "Something went wrong", false);
+      }
+    }
+
+    function copyApiKey(){
+      if(!generatedApiKey) return;
+      navigator.clipboard.writeText(generatedApiKey);
+      showMsg("API key copied successfully.");
+    }
+
+    renderDoc("auth");
+  </script>
+</body>
+</html>
