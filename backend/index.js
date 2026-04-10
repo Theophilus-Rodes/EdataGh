@@ -80,7 +80,6 @@ function uniqueValidNumbers(numbers = []) {
 }
 
 
-
 async function sendSingleSmsViaGiantSMS({ to, message, senderId }) {
   try {
     const response = await axios.post(
@@ -96,18 +95,25 @@ async function sendSingleSmsViaGiantSMS({ to, message, senderId }) {
           password: GIANTSMS_SECRET
         },
         headers: {
-          "Content-Type": "application/json"
+          "Content-Type": "application/json",
+          "Accept": "application/json"
         },
         timeout: 30000
       }
     );
 
+    console.log("GIANTSMS STATUS:", response.status);
+    console.log("GIANTSMS DATA:", response.data);
+
     return {
       ok: true,
       data: response.data
     };
-
   } catch (err) {
+    console.log("GIANTSMS ERROR STATUS:", err.response?.status);
+    console.log("GIANTSMS ERROR DATA:", err.response?.data);
+    console.log("GIANTSMS ERROR MESSAGE:", err.message);
+
     return {
       ok: false,
       error: err.response?.data || err.message
@@ -140,32 +146,32 @@ app.post("/api/agent/sms/send", async (req, res) => {
     let failed = 0;
     const results = [];
 
-    for (const num of finalNumbers) {
-      const result = await sendSingleSmsViaGiantSMS({
-        to: num,
-        message: finalMessage,
-        senderId: finalSender
-      });
+ for (const num of finalNumbers) {
+  const result = await sendSingleSmsViaGiantSMS({
+    to: num,
+    message: finalMessage,
+    senderId: finalSender
+  });
 
-      if (result.ok) {
-        sent++;
-        results.push({ number: num, status: "sent" });
-      } else {
-        failed++;
-        results.push({ number: num, status: "failed", error: result.error });
-      }
-    }
+  if (result.ok) {
+    const provider = result.data;
 
-    return res.json({
-      ok: true,
-      message: `Done. Sent: ${sent}, Failed: ${failed}`,
-      summary: {
-        total: finalNumbers.length,
-        sent,
-        failed
-      },
-      results
+    results.push({
+      number: num,
+      status: "submitted",
+      providerResponse: provider
     });
+
+    sent++;
+  } else {
+    failed++;
+    results.push({
+      number: num,
+      status: "failed",
+      error: result.error
+    });
+  }
+}
 
   } catch (err) {
     console.error("SMS ERROR:", err);
