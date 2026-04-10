@@ -185,19 +185,17 @@ app.get("/api/agent/my-sender-id", (req, res) => {
 ///// AGENT SMS ROUTE 
 app.post("/api/agent/sms/send", async (req, res) => {
   try {
+    const agentId = Number(req.body.agent_id || 0);
     const { senderId, message, numbers } = req.body;
 
-    // CHANGE THIS if your session key is different
-    const agentId = req.session?.agent_id || req.session?.agentId || null;
-
-    if (!agentId) {
+    if (!agentId || Number.isNaN(agentId)) {
       return res.status(401).json({
         ok: false,
         message: "Agent not logged in"
       });
     }
 
-    const finalMessage = (message || "").trim();
+    const finalMessage = String(message || "").trim();
     const finalNumbers = uniqueValidNumbers(Array.isArray(numbers) ? numbers : []);
 
     if (!finalMessage) {
@@ -215,7 +213,7 @@ app.post("/api/agent/sms/send", async (req, res) => {
     }
 
     const [agentRows] = await db.promise().query(
-      `SELECT id, sender_id FROM agents WHERE id = ? LIMIT 1`,
+      `SELECT id, sender_id, first_name, last_name FROM agents WHERE id = ? LIMIT 1`,
       [agentId]
     );
 
@@ -226,9 +224,8 @@ app.post("/api/agent/sms/send", async (req, res) => {
       });
     }
 
-    const dbSenderId = (agentRows[0].sender_id || "").trim();
-    const manualSenderId = (senderId || "").trim();
-
+    const dbSenderId = String(agentRows[0].sender_id || "").trim();
+    const manualSenderId = String(senderId || "").trim();
     const finalSender = manualSenderId || dbSenderId;
 
     if (!finalSender) {
@@ -273,7 +270,6 @@ app.post("/api/agent/sms/send", async (req, res) => {
     });
   }
 });
-
 
 
 ///// Bulk SMS APPROVALS 
