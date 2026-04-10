@@ -463,7 +463,7 @@
           <div>
             <label class="label">Sender ID</label>
             <input type="text" class="input" id="senderId" placeholder="No Sender ID assigned yet" maxlength="20" value="" />
-            <div class="muted">Use only an approved sender ID from Giant SMS. Your current approved sender is SANDYPAY.</div>
+            <div class="muted">This field loads the sender ID assigned to your account by admin. If none has been assigned yet, it will stay empty.</div>
           </div>
 
           <div>
@@ -572,282 +572,305 @@
     </div>
   </div>
 
-  <script>
-    const API_BASE =
-      location.hostname === "localhost"
-        ? "http://localhost:8080"
-        : "https://edatagh.com/edatagh-backend";
-    let recipients = [];
+ <script>
+  const API_BASE =
+    location.hostname === "localhost"
+      ? "http://localhost:8080"
+      : "https://edatagh.com/edatagh-backend";
 
-    const manualNumbers = document.getElementById("manualNumbers");
-    const smsMessage = document.getElementById("smsMessage");
-    const senderId = document.getElementById("senderId");
-    const messageType = document.getElementById("messageType");
-    const excelFile = document.getElementById("excelFile");
-    const uploadPreview = document.getElementById("uploadPreview");
-    const sendResult = document.getElementById("sendResult");
+  let recipients = [];
 
-    function normalizeNumber(number) {
-      let value = String(number || "").trim();
-      value = value.replace(/[^\d+]/g, "");
+  const manualNumbers = document.getElementById("manualNumbers");
+  const smsMessage = document.getElementById("smsMessage");
+  const senderId = document.getElementById("senderId");
+  const messageType = document.getElementById("messageType");
+  const excelFile = document.getElementById("excelFile");
+  const uploadPreview = document.getElementById("uploadPreview");
+  const sendResult = document.getElementById("sendResult");
 
-      if (!value) return "";
+  function getAgentId() {
+    return (
+      localStorage.getItem("agent_id") ||
+      localStorage.getItem("EDATA_AGENT_ID") ||
+      localStorage.getItem("user_id") ||
+      ""
+    );
+  }
 
-      if (value.startsWith("+233")) {
-        value = "0" + value.slice(4);
-      } else if (value.startsWith("233")) {
-        value = "0" + value.slice(3);
+  function normalizeNumber(number) {
+    let value = String(number || "").trim();
+    value = value.replace(/[^\d+]/g, "");
+
+    if (!value) return "";
+
+    if (value.startsWith("+233")) {
+      value = "0" + value.slice(4);
+    } else if (value.startsWith("233")) {
+      value = "0" + value.slice(3);
+    }
+
+    return value;
+  }
+
+  function isValidGhanaNumber(number) {
+    return /^0\d{9}$/.test(number);
+  }
+
+  function addRecipients(numbers) {
+    numbers.forEach(num => {
+      const clean = normalizeNumber(num);
+      if (clean && isValidGhanaNumber(clean) && !recipients.includes(clean)) {
+        recipients.push(clean);
       }
-
-      return value;
-    }
-
-    function isValidGhanaNumber(number) {
-      return /^0\d{9}$/.test(number);
-    }
-
-    function addRecipients(numbers) {
-      numbers.forEach(num => {
-        const clean = normalizeNumber(num);
-        if (clean && isValidGhanaNumber(clean) && !recipients.includes(clean)) {
-          recipients.push(clean);
-        }
-      });
-
-      renderRecipients();
-      updateStats();
-      refreshPreview();
-    }
-
-    function addManualNumbers() {
-      const raw = manualNumbers.value.trim();
-
-      if (!raw) {
-        alert("Please type at least one number.");
-        return;
-      }
-
-      const parts = raw.split(/[\n,]+/).map(v => v.trim()).filter(Boolean);
-      addRecipients(parts);
-      manualNumbers.value = "";
-    }
-
-    function clearManualBox() {
-      manualNumbers.value = "";
-    }
-
-    function clearAllContacts() {
-      if (!confirm("Clear all recipient numbers?")) return;
-
-      recipients = [];
-      renderRecipients();
-      updateStats();
-      refreshPreview();
-      uploadPreview.style.display = "none";
-      uploadPreview.innerHTML = "";
-    }
-
-    function removeRecipient(index) {
-      recipients.splice(index, 1);
-      renderRecipients();
-      updateStats();
-      refreshPreview();
-    }
-
-    function renderRecipients() {
-      const tbody = document.getElementById("numbersTableBody");
-      const badge = document.getElementById("recipientBadge");
-
-      badge.textContent = `${recipients.length} Number${recipients.length === 1 ? "" : "s"}`;
-
-      if (recipients.length === 0) {
-        tbody.innerHTML = `
-          <tr>
-            <td colspan="3" class="empty-state">No numbers added yet.</td>
-          </tr>
-        `;
-        return;
-      }
-
-      tbody.innerHTML = recipients.map((num, index) => `
-        <tr>
-          <td>${index + 1}</td>
-          <td>${num}</td>
-          <td>
-            <button class="remove-btn" onclick="removeRecipient(${index})">Remove</button>
-          </td>
-        </tr>
-      `).join("");
-    }
-
-    function updateStats() {
-      const msg = smsMessage.value.trim();
-      const length = msg.length;
-      const parts = length === 0 ? 0 : Math.ceil(length / 160);
-
-      document.getElementById("totalContacts").textContent = recipients.length;
-      document.getElementById("validContacts").textContent = recipients.length;
-      document.getElementById("messageLength").textContent = length;
-      document.getElementById("smsParts").textContent = parts;
-
-      document.getElementById("charCount").textContent = `${length} characters`;
-      document.getElementById("partsCount").textContent = `${parts} SMS parts`;
-
-      document.getElementById("previewRecipients").textContent = recipients.length;
-      document.getElementById("previewSender").textContent = senderId.value.trim() || "-";
-      document.getElementById("previewType").textContent = messageType.options[messageType.selectedIndex].text;
-    }
-
-    function refreshPreview() {
-      updateStats();
-    }
-
-    function showResult(message, isError = false) {
-      sendResult.style.display = "block";
-      sendResult.className = isError ? "notice result-error" : "notice result-success";
-      sendResult.innerHTML = message;
-    }
-
-    async function previewSend() {
-      const sender = document.getElementById("senderId").value.trim();
-      const message = document.getElementById("smsMessage").value.trim();
-
-      if (!sender) {
-  showResult("No Sender ID has been assigned to your account yet. Please contact admin.", true);
-  return;
-}
-
-      if (!message) {
-        showResult("Please type your SMS message.", true);
-        return;
-      }
-
-      if (!recipients.length) {
-        showResult("Please add at least one recipient number.", true);
-        return;
-      }
-
-      try {
-        showResult("Sending SMS, please wait...");
-
-        const res = await fetch(`${API_BASE}/api/agent/sms/send`, {
-          method: "POST",
-          credentials: "include",
-          headers: {
-            "Content-Type": "application/json"
-          },
-          body: JSON.stringify({
-            senderId: sender,
-            message,
-            numbers: recipients
-          })
-        });
-
-        const data = await res.json();
-
-        if (!res.ok || !data.ok) {
-          showResult(data.message || "Failed to send SMS.", true);
-          return;
-        }
-
-        showResult(`
-          ${data.message}<br><br>
-          <strong>Total:</strong> ${data.summary.total}<br>
-          <strong>Sent:</strong> ${data.summary.sent}<br>
-          <strong>Failed:</strong> ${data.summary.failed}
-        `, false);
-      } catch (err) {
-        console.error(err);
-        showResult("Network or server error while sending SMS.", true);
-      }
-    }
-
-    excelFile.addEventListener("change", function(e) {
-      const file = e.target.files[0];
-      if (!file) return;
-
-      const reader = new FileReader();
-
-      reader.onload = function(event) {
-        try {
-          const data = new Uint8Array(event.target.result);
-          const workbook = XLSX.read(data, { type: "array" });
-          const sheetName = workbook.SheetNames[0];
-          const worksheet = workbook.Sheets[sheetName];
-          const rows = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
-
-          let extracted = [];
-
-          rows.forEach((row, index) => {
-            if (!row || !row.length) return;
-
-            const firstCell = row[0];
-
-            if (
-              index === 0 &&
-              typeof firstCell === "string" &&
-              firstCell.toLowerCase().includes("phone")
-            ) {
-              return;
-            }
-
-            if (firstCell !== undefined && firstCell !== null && String(firstCell).trim() !== "") {
-              extracted.push(String(firstCell).trim());
-            }
-          });
-
-          const before = recipients.length;
-          addRecipients(extracted);
-          const addedNow = recipients.length - before;
-
-          uploadPreview.style.display = "block";
-          uploadPreview.innerHTML = `File loaded successfully. ${addedNow} valid number(s) added.`;
-        } catch (err) {
-          console.error(err);
-          uploadPreview.style.display = "block";
-          uploadPreview.innerHTML = "Could not read this file. Please check the format and try again.";
-        }
-      };
-
-      reader.readAsArrayBuffer(file);
     });
 
-    smsMessage.addEventListener("input", updateStats);
-    senderId.addEventListener("input", updateStats);
-    messageType.addEventListener("change", updateStats);
+    renderRecipients();
+    updateStats();
+    refreshPreview();
+  }
 
-async function loadMySenderId() {
-  try {
-    const res = await fetch(`${API_BASE}/api/agent/my-sender-id`, {
-      credentials: "include"
-    });
+  function addManualNumbers() {
+    const raw = manualNumbers.value.trim();
 
-    const data = await res.json();
-
-    if (!res.ok || !data.ok) {
-      document.getElementById("senderId").value = "";
-      document.getElementById("previewSender").textContent = "-";
+    if (!raw) {
+      alert("Please type at least one number.");
       return;
     }
 
-    const sender = (data.agent?.sender_id || "").trim();
+    const parts = raw.split(/[\n,]+/).map(v => v.trim()).filter(Boolean);
+    addRecipients(parts);
+    manualNumbers.value = "";
+  }
 
-    document.getElementById("senderId").value = sender;
-    document.getElementById("previewSender").textContent = sender || "-";
+  function clearManualBox() {
+    manualNumbers.value = "";
+  }
+
+  function clearAllContacts() {
+    if (!confirm("Clear all recipient numbers?")) return;
+
+    recipients = [];
+    renderRecipients();
+    updateStats();
+    refreshPreview();
+    uploadPreview.style.display = "none";
+    uploadPreview.innerHTML = "";
+  }
+
+  function removeRecipient(index) {
+    recipients.splice(index, 1);
+    renderRecipients();
+    updateStats();
+    refreshPreview();
+  }
+
+  function renderRecipients() {
+    const tbody = document.getElementById("numbersTableBody");
+    const badge = document.getElementById("recipientBadge");
+
+    badge.textContent = `${recipients.length} Number${recipients.length === 1 ? "" : "s"}`;
+
+    if (recipients.length === 0) {
+      tbody.innerHTML = `
+        <tr>
+          <td colspan="3" class="empty-state">No numbers added yet.</td>
+        </tr>
+      `;
+      return;
+    }
+
+    tbody.innerHTML = recipients.map((num, index) => `
+      <tr>
+        <td>${index + 1}</td>
+        <td>${num}</td>
+        <td>
+          <button class="remove-btn" onclick="removeRecipient(${index})">Remove</button>
+        </td>
+      </tr>
+    `).join("");
+  }
+
+  function updateStats() {
+    const msg = smsMessage.value.trim();
+    const length = msg.length;
+    const parts = length === 0 ? 0 : Math.ceil(length / 160);
+
+    document.getElementById("totalContacts").textContent = recipients.length;
+    document.getElementById("validContacts").textContent = recipients.length;
+    document.getElementById("messageLength").textContent = length;
+    document.getElementById("smsParts").textContent = parts;
+
+    document.getElementById("charCount").textContent = `${length} characters`;
+    document.getElementById("partsCount").textContent = `${parts} SMS parts`;
+
+    document.getElementById("previewRecipients").textContent = recipients.length;
+    document.getElementById("previewSender").textContent = senderId.value.trim() || "-";
+    document.getElementById("previewType").textContent = messageType.options[messageType.selectedIndex].text;
+  }
+
+  function refreshPreview() {
+    updateStats();
+  }
+
+  function showResult(message, isError = false) {
+    sendResult.style.display = "block";
+    sendResult.className = isError ? "notice result-error" : "notice result-success";
+    sendResult.innerHTML = message;
+  }
+
+  async function loadMySenderId() {
+    try {
+      const agentId = getAgentId();
+
+      if (!agentId) {
+        document.getElementById("senderId").value = "";
+        document.getElementById("previewSender").textContent = "-";
+        return;
+      }
+
+      const res = await fetch(`${API_BASE}/api/agent/my-sender-id?agent_id=${encodeURIComponent(agentId)}`);
+      const data = await res.json();
+
+      if (!res.ok || !data.ok) {
+        document.getElementById("senderId").value = "";
+        document.getElementById("previewSender").textContent = "-";
+        return;
+      }
+
+      const sender = (data.agent?.sender_id || "").trim();
+
+      document.getElementById("senderId").value = sender;
+      document.getElementById("previewSender").textContent = sender || "-";
+
+      if (!sender) {
+        document.getElementById("senderId").placeholder = "No Sender ID assigned yet";
+      }
+
+      updateStats();
+    } catch (err) {
+      console.error("Error loading sender ID:", err);
+      document.getElementById("senderId").value = "";
+      document.getElementById("previewSender").textContent = "-";
+    }
+  }
+
+  async function previewSend() {
+    const sender = document.getElementById("senderId").value.trim();
+    const message = document.getElementById("smsMessage").value.trim();
+    const agentId = getAgentId();
+
+    if (!agentId) {
+      showResult("Agent not logged in. Please log in again.", true);
+      return;
+    }
 
     if (!sender) {
-      document.getElementById("senderId").placeholder = "No Sender ID assigned yet";
+      showResult("No Sender ID has been assigned to your account yet. Please contact admin.", true);
+      return;
     }
-  } catch (err) {
-    console.error("Error loading sender ID:", err);
-    document.getElementById("senderId").value = "";
-    document.getElementById("previewSender").textContent = "-";
-  }
-}
 
-    loadMySenderId();
-    updateStats();
-    renderRecipients();
-  </script>
+    if (!message) {
+      showResult("Please type your SMS message.", true);
+      return;
+    }
+
+    if (!recipients.length) {
+      showResult("Please add at least one recipient number.", true);
+      return;
+    }
+
+    try {
+      showResult("Sending SMS, please wait...");
+
+      const res = await fetch(`${API_BASE}/api/agent/sms/send`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          agent_id: agentId,
+          senderId: sender,
+          message,
+          numbers: recipients
+        })
+      });
+
+      const data = await res.json();
+
+      if (!res.ok || !data.ok) {
+        showResult(data.message || "Failed to send SMS.", true);
+        return;
+      }
+
+      showResult(`
+        ${data.message}<br><br>
+        <strong>Total:</strong> ${data.summary?.total ?? recipients.length}<br>
+        <strong>Submitted:</strong> ${data.summary?.submitted ?? recipients.length}<br>
+        <strong>Sender Used:</strong> ${data.sender_used || sender}
+      `, false);
+    } catch (err) {
+      console.error(err);
+      showResult("Network or server error while sending SMS.", true);
+    }
+  }
+
+  excelFile.addEventListener("change", function(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+
+    reader.onload = function(event) {
+      try {
+        const data = new Uint8Array(event.target.result);
+        const workbook = XLSX.read(data, { type: "array" });
+        const sheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[sheetName];
+        const rows = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+
+        let extracted = [];
+
+        rows.forEach((row, index) => {
+          if (!row || !row.length) return;
+
+          const firstCell = row[0];
+
+          if (
+            index === 0 &&
+            typeof firstCell === "string" &&
+            firstCell.toLowerCase().includes("phone")
+          ) {
+            return;
+          }
+
+          if (firstCell !== undefined && firstCell !== null && String(firstCell).trim() !== "") {
+            extracted.push(String(firstCell).trim());
+          }
+        });
+
+        const before = recipients.length;
+        addRecipients(extracted);
+        const addedNow = recipients.length - before;
+
+        uploadPreview.style.display = "block";
+        uploadPreview.innerHTML = `File loaded successfully. ${addedNow} valid number(s) added.`;
+      } catch (err) {
+        console.error(err);
+        uploadPreview.style.display = "block";
+        uploadPreview.innerHTML = "Could not read this file. Please check the format and try again.";
+      }
+    };
+
+    reader.readAsArrayBuffer(file);
+  });
+
+  smsMessage.addEventListener("input", updateStats);
+  senderId.addEventListener("input", updateStats);
+  messageType.addEventListener("change", updateStats);
+
+  loadMySenderId();
+  updateStats();
+  renderRecipients();
+</script>
 </body>
 </html>
