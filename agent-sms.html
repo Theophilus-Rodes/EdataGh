@@ -654,6 +654,7 @@ function getAgentId() {
     localStorage.getItem("agent_id") ||
     localStorage.getItem("EDATA_AGENT_ID") ||
     localStorage.getItem("user_id") ||
+    sessionStorage.getItem("agent_id") ||
     "";
 
   if (!id) {
@@ -670,7 +671,6 @@ function getAgentId() {
 
   return String(id || "").trim();
 }
-
   function normalizeNumber(number) {
     let value = String(number || "").trim();
     value = value.replace(/[^\d+]/g, "");
@@ -836,12 +836,6 @@ function getAgentId() {
   const message = document.getElementById("smsMessage").value.trim();
   const agentId = getAgentId();
 
-  console.log("AGENT ID FOUND:", agentId);
-  console.log("localStorage agent_id:", localStorage.getItem("agent_id"));
-  console.log("localStorage EDATA_AGENT_ID:", localStorage.getItem("EDATA_AGENT_ID"));
-  console.log("localStorage user_id:", localStorage.getItem("user_id"));
-  console.log("localStorage agent:", localStorage.getItem("agent"));
-
   if (!agentId) {
     showResult("Agent not logged in. Please log in again.", true);
     return;
@@ -887,16 +881,20 @@ function getAgentId() {
 
     showResult(`
       ${data.message}<br><br>
-      <strong>Total:</strong> ${data.summary?.total ?? recipients.length}<br>
-      <strong>Submitted:</strong> ${data.summary?.submitted ?? recipients.length}<br>
-      <strong>Sender Used:</strong> ${data.sender_used || sender}
+      <strong>Recipients:</strong> ${data.summary?.recipients ?? recipients.length}<br>
+      <strong>SMS Parts:</strong> ${data.summary?.sms_parts ?? 1}<br>
+      <strong>Credits Used:</strong> ${data.summary?.credits_used ?? recipients.length}<br>
+      <strong>Sender Used:</strong> ${data.sender_used || sender}<br>
+      <strong>Balance Left:</strong> ${data.sms_balance_after ?? "-"}
     `, false);
+
+    loadSmsBalance();
+
   } catch (err) {
     console.error(err);
     showResult("Network or server error while sending SMS.", true);
   }
 }
-
 
   excelFile.addEventListener("change", function(e) {
     const file = e.target.files[0];
@@ -967,9 +965,7 @@ function openPurchase() {
 }
 
 
-function getAgentId() {
-  return localStorage.getItem("agent_id") || sessionStorage.getItem("agent_id");
-}
+
 
 async function loadSmsBalance() {
   const agentId = getAgentId();
