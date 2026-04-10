@@ -23,6 +23,12 @@
       --line:#e5e7eb;
       --danger:#dc2626;
       --warning:#f59e0b;
+      --success:#166534;
+      --success-bg:#ecfdf3;
+      --success-border:#bbf7d0;
+      --error-bg:#fef2f2;
+      --error-border:#fecaca;
+      --error-text:#991b1b;
       --shadow:0 10px 30px rgba(16,24,40,.08);
       --radius:22px;
     }
@@ -373,6 +379,18 @@
       cursor:pointer;
     }
 
+    .result-success{
+      background:var(--success-bg) !important;
+      color:var(--success) !important;
+      border:1px solid var(--success-border) !important;
+    }
+
+    .result-error{
+      background:var(--error-bg) !important;
+      color:var(--error-text) !important;
+      border:1px solid var(--error-border) !important;
+    }
+
     @media (max-width: 980px){
       .stats{
         grid-template-columns:repeat(2,1fr);
@@ -412,8 +430,8 @@
     <div class="topbar">
       <h1>Agent Bulk SMS</h1>
       <p>
-        Send SMS to your customers by typing numbers one by one or uploading an Excel/CSV file.
-        This page is frontend only for now, so the send button will just preview the data until the backend is added.
+        Send SMS to your customers by typing numbers one by one or uploading an Excel or CSV file.
+        This page is connected to your Giant SMS backend and uses your approved sender ID.
       </p>
     </div>
 
@@ -439,13 +457,13 @@
     <div class="layout">
       <div class="card">
         <h2>Compose Message</h2>
-        <div class="card-sub">Enter sender ID, message, and recipient numbers.</div>
+        <div class="card-sub">Enter your approved sender ID, type your message, and add recipients.</div>
 
         <div class="grid-2 section">
           <div>
             <label class="label">Sender ID</label>
-            <input type="text" class="input" id="senderId" placeholder="e.g. RHOTECH" maxlength="11" />
-            <div class="muted">This is just frontend for now. Later it will be connected to your SMS provider.</div>
+            <input type="text" class="input" id="senderId" placeholder="e.g. SANDYPAY" maxlength="11" value="SANDYPAY" />
+            <div class="muted">Use only an approved sender ID from Giant SMS. Your current approved sender is SANDYPAY.</div>
           </div>
 
           <div>
@@ -480,8 +498,7 @@
         </div>
 
         <div class="notice">
-          Make sure the uploaded Excel file has phone numbers in the first column. Later, when backend is added,
-          this page can send directly through your SMS API.
+          Make sure the uploaded Excel or CSV file has phone numbers in the first column.
         </div>
       </div>
 
@@ -505,20 +522,20 @@
         </div>
 
         <div class="card">
-          <h2>Send Preview</h2>
-          <div class="card-sub">Review your SMS setup before backend integration.</div>
+          <h2>Send SMS</h2>
+          <div class="card-sub">Review the details and send the message through the backend.</div>
 
           <div class="send-box">
-            <h3>Preview Summary</h3>
+            <h3>Summary</h3>
             <div class="muted" style="margin-top:0;">
-              Sender ID: <strong id="previewSender">-</strong><br>
+              Sender ID: <strong id="previewSender">SANDYPAY</strong><br>
               Message Type: <strong id="previewType">Plain SMS</strong><br>
               Recipients: <strong id="previewRecipients">0</strong>
             </div>
 
             <div class="action-row" style="margin-top:16px;">
               <button class="btn btn-primary" onclick="previewSend()">Send SMS</button>
-              <button class="btn btn-light" onclick="refreshPreview()">Refresh Preview</button>
+              <button class="btn btn-light" onclick="refreshPreview()">Refresh Summary</button>
             </div>
 
             <div class="notice" id="sendResult" style="display:none; margin-top:14px;"></div>
@@ -556,6 +573,10 @@
   </div>
 
   <script>
+    const API_BASE =
+      location.hostname === "localhost"
+        ? "http://localhost:8080"
+        : "https://edatagh.com/edatagh-backend";
     let recipients = [];
 
     const manualNumbers = document.getElementById("manualNumbers");
@@ -563,10 +584,11 @@
     const senderId = document.getElementById("senderId");
     const messageType = document.getElementById("messageType");
     const excelFile = document.getElementById("excelFile");
+    const uploadPreview = document.getElementById("uploadPreview");
+    const sendResult = document.getElementById("sendResult");
 
     function normalizeNumber(number) {
       let value = String(number || "").trim();
-
       value = value.replace(/[^\d+]/g, "");
 
       if (!value) return "";
@@ -599,6 +621,7 @@
 
     function addManualNumbers() {
       const raw = manualNumbers.value.trim();
+
       if (!raw) {
         alert("Please type at least one number.");
         return;
@@ -615,11 +638,13 @@
 
     function clearAllContacts() {
       if (!confirm("Clear all recipient numbers?")) return;
+
       recipients = [];
       renderRecipients();
       updateStats();
       refreshPreview();
-      document.getElementById("uploadPreview").style.display = "none";
+      uploadPreview.style.display = "none";
+      uploadPreview.innerHTML = "";
     }
 
     function removeRecipient(index) {
@@ -669,7 +694,7 @@
       document.getElementById("partsCount").textContent = `${parts} SMS parts`;
 
       document.getElementById("previewRecipients").textContent = recipients.length;
-      document.getElementById("previewSender").textContent = senderId.value.trim() || "-";
+      document.getElementById("previewSender").textContent = senderId.value.trim() || "SANDYPAY";
       document.getElementById("previewType").textContent = messageType.options[messageType.selectedIndex].text;
     }
 
@@ -677,64 +702,119 @@
       updateStats();
     }
 
-   async function previewSend() {
-    const sender = document.getElementById("senderId").value.trim();
-    const message = document.getElementById("smsMessage").value.trim();
-    const resultBox = document.getElementById("sendResult");
-
-    if (!sender) {
-      resultBox.style.display = "block";
-      resultBox.innerHTML = "Please enter Sender ID.";
-      return;
+    function showResult(message, isError = false) {
+      sendResult.style.display = "block";
+      sendResult.className = isError ? "notice result-error" : "notice result-success";
+      sendResult.innerHTML = message;
     }
 
-    if (!message) {
-      resultBox.style.display = "block";
-      resultBox.innerHTML = "Please type your SMS message.";
-      return;
-    }
+    async function previewSend() {
+      const sender = document.getElementById("senderId").value.trim() || "SANDYPAY";
+      const message = document.getElementById("smsMessage").value.trim();
 
-    if (!recipients.length) {
-      resultBox.style.display = "block";
-      resultBox.innerHTML = "Please add at least one recipient number.";
-      return;
-    }
-
-    try {
-      resultBox.style.display = "block";
-      resultBox.innerHTML = "Sending SMS, please wait...";
-
-      const res = await fetch(`${API_BASE}/api/agent/sms/send`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          senderId: sender,
-          message,
-          numbers: recipients
-        })
-      });
-
-      const data = await res.json();
-
-      if (!res.ok || !data.ok) {
-        resultBox.innerHTML = data.message || "Failed to send SMS.";
+      if (!sender) {
+        showResult("Please enter Sender ID.", true);
         return;
       }
 
-      resultBox.innerHTML = `
-        ${data.message}<br><br>
-        <strong>Total:</strong> ${data.summary.total}<br>
-        <strong>Sent:</strong> ${data.summary.sent}<br>
-        <strong>Failed:</strong> ${data.summary.failed}
-      `;
-    } catch (err) {
-      console.error(err);
-      resultBox.style.display = "block";
-      resultBox.innerHTML = "Network/server error while sending SMS.";
+      if (!message) {
+        showResult("Please type your SMS message.", true);
+        return;
+      }
+
+      if (!recipients.length) {
+        showResult("Please add at least one recipient number.", true);
+        return;
+      }
+
+      try {
+        showResult("Sending SMS, please wait...");
+
+        const res = await fetch(`${API_BASE}/api/agent/sms/send`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            senderId: sender,
+            message,
+            numbers: recipients
+          })
+        });
+
+        const data = await res.json();
+
+        if (!res.ok || !data.ok) {
+          showResult(data.message || "Failed to send SMS.", true);
+          return;
+        }
+
+        showResult(`
+          ${data.message}<br><br>
+          <strong>Total:</strong> ${data.summary.total}<br>
+          <strong>Sent:</strong> ${data.summary.sent}<br>
+          <strong>Failed:</strong> ${data.summary.failed}
+        `, false);
+      } catch (err) {
+        console.error(err);
+        showResult("Network or server error while sending SMS.", true);
+      }
     }
-  }
+
+    excelFile.addEventListener("change", function(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+
+      reader.onload = function(event) {
+        try {
+          const data = new Uint8Array(event.target.result);
+          const workbook = XLSX.read(data, { type: "array" });
+          const sheetName = workbook.SheetNames[0];
+          const worksheet = workbook.Sheets[sheetName];
+          const rows = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+
+          let extracted = [];
+
+          rows.forEach((row, index) => {
+            if (!row || !row.length) return;
+
+            const firstCell = row[0];
+
+            if (
+              index === 0 &&
+              typeof firstCell === "string" &&
+              firstCell.toLowerCase().includes("phone")
+            ) {
+              return;
+            }
+
+            if (firstCell !== undefined && firstCell !== null && String(firstCell).trim() !== "") {
+              extracted.push(String(firstCell).trim());
+            }
+          });
+
+          const before = recipients.length;
+          addRecipients(extracted);
+          const addedNow = recipients.length - before;
+
+          uploadPreview.style.display = "block";
+          uploadPreview.innerHTML = `File loaded successfully. ${addedNow} valid number(s) added.`;
+        } catch (err) {
+          console.error(err);
+          uploadPreview.style.display = "block";
+          uploadPreview.innerHTML = "Could not read this file. Please check the format and try again.";
+        }
+      };
+
+      reader.readAsArrayBuffer(file);
+    });
+
+    smsMessage.addEventListener("input", updateStats);
+    senderId.addEventListener("input", updateStats);
+    messageType.addEventListener("change", updateStats);
+
     updateStats();
     renderRecipients();
   </script>
