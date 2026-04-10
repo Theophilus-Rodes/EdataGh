@@ -462,7 +462,7 @@
         <div class="grid-2 section">
           <div>
             <label class="label">Sender ID</label>
-            <input type="text" class="input" id="senderId" placeholder="e.g. SANDYPAY" maxlength="11" value="SANDYPAY" />
+            <input type="text" class="input" id="senderId" placeholder="No Sender ID assigned yet" maxlength="20" value="" />
             <div class="muted">Use only an approved sender ID from Giant SMS. Your current approved sender is SANDYPAY.</div>
           </div>
 
@@ -528,7 +528,7 @@
           <div class="send-box">
             <h3>Summary</h3>
             <div class="muted" style="margin-top:0;">
-              Sender ID: <strong id="previewSender">SANDYPAY</strong><br>
+              Sender ID: <strong id="previewSender">-</strong><br>
               Message Type: <strong id="previewType">Plain SMS</strong><br>
               Recipients: <strong id="previewRecipients">0</strong>
             </div>
@@ -694,7 +694,7 @@
       document.getElementById("partsCount").textContent = `${parts} SMS parts`;
 
       document.getElementById("previewRecipients").textContent = recipients.length;
-      document.getElementById("previewSender").textContent = senderId.value.trim() || "SANDYPAY";
+      document.getElementById("previewSender").textContent = senderId.value.trim() || "-";
       document.getElementById("previewType").textContent = messageType.options[messageType.selectedIndex].text;
     }
 
@@ -709,13 +709,13 @@
     }
 
     async function previewSend() {
-      const sender = document.getElementById("senderId").value.trim() || "SANDYPAY";
+      const sender = document.getElementById("senderId").value.trim();
       const message = document.getElementById("smsMessage").value.trim();
 
       if (!sender) {
-        showResult("Please enter Sender ID.", true);
-        return;
-      }
+  showResult("No Sender ID has been assigned to your account yet. Please contact admin.", true);
+  return;
+}
 
       if (!message) {
         showResult("Please type your SMS message.", true);
@@ -732,6 +732,7 @@
 
         const res = await fetch(`${API_BASE}/api/agent/sms/send`, {
           method: "POST",
+          credentials: "include",
           headers: {
             "Content-Type": "application/json"
           },
@@ -814,6 +815,36 @@
     smsMessage.addEventListener("input", updateStats);
     senderId.addEventListener("input", updateStats);
     messageType.addEventListener("change", updateStats);
+
+async function loadMySenderId() {
+  try {
+    const res = await fetch(`${API_BASE}/api/agent/my-sender-id`, {
+      credentials: "include"
+    });
+
+    const data = await res.json();
+
+    if (!res.ok || !data.ok) {
+      document.getElementById("senderId").value = "";
+      document.getElementById("previewSender").textContent = "-";
+      return;
+    }
+
+    const sender = (data.agent?.sender_id || "").trim();
+
+    document.getElementById("senderId").value = sender;
+    document.getElementById("previewSender").textContent = sender || "-";
+
+    if (!sender) {
+      document.getElementById("senderId").placeholder = "No Sender ID assigned yet";
+    }
+  } catch (err) {
+    console.error("Error loading sender ID:", err);
+    document.getElementById("senderId").value = "";
+    document.getElementById("previewSender").textContent = "-";
+  }
+}
+
 
     updateStats();
     renderRecipients();
