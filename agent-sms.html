@@ -588,14 +588,27 @@
   const uploadPreview = document.getElementById("uploadPreview");
   const sendResult = document.getElementById("sendResult");
 
-  function getAgentId() {
-    return (
-      localStorage.getItem("agent_id") ||
-      localStorage.getItem("EDATA_AGENT_ID") ||
-      localStorage.getItem("user_id") ||
-      ""
-    );
+function getAgentId() {
+  let id =
+    localStorage.getItem("agent_id") ||
+    localStorage.getItem("EDATA_AGENT_ID") ||
+    localStorage.getItem("user_id") ||
+    "";
+
+  if (!id) {
+    try {
+      const agentRaw = localStorage.getItem("agent");
+      if (agentRaw) {
+        const agentObj = JSON.parse(agentRaw);
+        id = agentObj?.id ? String(agentObj.id) : "";
+      }
+    } catch (e) {
+      console.error("Could not parse agent from localStorage:", e);
+    }
   }
+
+  return String(id || "").trim();
+}
 
   function normalizeNumber(number) {
     let value = String(number || "").trim();
@@ -719,100 +732,110 @@
   }
 
   async function loadMySenderId() {
-    try {
-      const agentId = getAgentId();
-
-      if (!agentId) {
-        document.getElementById("senderId").value = "";
-        document.getElementById("previewSender").textContent = "-";
-        return;
-      }
-
-      const res = await fetch(`${API_BASE}/api/agent/my-sender-id?agent_id=${encodeURIComponent(agentId)}`);
-      const data = await res.json();
-
-      if (!res.ok || !data.ok) {
-        document.getElementById("senderId").value = "";
-        document.getElementById("previewSender").textContent = "-";
-        return;
-      }
-
-      const sender = (data.agent?.sender_id || "").trim();
-
-      document.getElementById("senderId").value = sender;
-      document.getElementById("previewSender").textContent = sender || "-";
-
-      if (!sender) {
-        document.getElementById("senderId").placeholder = "No Sender ID assigned yet";
-      }
-
-      updateStats();
-    } catch (err) {
-      console.error("Error loading sender ID:", err);
-      document.getElementById("senderId").value = "";
-      document.getElementById("previewSender").textContent = "-";
-    }
-  }
-
-  async function previewSend() {
-    const sender = document.getElementById("senderId").value.trim();
-    const message = document.getElementById("smsMessage").value.trim();
+  try {
     const agentId = getAgentId();
 
+    console.log("LOAD SENDER FOR AGENT ID:", agentId);
+
     if (!agentId) {
-      showResult("Agent not logged in. Please log in again.", true);
+      document.getElementById("senderId").value = "";
+      document.getElementById("previewSender").textContent = "-";
       return;
     }
+
+    const res = await fetch(`${API_BASE}/api/agent/my-sender-id?agent_id=${encodeURIComponent(agentId)}`);
+    const data = await res.json();
+
+    if (!res.ok || !data.ok) {
+      document.getElementById("senderId").value = "";
+      document.getElementById("previewSender").textContent = "-";
+      return;
+    }
+
+    const sender = (data.agent?.sender_id || "").trim();
+
+    document.getElementById("senderId").value = sender;
+    document.getElementById("previewSender").textContent = sender || "-";
 
     if (!sender) {
-      showResult("No Sender ID has been assigned to your account yet. Please contact admin.", true);
-      return;
+      document.getElementById("senderId").placeholder = "No Sender ID assigned yet";
     }
 
-    if (!message) {
-      showResult("Please type your SMS message.", true);
-      return;
-    }
-
-    if (!recipients.length) {
-      showResult("Please add at least one recipient number.", true);
-      return;
-    }
-
-    try {
-      showResult("Sending SMS, please wait...");
-
-      const res = await fetch(`${API_BASE}/api/agent/sms/send`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          agent_id: agentId,
-          senderId: sender,
-          message,
-          numbers: recipients
-        })
-      });
-
-      const data = await res.json();
-
-      if (!res.ok || !data.ok) {
-        showResult(data.message || "Failed to send SMS.", true);
-        return;
-      }
-
-      showResult(`
-        ${data.message}<br><br>
-        <strong>Total:</strong> ${data.summary?.total ?? recipients.length}<br>
-        <strong>Submitted:</strong> ${data.summary?.submitted ?? recipients.length}<br>
-        <strong>Sender Used:</strong> ${data.sender_used || sender}
-      `, false);
-    } catch (err) {
-      console.error(err);
-      showResult("Network or server error while sending SMS.", true);
-    }
+    updateStats();
+  } catch (err) {
+    console.error("Error loading sender ID:", err);
+    document.getElementById("senderId").value = "";
+    document.getElementById("previewSender").textContent = "-";
   }
+}
+
+
+ async function previewSend() {
+  const sender = document.getElementById("senderId").value.trim();
+  const message = document.getElementById("smsMessage").value.trim();
+  const agentId = getAgentId();
+
+  console.log("AGENT ID FOUND:", agentId);
+  console.log("localStorage agent_id:", localStorage.getItem("agent_id"));
+  console.log("localStorage EDATA_AGENT_ID:", localStorage.getItem("EDATA_AGENT_ID"));
+  console.log("localStorage user_id:", localStorage.getItem("user_id"));
+  console.log("localStorage agent:", localStorage.getItem("agent"));
+
+  if (!agentId) {
+    showResult("Agent not logged in. Please log in again.", true);
+    return;
+  }
+
+  if (!sender) {
+    showResult("No Sender ID has been assigned to your account yet. Please contact admin.", true);
+    return;
+  }
+
+  if (!message) {
+    showResult("Please type your SMS message.", true);
+    return;
+  }
+
+  if (!recipients.length) {
+    showResult("Please add at least one recipient number.", true);
+    return;
+  }
+
+  try {
+    showResult("Sending SMS, please wait...");
+
+    const res = await fetch(`${API_BASE}/api/agent/sms/send`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        agent_id: Number(agentId),
+        senderId: sender,
+        message,
+        numbers: recipients
+      })
+    });
+
+    const data = await res.json();
+
+    if (!res.ok || !data.ok) {
+      showResult(data.message || "Failed to send SMS.", true);
+      return;
+    }
+
+    showResult(`
+      ${data.message}<br><br>
+      <strong>Total:</strong> ${data.summary?.total ?? recipients.length}<br>
+      <strong>Submitted:</strong> ${data.summary?.submitted ?? recipients.length}<br>
+      <strong>Sender Used:</strong> ${data.sender_used || sender}
+    `, false);
+  } catch (err) {
+    console.error(err);
+    showResult("Network or server error while sending SMS.", true);
+  }
+}
+
 
   excelFile.addEventListener("change", function(e) {
     const file = e.target.files[0];
