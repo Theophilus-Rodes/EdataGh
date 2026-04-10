@@ -362,6 +362,8 @@ app.get("/api/agent/my-sender-id", (req, res) => {
 
 ///// AGENT SMS ROUTE 
 app.post("/api/agent/sms/send", async (req, res) => {
+  const conn = await db.promise().getConnection();
+
   try {
     const agentId = Number(req.body.agent_id || 0);
     const { senderId, message, numbers } = req.body;
@@ -390,26 +392,51 @@ app.post("/api/agent/sms/send", async (req, res) => {
       });
     }
 
-    const [agentRows] = await db.promise().query(
-      `SELECT id, sender_id, first_name, last_name FROM agents WHERE id = ? LIMIT 1`,
+    // Count SMS parts properly
+    const smsParts = Math.max(1, Math.ceil(finalMessage.length / 160));
+
+    // Total credits required
+    const totalCreditsNeeded = finalNumbers.length * smsParts;
+
+    await conn.beginTransaction();
+
+    const [agentRows] = await conn.query(
+      `SELECT id, sender_id, first_name, last_name, smsfield
+       FROM agents
+       WHERE id = ?
+       LIMIT 1
+       FOR UPDATE`,
       [agentId]
     );
 
     if (!agentRows.length) {
+      await conn.rollback();
       return res.status(404).json({
         ok: false,
         message: "Agent account not found"
       });
     }
 
-    const dbSenderId = String(agentRows[0].sender_id || "").trim();
+    const agent = agentRows[0];
+    const dbSenderId = String(agent.sender_id || "").trim();
     const manualSenderId = String(senderId || "").trim();
     const finalSender = manualSenderId || dbSenderId;
 
     if (!finalSender) {
+      await conn.rollback();
       return res.status(400).json({
         ok: false,
         message: "No Sender ID has been assigned to this agent yet."
+      });
+    }
+
+    const currentSmsBalance = Number(agent.smsfield || 0);
+
+    if (currentSmsBalance < totalCreditsNeeded) {
+      await conn.rollback();
+      return res.status(400).json({
+        ok: false,
+        message: `You do not have enough SMS credit. Available: ${currentSmsBalance}, Required: ${totalCreditsNeeded}.`
       });
     }
 
@@ -420,6 +447,7 @@ app.post("/api/agent/sms/send", async (req, res) => {
     });
 
     if (!result.ok) {
+      await conn.rollback();
       return res.status(400).json({
         ok: false,
         message: result.data?.message || result.error?.message || "SMS sending failed",
@@ -427,18 +455,34 @@ app.post("/api/agent/sms/send", async (req, res) => {
       });
     }
 
+    const newBalance = currentSmsBalance - totalCreditsNeeded;
+
+    await conn.query(
+      `UPDATE agents
+       SET smsfield = ?
+       WHERE id = ?`,
+      [newBalance, agentId]
+    );
+
+    await conn.commit();
+
     return res.json({
       ok: true,
       message: result.data?.message || "Bulk messages queued successfully",
       summary: {
-        total: finalNumbers.length,
+        recipients: finalNumbers.length,
+        sms_parts: smsParts,
+        credits_used: totalCreditsNeeded,
         submitted: finalNumbers.length
       },
       sender_used: finalSender,
+      sms_balance_before: currentSmsBalance,
+      sms_balance_after: newBalance,
       providerResponse: result.data
     });
 
   } catch (err) {
+    await conn.rollback();
     console.error("SMS ERROR:", err);
 
     return res.status(500).json({
@@ -446,9 +490,10 @@ app.post("/api/agent/sms/send", async (req, res) => {
       message: "Server error",
       error: err.message
     });
+  } finally {
+    conn.release();
   }
 });
-
 
 ///// Bulk SMS APPROVALS 
 app.get("/api/admin/agents/sender-ids", (req, res) => {
@@ -546,6 +591,46 @@ app.post("/api/admin/agents/remove-sender-id", (req, res) => {
       message: "Sender ID removed successfully"
     });
   });
+});
+
+
+app.get("/api/agent/:agentId/sms-balance", async (req, res) => {
+  try {
+    const agentId = Number(req.params.agentId || 0);
+
+    if (!agentId || Number.isNaN(agentId)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid agent ID"
+      });
+    }
+
+    const [rows] = await db.promise().query(
+      `SELECT smsfield
+       FROM agents
+       WHERE id = ?
+       LIMIT 1`,
+      [agentId]
+    );
+
+    if (!rows.length) {
+      return res.status(404).json({
+        success: false,
+        message: "Agent not found"
+      });
+    }
+
+    return res.json({
+      success: true,
+      sms_balance: Number(rows[0].smsfield || 0)
+    });
+  } catch (err) {
+    console.error("Error loading SMS balance:", err);
+    return res.status(500).json({
+      success: false,
+      message: "Server error"
+    });
+  }
 });
 
 
