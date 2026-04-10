@@ -1971,6 +1971,166 @@ app.get("/api/theteller-status", async (req, res) => {
 
 
 
+
+///// SMS REQUEST
+app.post("/api/sender-id-request", (req, res) => {
+  const { agent_id, sender_id_name } = req.body;
+
+  if (!agent_id || !sender_id_name) {
+    return res.status(400).json({
+      success: false,
+      message: "agent_id and sender_id_name are required"
+    });
+  }
+
+  const cleanSenderId = String(sender_id_name).toUpperCase().replace(/[^A-Z0-9]/g, "");
+
+  if (cleanSenderId.length < 3 || cleanSenderId.length > 11) {
+    return res.status(400).json({
+      success: false,
+      message: "Sender ID must be between 3 and 11 characters"
+    });
+  }
+
+  const checkAgentSql = `SELECT id FROM agents WHERE id = ? LIMIT 1`;
+  db.query(checkAgentSql, [agent_id], (agentErr, agentRows) => {
+    if (agentErr) {
+      console.error("Error checking agent:", agentErr);
+      return res.status(500).json({
+        success: false,
+        message: "Database error while checking agent"
+      });
+    }
+
+    if (!agentRows.length) {
+      return res.status(404).json({
+        success: false,
+        message: "Agent not found"
+      });
+    }
+
+    const insertSql = `
+      INSERT INTO sender_id_requests (agent_id, sender_id_name, status)
+      VALUES (?, ?, 'pending')
+    `;
+
+    db.query(insertSql, [agent_id, cleanSenderId], (err, result) => {
+      if (err) {
+        console.error("Error inserting sender ID request:", err);
+        return res.status(500).json({
+          success: false,
+          message: "Failed to save sender ID request"
+        });
+      }
+
+      return res.json({
+        success: true,
+        message: "Sender ID request submitted successfully",
+        request_id: result.insertId,
+        status: "pending"
+      });
+    });
+  });
+});
+
+
+
+app.get("/api/sender-id-requests/:agent_id", (req, res) => {
+  const agent_id = req.params.agent_id;
+
+  const sql = `
+    SELECT id, agent_id, sender_id_name, status, admin_note, created_at, updated_at
+    FROM sender_id_requests
+    WHERE agent_id = ?
+    ORDER BY id DESC
+  `;
+
+  db.query(sql, [agent_id], (err, rows) => {
+    if (err) {
+      console.error("Error fetching sender ID requests:", err);
+      return res.status(500).json({
+        success: false,
+        message: "Database error while fetching requests"
+      });
+    }
+
+    return res.json({
+      success: true,
+      requests: rows
+    });
+  });
+});
+
+
+
+app.post("/api/sender-id-request", (req, res) => {
+  const { agent_id, sender_id_name } = req.body;
+
+  if (!agent_id || !sender_id_name) {
+    return res.status(400).json({
+      success: false,
+      message: "agent_id and sender_id_name are required"
+    });
+  }
+
+  const cleanSenderId = String(sender_id_name).toUpperCase().replace(/[^A-Z0-9]/g, "");
+
+  if (cleanSenderId.length < 3 || cleanSenderId.length > 11) {
+    return res.status(400).json({
+      success: false,
+      message: "Sender ID must be between 3 and 11 characters"
+    });
+  }
+
+  const checkPendingSql = `
+    SELECT id, status
+    FROM sender_id_requests
+    WHERE agent_id = ?
+      AND status IN ('pending', 'processing')
+    LIMIT 1
+  `;
+
+  db.query(checkPendingSql, [agent_id], (checkErr, checkRows) => {
+    if (checkErr) {
+      console.error("Error checking existing request:", checkErr);
+      return res.status(500).json({
+        success: false,
+        message: "Database error"
+      });
+    }
+
+    if (checkRows.length) {
+      return res.status(400).json({
+        success: false,
+        message: "You already have a sender ID request that is still pending or processing."
+      });
+    }
+
+    const insertSql = `
+      INSERT INTO sender_id_requests (agent_id, sender_id_name, status)
+      VALUES (?, ?, 'pending')
+    `;
+
+    db.query(insertSql, [agent_id, cleanSenderId], (err, result) => {
+      if (err) {
+        console.error("Error inserting sender ID request:", err);
+        return res.status(500).json({
+          success: false,
+          message: "Failed to save sender ID request"
+        });
+      }
+
+      return res.json({
+        success: true,
+        message: "Sender ID request submitted successfully",
+        request_id: result.insertId,
+        status: "pending"
+      });
+    });
+  });
+});
+
+
 ///// SMS PURCHASE 
 
 
