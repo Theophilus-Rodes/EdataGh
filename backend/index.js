@@ -245,6 +245,56 @@ app.post("/api/agent/buy-sms-credit", async (req, res) => {
 });
 
 
+
+app.get("/api/agent/sms-credit-summary", async (req, res) => {
+  try {
+    const agentId = Number(req.query.agent_id || 0);
+
+    if (!agentId) {
+      return res.status(400).json({
+        ok: false,
+        message: "Valid agent ID is required"
+      });
+    }
+
+    const [rows] = await db.promise().query(
+      `SELECT id, first_name, last_name, balance, smsfield
+       FROM agents
+       WHERE id = ?
+       LIMIT 1`,
+      [agentId]
+    );
+
+    if (!rows.length) {
+      return res.status(404).json({
+        ok: false,
+        message: "Agent not found"
+      });
+    }
+
+    const agent = rows[0];
+
+    return res.json({
+      ok: true,
+      agent: {
+        id: agent.id,
+        first_name: agent.first_name,
+        last_name: agent.last_name,
+        balance: Number(agent.balance || 0),
+        smsfield: Number(agent.smsfield || 0)
+      }
+    });
+  } catch (err) {
+    console.error("SMS CREDIT SUMMARY ERROR:", err);
+    return res.status(500).json({
+      ok: false,
+      message: "Server error",
+      error: err.message
+    });
+  }
+});
+
+
 //////////
 app.get("/api/agent/my-sender-id", (req, res) => {
   try {
