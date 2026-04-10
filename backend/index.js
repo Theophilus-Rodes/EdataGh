@@ -117,6 +117,134 @@ async function sendSingleSmsViaGiantSMS({ recipients, message, senderId }) {
 }
 
 
+
+///// BUY SMS CREDIT 
+const SMS_PACKAGES = {
+  "260": { sms: 260, amount: 12 },
+  "530": { sms: 530, amount: 24 },
+  "1550": { sms: 1550, amount: 55 },
+  "3200": { sms: 3200, amount: 110 },
+  "6500": { sms: 6500, amount: 215 },
+  "16500": { sms: 16500, amount: 560 },
+  "36500": { sms: 36500, amount: 1100 }
+};
+
+app.post("/api/agent/buy-sms-credit", async (req, res) => {
+  const conn = await db.promise().getConnection();
+
+  try {
+    const { agent_id, package_sms, payment_method } = req.body;
+
+    const agentId = Number(agent_id || 0);
+    const packageKey = String(package_sms || "").trim();
+    const method = String(payment_method || "").trim().toLowerCase();
+
+    if (!agentId) {
+      return res.status(400).json({
+        ok: false,
+        message: "Agent ID is required"
+      });
+    }
+
+    if (!SMS_PACKAGES[packageKey]) {
+      return res.status(400).json({
+        ok: false,
+        message: "Invalid SMS package selected"
+      });
+    }
+
+    if (!["account", "momo"].includes(method)) {
+      return res.status(400).json({
+        ok: false,
+        message: "Invalid payment method"
+      });
+    }
+
+    const selectedPackage = SMS_PACKAGES[packageKey];
+
+    const [agentRows] = await conn.query(
+      `SELECT id, first_name, last_name, balance, smsfield, status
+       FROM agents
+       WHERE id = ?
+       LIMIT 1`,
+      [agentId]
+    );
+
+    if (!agentRows.length) {
+      return res.status(404).json({
+        ok: false,
+        message: "Agent account not found"
+      });
+    }
+
+    const agent = agentRows[0];
+
+    if (String(agent.status).toLowerCase() !== "active") {
+      return res.status(403).json({
+        ok: false,
+        message: "Your account is not active"
+      });
+    }
+
+    if (method === "momo") {
+      return res.json({
+        ok: true,
+        pending: true,
+        message: "MoMo option selected. MoMo integration will be connected next.",
+        package: selectedPackage
+      });
+    }
+
+    const currentBalance = Number(agent.balance || 0);
+    const currentSms = Number(agent.smsfield || 0);
+
+    if (currentBalance < selectedPackage.amount) {
+      return res.status(400).json({
+        ok: false,
+        message: `Insufficient balance. You need GHS ${selectedPackage.amount.toFixed(2)}`
+      });
+    }
+
+    const newBalance = currentBalance - selectedPackage.amount;
+    const newSmsBalance = currentSms + selectedPackage.sms;
+
+    await conn.beginTransaction();
+
+    await conn.query(
+      `UPDATE agents
+       SET balance = ?, smsfield = ?
+       WHERE id = ?`,
+      [newBalance, newSmsBalance, agentId]
+    );
+
+    await conn.commit();
+
+    return res.json({
+      ok: true,
+      message: `${selectedPackage.sms} SMS credits purchased successfully.`,
+      summary: {
+        sms_added: selectedPackage.sms,
+        amount_paid: selectedPackage.amount,
+        new_balance: newBalance,
+        sms_balance: newSmsBalance
+      }
+    });
+
+  } catch (err) {
+    await conn.rollback().catch(() => {});
+    console.error("BUY SMS CREDIT ERROR:", err);
+
+    return res.status(500).json({
+      ok: false,
+      message: "Server error while buying SMS credit",
+      error: err.message
+    });
+  } finally {
+    conn.release();
+  }
+});
+
+
 //////////
 app.get("/api/agent/my-sender-id", (req, res) => {
   try {
