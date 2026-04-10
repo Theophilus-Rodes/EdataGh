@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Request Sender ID</title>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    *{
+      box-sizing:border-box;
+      margin:0;
+      padding:0;
+      font-family:'Poppins',sans-serif;
+    }
+
+    body{
+      background:#f4f7fb;
+      color:#1e293b;
+      padding:20px;
+    }
+
+    .container{
+      max-width:800px;
+      margin:0 auto;
+    }
+
+    .top-card{
+      background:linear-gradient(135deg,#0b8f3a,#0a6e2d);
+      color:#fff;
+      padding:28px;
+      border-radius:20px;
+      margin-bottom:22px;
+      box-shadow:0 8px 24px rgba(0,0,0,0.08);
+    }
+
+    .top-card h1{
+      font-size:30px;
+      margin-bottom:8px;
+    }
+
+    .top-card p{
+      font-size:15px;
+      line-height:1.7;
+      opacity:.95;
+    }
+
+    .form-card{
+      background:#fff;
+      border-radius:20px;
+      padding:24px;
+      box-shadow:0 8px 24px rgba(15,23,42,0.06);
+      margin-bottom:20px;
+    }
+
+    .form-card h2{
+      font-size:24px;
+      margin-bottom:8px;
+      color:#0f172a;
+    }
+
+    .sub-text{
+      color:#64748b;
+      margin-bottom:20px;
+      font-size:14px;
+    }
+
+    .rules-box{
+      background:#f0fdf4;
+      border:1px solid #bbf7d0;
+      color:#166534;
+      border-radius:14px;
+      padding:16px;
+      margin-bottom:20px;
+      line-height:1.8;
+      font-size:14px;
+    }
+
+    .rules-box strong{
+      display:block;
+      margin-bottom:8px;
+    }
+
+    .form-group{
+      margin-bottom:18px;
+    }
+
+    label{
+      display:block;
+      font-weight:600;
+      margin-bottom:8px;
+      color:#0f172a;
+    }
+
+    input, select{
+      width:100%;
+      padding:14px 15px;
+      border:1px solid #dbe2ea;
+      border-radius:12px;
+      font-size:15px;
+      outline:none;
+      transition:.2s ease;
+      background:#fff;
+    }
+
+    input:focus, select:focus{
+      border-color:#16a34a;
+      box-shadow:0 0 0 4px rgba(22,163,74,0.12);
+    }
+
+    .status-field{
+      background:#f8fafc;
+    }
+
+    .btn{
+      background:#0b8f3a;
+      color:#fff;
+      border:none;
+      padding:14px 20px;
+      border-radius:12px;
+      font-size:15px;
+      font-weight:600;
+      cursor:pointer;
+      transition:.25s ease;
+      width:100%;
+    }
+
+    .btn:hover{
+      background:#087230;
+    }
+
+    .msg{
+      margin-top:15px;
+      padding:14px;
+      border-radius:12px;
+      display:none;
+      font-size:14px;
+      line-height:1.6;
+    }
+
+    .msg.success{
+      display:block;
+      background:#ecfdf3;
+      color:#166534;
+      border:1px solid #bbf7d0;
+    }
+
+    .msg.error{
+      display:block;
+      background:#fef2f2;
+      color:#991b1b;
+      border:1px solid #fecaca;
+    }
+
+    .history-card{
+      background:#fff;
+      border-radius:20px;
+      padding:24px;
+      box-shadow:0 8px 24px rgba(15,23,42,0.06);
+    }
+
+    .history-card h3{
+      margin-bottom:16px;
+      font-size:22px;
+    }
+
+    .request-box{
+      border:1px solid #e2e8f0;
+      border-radius:14px;
+      padding:16px;
+      margin-bottom:12px;
+      background:#fafafa;
+    }
+
+    .request-box .title{
+      font-weight:700;
+      margin-bottom:6px;
+    }
+
+    .badge{
+      display:inline-block;
+      padding:6px 12px;
+      border-radius:999px;
+      font-size:12px;
+      font-weight:700;
+      text-transform:capitalize;
+    }
+
+    .badge.pending{
+      background:#fff7ed;
+      color:#c2410c;
+    }
+
+    .badge.processing{
+      background:#eff6ff;
+      color:#1d4ed8;
+    }
+
+    .badge.approved{
+      background:#ecfdf3;
+      color:#15803d;
+    }
+
+    .badge.rejected{
+      background:#fef2f2;
+      color:#b91c1c;
+    }
+
+    .small{
+      color:#64748b;
+      font-size:13px;
+      margin-top:6px;
+    }
+
+    @media (max-width: 768px){
+      .top-card h1{
+        font-size:24px;
+      }
+
+      .form-card,
+      .history-card,
+      .top-card{
+        padding:18px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="top-card">
+      <h1>Request Sender ID</h1>
+      <p>
+        Submit your preferred sender ID for approval. Once submitted, the request
+        will be saved and its status will start as <strong>pending</strong>.
+      </p>
+    </div>
+
+    <div class="form-card">
+      <h2>New Sender ID Request</h2>
+      <div class="sub-text">Choose a clean sender ID that can be approved easily.</div>
+
+      <div class="rules-box">
+        <strong>Sender ID rules:</strong>
+        • Use only letters or letters and numbers<br>
+        • No spaces<br>
+        • No special characters like @, #, !, -, _<br>
+        • Recommended length: 3 to 11 characters<br>
+        • Examples: <b>RHOTECH</b>, <b>SELLDATE</b>, <b>EDATA</b>
+      </div>
+
+      <form id="senderIdForm">
+        <div class="form-group">
+          <label for="senderIdName">Preferred Sender ID Name</label>
+          <input
+            type="text"
+            id="senderIdName"
+            name="senderIdName"
+            maxlength="11"
+            placeholder="e.g. RHOTECH"
+            required
+          />
+        </div>
+
+        <div class="form-group">
+          <label for="status">Status</label>
+          <input
+            type="text"
+            id="status"
+            class="status-field"
+            value="Pending"
+            readonly
+          />
+        </div>
+
+        <button type="submit" class="btn" id="submitBtn">Submit Request</button>
+        <div id="responseMsg" class="msg"></div>
+      </form>
+    </div>
+
+    <div class="history-card">
+      <h3>My Sender ID Requests</h3>
+      <div id="requestHistory">Loading requests...</div>
+    </div>
+  </div>
+
+  <script>
+    const API_BASE = "https://edatagh.com/edatagh-backend";
+    const agentId = localStorage.getItem("agent_id") || sessionStorage.getItem("agent_id");
+
+    const form = document.getElementById("senderIdForm");
+    const senderIdInput = document.getElementById("senderIdName");
+    const responseMsg = document.getElementById("responseMsg");
+    const requestHistory = document.getElementById("requestHistory");
+    const submitBtn = document.getElementById("submitBtn");
+
+    function showMessage(message, type) {
+      responseMsg.className = "msg " + type;
+      responseMsg.textContent = message;
+    }
+
+    function cleanSenderId(value) {
+      return value.toUpperCase().replace(/[^A-Z0-9]/g, "");
+    }
+
+    senderIdInput.addEventListener("input", () => {
+      senderIdInput.value = cleanSenderId(senderIdInput.value);
+    });
+
+    async function loadMyRequests() {
+      if (!agentId) {
+        requestHistory.innerHTML = "<p style='color:red;'>Agent ID not found. Please log in again.</p>";
+        return;
+      }
+
+      try {
+        const res = await fetch(`${API_BASE}/api/sender-id-requests/${agentId}`);
+        const data = await res.json();
+
+        if (!data.success) {
+          requestHistory.innerHTML = `<p style="color:red;">${data.message || "Could not load requests."}</p>`;
+          return;
+        }
+
+        const rows = data.requests || [];
+
+        if (!rows.length) {
+          requestHistory.innerHTML = "<p>No sender ID requests yet.</p>";
+          return;
+        }
+
+        requestHistory.innerHTML = rows.map(row => `
+          <div class="request-box">
+            <div class="title">${row.sender_id_name}</div>
+            <span class="badge ${row.status}">${row.status}</span>
+            <div class="small">Requested on: ${new Date(row.created_at).toLocaleString()}</div>
+            ${row.admin_note ? `<div class="small">Note: ${row.admin_note}</div>` : ""}
+          </div>
+        `).join("");
+      } catch (err) {
+        console.error(err);
+        requestHistory.innerHTML = "<p style='color:red;'>Network error while loading requests.</p>";
+      }
+    }
+
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+
+      if (!agentId) {
+        showMessage("Agent ID not found. Please log in again.", "error");
+        return;
+      }
+
+      const senderIdName = cleanSenderId(senderIdInput.value.trim());
+
+      if (!senderIdName) {
+        showMessage("Please enter a sender ID name.", "error");
+        return;
+      }
+
+      if (senderIdName.length < 3 || senderIdName.length > 11) {
+        showMessage("Sender ID must be between 3 and 11 characters.", "error");
+        return;
+      }
+
+      submitBtn.disabled = true;
+      submitBtn.textContent = "Submitting...";
+
+      try {
+        const res = await fetch(`${API_BASE}/api/sender-id-request`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            agent_id: agentId,
+            sender_id_name: senderIdName
+          })
+        });
+
+        const data = await res.json();
+
+        if (!res.ok || !data.success) {
+          showMessage(data.message || "Could not submit request.", "error");
+          submitBtn.disabled = false;
+          submitBtn.textContent = "Submit Request";
+          return;
+        }
+
+        showMessage("Sender ID request submitted successfully. Status is now pending.", "success");
+        form.reset();
+        document.getElementById("status").value = "Pending";
+        loadMyRequests();
+      } catch (err) {
+        console.error(err);
+        showMessage("Network error. Please try again.", "error");
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.textContent = "Submit Request";
+      }
+    });
+
+    loadMyRequests();
+  </script>
+</body>
+</html>
