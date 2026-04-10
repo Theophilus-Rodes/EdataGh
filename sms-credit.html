@@ -1,0 +1,481 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Buy SMS Credits</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+  <style>
+    :root{
+      --primary:#0f8f43;
+      --primary-dark:#0a6c31;
+      --primary-light:#eaf9f0;
+      --bg:#f6f8fb;
+      --card:#ffffff;
+      --text:#16202a;
+      --muted:#6b7280;
+      --line:#e5e7eb;
+      --danger:#dc2626;
+      --success:#166534;
+      --success-bg:#ecfdf3;
+      --success-border:#bbf7d0;
+      --error-bg:#fef2f2;
+      --error-border:#fecaca;
+      --error-text:#991b1b;
+      --shadow:0 10px 30px rgba(16,24,40,.08);
+      --radius:22px;
+    }
+
+    *{
+      box-sizing:border-box;
+      margin:0;
+      padding:0;
+      font-family:'Inter',sans-serif;
+    }
+
+    body{
+      background:var(--bg);
+      color:var(--text);
+    }
+
+    .page{
+      max-width:1100px;
+      margin:0 auto;
+      padding:24px 16px 60px;
+    }
+
+    .topbar{
+      background:linear-gradient(135deg,var(--primary),var(--primary-dark));
+      color:#fff;
+      border-radius:28px;
+      padding:24px 20px;
+      box-shadow:var(--shadow);
+      margin-bottom:22px;
+    }
+
+    .topbar h1{
+      font-size:28px;
+      font-weight:800;
+      margin-bottom:8px;
+    }
+
+    .topbar p{
+      color:rgba(255,255,255,.9);
+      font-size:14px;
+      line-height:1.5;
+      max-width:700px;
+    }
+
+    .summary-cards{
+      display:grid;
+      grid-template-columns:repeat(3,1fr);
+      gap:14px;
+      margin-bottom:22px;
+    }
+
+    .summary-card{
+      background:var(--card);
+      border:1px solid var(--line);
+      border-radius:20px;
+      padding:18px;
+      box-shadow:var(--shadow);
+    }
+
+    .summary-label{
+      font-size:13px;
+      color:var(--muted);
+      margin-bottom:10px;
+      font-weight:600;
+    }
+
+    .summary-value{
+      font-size:26px;
+      font-weight:800;
+      color:var(--primary-dark);
+    }
+
+    .layout{
+      display:grid;
+      grid-template-columns:1.2fr .8fr;
+      gap:20px;
+    }
+
+    .card{
+      background:var(--card);
+      border:1px solid var(--line);
+      border-radius:var(--radius);
+      box-shadow:var(--shadow);
+      padding:22px;
+    }
+
+    .card h2{
+      font-size:20px;
+      margin-bottom:8px;
+    }
+
+    .card-sub{
+      color:var(--muted);
+      font-size:13px;
+      margin-bottom:18px;
+    }
+
+    .packages{
+      display:grid;
+      grid-template-columns:repeat(2,1fr);
+      gap:14px;
+    }
+
+    .package{
+      border:1px solid var(--line);
+      border-radius:18px;
+      padding:18px;
+      cursor:pointer;
+      transition:.2s ease;
+      background:#fff;
+    }
+
+    .package:hover{
+      border-color:var(--primary);
+      transform:translateY(-2px);
+      box-shadow:0 8px 24px rgba(15,143,67,.08);
+    }
+
+    .package.active{
+      border:2px solid var(--primary);
+      background:var(--primary-light);
+    }
+
+    .package h3{
+      font-size:22px;
+      color:var(--primary-dark);
+      margin-bottom:6px;
+    }
+
+    .package p{
+      color:var(--muted);
+      font-size:14px;
+    }
+
+    .methods{
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:12px;
+      margin-top:18px;
+    }
+
+    .method-btn{
+      border:1px solid var(--line);
+      background:#fff;
+      border-radius:16px;
+      padding:16px;
+      cursor:pointer;
+      font-weight:800;
+      font-size:15px;
+      transition:.2s ease;
+    }
+
+    .method-btn.active{
+      border:2px solid var(--primary);
+      background:var(--primary-light);
+      color:var(--primary-dark);
+    }
+
+    .info-box{
+      background:#f9fafb;
+      border:1px solid var(--line);
+      border-radius:18px;
+      padding:16px;
+      margin-top:16px;
+      line-height:1.7;
+      font-size:14px;
+    }
+
+    .buy-btn{
+      width:100%;
+      margin-top:18px;
+      border:none;
+      background:var(--primary);
+      color:#fff;
+      border-radius:16px;
+      padding:15px;
+      font-size:16px;
+      font-weight:800;
+      cursor:pointer;
+    }
+
+    .buy-btn:hover{
+      background:var(--primary-dark);
+    }
+
+    .result{
+      display:none;
+      margin-top:16px;
+      padding:14px;
+      border-radius:14px;
+      font-size:14px;
+      line-height:1.6;
+    }
+
+    .result.success{
+      display:block;
+      background:var(--success-bg);
+      border:1px solid var(--success-border);
+      color:var(--success);
+    }
+
+    .result.error{
+      display:block;
+      background:var(--error-bg);
+      border:1px solid var(--error-border);
+      color:var(--error-text);
+    }
+
+    @media (max-width:900px){
+      .summary-cards{
+        grid-template-columns:1fr;
+      }
+
+      .layout{
+        grid-template-columns:1fr;
+      }
+
+      .packages{
+        grid-template-columns:1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <div class="topbar">
+      <h1>Buy SMS Credits</h1>
+      <p>
+        Purchase SMS credits for your account. Choose a bundle and pay either from your account balance or by MoMo.
+      </p>
+    </div>
+
+    <div class="summary-cards">
+      <div class="summary-card">
+        <div class="summary-label">Current Balance</div>
+        <div class="summary-value" id="balanceValue">GHS 0.00</div>
+      </div>
+      <div class="summary-card">
+        <div class="summary-label">Current SMS Credits</div>
+        <div class="summary-value" id="smsValue">0</div>
+      </div>
+      <div class="summary-card">
+        <div class="summary-label">Selected Package</div>
+        <div class="summary-value" id="selectedPackageText">None</div>
+      </div>
+    </div>
+
+    <div class="layout">
+      <div class="card">
+        <h2>Select SMS Bundle</h2>
+        <div class="card-sub">Choose the SMS credit package you want to buy.</div>
+
+        <div class="packages" id="packagesWrap">
+          <div class="package" onclick="selectPackage(260, 12, this)">
+            <h3>260 SMS</h3>
+            <p>GHS 12</p>
+          </div>
+
+          <div class="package" onclick="selectPackage(530, 24, this)">
+            <h3>530 SMS</h3>
+            <p>GHS 24</p>
+          </div>
+
+          <div class="package" onclick="selectPackage(1550, 55, this)">
+            <h3>1,550 SMS</h3>
+            <p>GHS 55</p>
+          </div>
+
+          <div class="package" onclick="selectPackage(3200, 110, this)">
+            <h3>3,200 SMS</h3>
+            <p>GHS 110</p>
+          </div>
+
+          <div class="package" onclick="selectPackage(6500, 215, this)">
+            <h3>6,500 SMS</h3>
+            <p>GHS 215</p>
+          </div>
+
+          <div class="package" onclick="selectPackage(16500, 560, this)">
+            <h3>16,500 SMS</h3>
+            <p>GHS 560</p>
+          </div>
+
+          <div class="package" onclick="selectPackage(36500, 1100, this)">
+            <h3>36,500 SMS</h3>
+            <p>GHS 1,100</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Payment Method</h2>
+        <div class="card-sub">Choose how you want to pay for the selected SMS bundle.</div>
+
+        <div class="methods">
+          <button class="method-btn" id="accountBtn" onclick="selectMethod('account', this)">Use Account</button>
+          <button class="method-btn" id="momoBtn" onclick="selectMethod('momo', this)">Pay with MoMo</button>
+        </div>
+
+        <div class="info-box" id="infoBox">
+          Select a package and payment method to continue.
+        </div>
+
+        <button class="buy-btn" onclick="buySmsCredits()">Buy SMS Credits</button>
+
+        <div id="resultBox" class="result"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const API_BASE =
+      location.hostname === "localhost"
+        ? "http://localhost:8080"
+        : "https://edatagh.com/edatagh-backend";
+
+    let selectedSms = null;
+    let selectedAmount = null;
+    let selectedMethod = "";
+
+    function getAgentId() {
+      return (
+        localStorage.getItem("agent_id") ||
+        localStorage.getItem("EDATA_AGENT_ID") ||
+        localStorage.getItem("user_id") ||
+        ""
+      ).trim();
+    }
+
+    function showResult(message, isError = false) {
+      const box = document.getElementById("resultBox");
+      box.className = isError ? "result error" : "result success";
+      box.innerHTML = message;
+    }
+
+    function selectPackage(sms, amount, el) {
+      selectedSms = sms;
+      selectedAmount = amount;
+
+      document.querySelectorAll(".package").forEach(card => card.classList.remove("active"));
+      el.classList.add("active");
+
+      document.getElementById("selectedPackageText").textContent = `${sms.toLocaleString()} SMS`;
+      updateInfoBox();
+    }
+
+    function selectMethod(method, el) {
+      selectedMethod = method;
+
+      document.querySelectorAll(".method-btn").forEach(btn => btn.classList.remove("active"));
+      el.classList.add("active");
+
+      updateInfoBox();
+    }
+
+    function updateInfoBox() {
+      const infoBox = document.getElementById("infoBox");
+
+      if (!selectedSms || !selectedMethod) {
+        infoBox.innerHTML = "Select a package and payment method to continue.";
+        return;
+      }
+
+      infoBox.innerHTML = `
+        <strong>Package:</strong> ${selectedSms.toLocaleString()} SMS<br>
+        <strong>Amount:</strong> GHS ${selectedAmount}<br>
+        <strong>Payment Method:</strong> ${selectedMethod === "account" ? "Use Account" : "Pay with MoMo"}
+      `;
+    }
+
+   async function loadAgentSummary() {
+  const agentId = getAgentId();
+
+  if (!agentId) return;
+
+  try {
+    const res = await fetch(`${API_BASE}/api/agent/sms-credit-summary?agent_id=${encodeURIComponent(agentId)}`);
+    const data = await res.json();
+
+    if (!res.ok || !data.ok) return;
+
+    document.getElementById("balanceValue").textContent = `GHS ${Number(data.agent.balance || 0).toFixed(2)}`;
+    document.getElementById("smsValue").textContent = Number(data.agent.smsfield || 0);
+  } catch (err) {
+    console.error(err);
+  }
+}
+
+    async function buySmsCredits() {
+      const agentId = getAgentId();
+
+      if (!agentId) {
+        showResult("Agent not logged in. Please log in again.", true);
+        return;
+      }
+
+      if (!selectedSms || !selectedAmount) {
+        showResult("Please select an SMS package.", true);
+        return;
+      }
+
+      if (!selectedMethod) {
+        showResult("Please select a payment method.", true);
+        return;
+      }
+
+      try {
+        showResult("Processing purchase...");
+
+        const res = await fetch(`${API_BASE}/api/agent/buy-sms-credit`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            agent_id: Number(agentId),
+            package_sms: String(selectedSms),
+            payment_method: selectedMethod
+          })
+        });
+
+        const data = await res.json();
+
+        if (!res.ok || !data.ok) {
+          showResult(data.message || "Failed to buy SMS credits.", true);
+          return;
+        }
+
+        if (data.pending) {
+          showResult(data.message || "MoMo purchase flow will be connected next.");
+          return;
+        }
+
+        showResult(`
+          ${data.message}<br><br>
+          <strong>SMS Added:</strong> ${data.summary.sms_added}<br>
+          <strong>Amount Paid:</strong> GHS ${data.summary.amount_paid}<br>
+          <strong>New Balance:</strong> GHS ${Number(data.summary.new_balance).toFixed(2)}<br>
+          <strong>SMS Balance:</strong> ${data.summary.sms_balance}
+        `);
+
+        document.getElementById("balanceValue").textContent = `GHS ${Number(data.summary.new_balance).toFixed(2)}`;
+        document.getElementById("smsValue").textContent = data.summary.sms_balance;
+      } catch (err) {
+        console.error(err);
+        showResult("Network or server error while buying SMS credits.", true);
+      }
+    }
+
+    loadAgentSummary();
+  </script>
+</body>
+</html>
