@@ -2173,6 +2173,284 @@ app.get("/api/agent/:id/sms-balance", (req, res) => {
   });
 });
 
+
+///// NEW ADMIN SMS PAGE APPROVE
+app.get("/api/admin/sender-id-requests", (req, res) => {
+  const sql = `
+    SELECT
+      r.id,
+      r.agent_id,
+      r.sender_id_name,
+      r.status,
+      r.admin_note,
+      r.created_at,
+      r.updated_at,
+      a.first_name,
+      a.last_name,
+      a.sender_id AS current_sender_id
+    FROM sender_id_requests r
+    LEFT JOIN agents a ON a.id = r.agent_id
+    ORDER BY r.id DESC
+  `;
+
+  db.query(sql, (err, rows) => {
+    if (err) {
+      console.error("Error loading sender ID requests:", err);
+      return res.status(500).json({
+        ok: false,
+        message: "Database error while loading sender ID requests."
+      });
+    }
+
+    return res.json({
+      ok: true,
+      rows
+    });
+  });
+});
+
+
+
+app.post("/api/admin/sender-id-requests/:id/processing", (req, res) => {
+  const requestId = Number(req.params.id);
+
+  if (!requestId) {
+    return res.status(400).json({
+      ok: false,
+      message: "Invalid request id."
+    });
+  }
+
+  const sql = `
+    UPDATE sender_id_requests
+    SET status = 'processing'
+    WHERE id = ?
+      AND status = 'pending'
+  `;
+
+  db.query(sql, [requestId], (err, result) => {
+    if (err) {
+      console.error("Error updating request to processing:", err);
+      return res.status(500).json({
+        ok: false,
+        message: "Database error while updating request."
+      });
+    }
+
+    if (!result.affectedRows) {
+      return res.status(400).json({
+        ok: false,
+        message: "This request is not pending or does not exist."
+      });
+    }
+
+    return res.json({
+      ok: true,
+      message: "Request status changed to processing."
+    });
+  });
+});
+
+
+
+app.post("/api/admin/sender-id-requests/:id/approve", async (req, res) => {
+  const requestId = Number(req.params.id);
+
+  if (!requestId) {
+    return res.status(400).json({
+      ok: false,
+      message: "Invalid request id."
+    });
+  }
+
+  const conn = await db.promise().getConnection();
+
+  try {
+    await conn.beginTransaction();
+
+    const [rows] = await conn.query(`
+      SELECT id, agent_id, sender_id_name, status
+      FROM sender_id_requests
+      WHERE id = ?
+      LIMIT 1
+    `, [requestId]);
+
+    if (!rows.length) {
+      await conn.rollback();
+      return res.status(404).json({
+        ok: false,
+        message: "Sender ID request not found."
+      });
+    }
+
+    const requestRow = rows[0];
+
+    if (requestRow.status === "approved") {
+      await conn.rollback();
+      return res.status(400).json({
+        ok: false,
+        message: "This request has already been approved."
+      });
+    }
+
+    if (requestRow.status === "rejected") {
+      await conn.rollback();
+      return res.status(400).json({
+        ok: false,
+        message: "Rejected requests cannot be approved."
+      });
+    }
+
+    const cleanSenderId = String(requestRow.sender_id_name || "")
+      .toUpperCase()
+      .replace(/[^A-Z0-9]/g, "");
+
+    if (!cleanSenderId || cleanSenderId.length < 3 || cleanSenderId.length > 11) {
+      await conn.rollback();
+      return res.status(400).json({
+        ok: false,
+        message: "Invalid sender ID format."
+      });
+    }
+
+    // Optional: prevent same sender id being assigned to another agent
+    const [existingSender] = await conn.query(`
+      SELECT id, first_name, last_name
+      FROM agents
+      WHERE sender_id = ?
+        AND id <> ?
+      LIMIT 1
+    `, [cleanSenderId, requestRow.agent_id]);
+
+    if (existingSender.length) {
+      await conn.rollback();
+      return res.status(400).json({
+        ok: false,
+        message: "This sender ID has already been assigned to another agent."
+      });
+    }
+
+    const [agentRows] = await conn.query(`
+      SELECT id
+      FROM agents
+      WHERE id = ?
+      LIMIT 1
+    `, [requestRow.agent_id]);
+
+    if (!agentRows.length) {
+      await conn.rollback();
+      return res.status(404).json({
+        ok: false,
+        message: "Agent not found for this request."
+      });
+    }
+
+    await conn.query(`
+      UPDATE agents
+      SET sender_id = ?
+      WHERE id = ?
+    `, [cleanSenderId, requestRow.agent_id]);
+
+    await conn.query(`
+      UPDATE sender_id_requests
+      SET status = 'approved'
+      WHERE id = ?
+    `, [requestId]);
+
+    await conn.commit();
+
+    return res.json({
+      ok: true,
+      message: "Sender ID approved and assigned to agent successfully."
+    });
+  } catch (err) {
+    await conn.rollback();
+    console.error("Error approving sender ID request:", err);
+    return res.status(500).json({
+      ok: false,
+      message: "Database error while approving sender ID request."
+    });
+  } finally {
+    conn.release();
+  }
+});
+
+
+
+app.post("/api/admin/sender-id-requests/:id/reject", (req, res) => {
+  const requestId = Number(req.params.id);
+
+  if (!requestId) {
+    return res.status(400).json({
+      ok: false,
+      message: "Invalid request id."
+    });
+  }
+
+  const sql = `
+    UPDATE sender_id_requests
+    SET status = 'rejected'
+    WHERE id = ?
+      AND status IN ('pending', 'processing')
+  `;
+
+  db.query(sql, [requestId], (err, result) => {
+    if (err) {
+      console.error("Error rejecting request:", err);
+      return res.status(500).json({
+        ok: false,
+        message: "Database error while rejecting request."
+      });
+    }
+
+    if (!result.affectedRows) {
+      return res.status(400).json({
+        ok: false,
+        message: "This request cannot be rejected or does not exist."
+      });
+    }
+
+    return res.json({
+      ok: true,
+      message: "Sender ID request rejected successfully."
+    });
+  });
+});
+
+
+app.post("/api/admin/sender-id-requests/:id/note", (req, res) => {
+  const requestId = Number(req.params.id);
+  const { admin_note } = req.body;
+
+  if (!requestId) {
+    return res.status(400).json({
+      ok: false,
+      message: "Invalid request id."
+    });
+  }
+
+  const sql = `
+    UPDATE sender_id_requests
+    SET admin_note = ?
+    WHERE id = ?
+  `;
+
+  db.query(sql, [admin_note || null, requestId], (err, result) => {
+    if (err) {
+      console.error("Error saving admin note:", err);
+      return res.status(500).json({
+        ok: false,
+        message: "Database error while saving note."
+      });
+    }
+
+    return res.json({
+      ok: true,
+      message: "Admin note saved successfully."
+    });
+  });
+});
+
 ///// SMS PURCHASE 
 
 
