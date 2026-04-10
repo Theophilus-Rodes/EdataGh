@@ -287,16 +287,13 @@
 </head>
 <body>
   <div class="container">
-  <div class="topbar">
-  <div>
-    <h1>Admin Notifications</h1>
-    <p>Create, update, and manage news or notification messages</p>
-  </div>
+    <div class="topbar">
+      <div>
+        <h1>Admin Notifications</h1>
+        <p>Create, update, and manage news or notification messages</p>
+      </div>
+    </div>
 
-  <button class="btn btn-primary" onclick="goToVideos()">
-    🎥 Learn About Site
-  </button>
-</div>
     <div class="grid">
       <!-- FORM -->
       <div class="card">
@@ -568,10 +565,6 @@
 
       renderNotifications(filtered);
     });
-
-    function goToVideos(){
-  window.location.href = "videos.html";
-}
 
     loadNotifications();
   </script>

@@ -205,15 +205,36 @@
         font-size:22px;
       }
     }
+
+    .video-btn{
+  background:#1FAF6B;
+  color:#fff;
+  border:none;
+  padding:10px 16px;
+  border-radius:10px;
+  font-weight:700;
+  cursor:pointer;
+  font-size:14px;
+  transition:0.2s ease;
+}
+
+.video-btn:hover{
+  background:#17965a;
+}
   </style>
 </head>
 <body>
-  <div class="topbar">
-    <div class="topbar-left">
-      <button class="back-btn" onclick="goBack()">←</button>
-      <div class="page-title">Notifications</div>
-    </div>
+ <div class="topbar">
+  <div class="topbar-left">
+    <button class="back-btn" onclick="goBack()">←</button>
+    <div class="page-title">Notifications</div>
   </div>
+
+  <!-- VIDEO BUTTON -->
+  <button class="video-btn" onclick="goToVideos()">
+    🎥 Learn
+  </button>
+</div>
 
   <div class="wrapper">
     <div class="grid">
@@ -354,6 +375,10 @@
 
       renderNotificationList(filtered);
     });
+
+    function goToVideos(){
+  window.location.href = "videos.html";
+}
 
     loadNotifications();
   </script>
