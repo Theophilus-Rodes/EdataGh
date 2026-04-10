@@ -184,6 +184,107 @@ app.post("/api/agent/sms/send", async (req, res) => {
 
 
 
+
+///// Bulk SMS APPROVALS 
+app.get("/api/admin/agents/sender-ids", (req, res) => {
+  const sql = `
+    SELECT id, first_name, last_name, sender_id
+    FROM agents
+    ORDER BY first_name ASC, last_name ASC
+  `;
+
+  db.query(sql, (err, results) => {
+    if (err) {
+      console.error("Error fetching agents:", err);
+      return res.status(500).json({
+        ok: false,
+        message: "Database error while fetching agents"
+      });
+    }
+
+    res.json({
+      ok: true,
+      agents: results
+    });
+  });
+});
+
+app.post("/api/admin/agents/set-sender-id", (req, res) => {
+  const { agent_id, sender_id } = req.body;
+
+  if (!agent_id) {
+    return res.status(400).json({
+      ok: false,
+      message: "Agent ID is required"
+    });
+  }
+
+  if (!sender_id || !sender_id.trim()) {
+    return res.status(400).json({
+      ok: false,
+      message: "Sender ID is required"
+    });
+  }
+
+  const cleanSenderId = sender_id.trim().toUpperCase();
+
+  const sql = `
+    UPDATE agents
+    SET sender_id = ?
+    WHERE id = ?
+  `;
+
+  db.query(sql, [cleanSenderId, agent_id], (err, result) => {
+    if (err) {
+      console.error("Error saving sender ID:", err);
+      return res.status(500).json({
+        ok: false,
+        message: "Database error while saving sender ID"
+      });
+    }
+
+    res.json({
+      ok: true,
+      message: "Sender ID saved successfully"
+    });
+  });
+});
+
+
+app.post("/api/admin/agents/remove-sender-id", (req, res) => {
+  const { agent_id } = req.body;
+
+  if (!agent_id) {
+    return res.status(400).json({
+      ok: false,
+      message: "Agent ID is required"
+    });
+  }
+
+  const sql = `
+    UPDATE agents
+    SET sender_id = NULL
+    WHERE id = ?
+  `;
+
+  db.query(sql, [agent_id], (err, result) => {
+    if (err) {
+      console.error("Error removing sender ID:", err);
+      return res.status(500).json({
+        ok: false,
+        message: "Database error while removing sender ID"
+      });
+    }
+
+    res.json({
+      ok: true,
+      message: "Sender ID removed successfully"
+    });
+  });
+});
+
+
+
 app.post("/logout", (req, res) => {
   req.session.destroy(() => {
     res.clearCookie("edata.sid", {
