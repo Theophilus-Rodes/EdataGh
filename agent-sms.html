@@ -423,6 +423,30 @@
         padding:11px 10px;
       }
     }
+
+    .top-actions {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin: 20px 0;
+}
+
+.action-btn {
+  background: #ffffff;
+  color: #0f7b3f;
+  border: 2px solid #0f7b3f;
+  padding: 10px 18px;
+  border-radius: 10px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.action-btn:hover {
+  background: #0f7b3f;
+  color: #fff;
+  transform: translateY(-2px);
+}
   </style>
 </head>
 <body>
@@ -434,6 +458,12 @@
         This page is connected to your Giant SMS backend and uses your approved sender ID.
       </p>
     </div>
+
+    <div class="top-actions">
+  <button class="action-btn" onclick="openSenderID()">📩 Request Sender ID</button>
+  <button class="action-btn" onclick="openPurchase()">💰 Purchase SMS Credit</button>
+  <button class="action-btn" onclick="openMonitor()">📊 Monitor SMS</button>
+</div>
 
     <div class="stats">
       <div class="stat-card">
@@ -894,6 +924,20 @@ function getAgentId() {
   loadMySenderId();
   updateStats();
   renderRecipients();
+</script>
+
+<script>
+function openSenderID() {
+  window.location.href = "request-sender-id.html";
+}
+
+function openPurchase() {
+  window.location.href = "purchase-sms.html";
+}
+
+function openMonitor() {
+  window.location.href = "monitor-sms.html";
+}
 </script>
 </body>
 </html>
