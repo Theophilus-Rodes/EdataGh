@@ -120,13 +120,19 @@ async function sendSingleSmsViaGiantSMS({ recipients, message, senderId }) {
 //////////
 app.get("/api/agent/my-sender-id", (req, res) => {
   try {
-    // CHANGE THIS if your session key is different
-    const agentId = req.session?.agent_id || req.session?.agentId || null;
+    const agentIdRaw =
+      req.query.agent_id ||
+      req.headers["x-agent-id"] ||
+      req.headers["agent_id"] ||
+      req.body?.agent_id ||
+      null;
 
-    if (!agentId) {
-      return res.status(401).json({
+    const agentId = Number(agentIdRaw);
+
+    if (!agentId || Number.isNaN(agentId)) {
+      return res.status(400).json({
         ok: false,
-        message: "Agent not logged in"
+        message: "Valid agent ID is required"
       });
     }
 
