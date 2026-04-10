@@ -1971,6 +1971,402 @@ app.get("/api/theteller-status", async (req, res) => {
 
 
 
+///// SMS PURCHASE 
+
+
+async function finalizeSmsCreditPayment(transactionId, rawStatus = null) {
+  const conn = await db.promise().getConnection();
+
+  try {
+    await conn.beginTransaction();
+
+    const [rows] = await conn.query(
+      `SELECT id, agent_id, package_sms, amount, status, finalized
+       FROM sms_credit_payments
+       WHERE transaction_id = ?
+       LIMIT 1
+       FOR UPDATE`,
+      [transactionId]
+    );
+
+    if (!rows.length) {
+      await conn.rollback();
+      return { ok: false, message: "Payment record not found." };
+    }
+
+    const payment = rows[0];
+
+    if (Number(payment.finalized) === 1) {
+      await conn.rollback();
+
+      const [agentRows] = await conn.query(
+        `SELECT smsfield FROM agents WHERE id = ? LIMIT 1`,
+        [payment.agent_id]
+      );
+
+      return {
+        ok: true,
+        already_finalized: true,
+        message: "Payment already finalized.",
+        sms_balance: Number(agentRows[0]?.smsfield || 0)
+      };
+    }
+
+    const [agentRows] = await conn.query(
+      `SELECT id, smsfield FROM agents WHERE id = ? LIMIT 1 FOR UPDATE`,
+      [payment.agent_id]
+    );
+
+    if (!agentRows.length) {
+      await conn.rollback();
+      return { ok: false, message: "Agent not found." };
+    }
+
+    const currentSms = Number(agentRows[0].smsfield || 0);
+    const newSmsBalance = currentSms + Number(payment.package_sms || 0);
+
+    await conn.query(
+      `UPDATE agents
+       SET smsfield = ?
+       WHERE id = ?`,
+      [newSmsBalance, payment.agent_id]
+    );
+
+    await conn.query(
+      `UPDATE sms_credit_payments
+       SET status = 'approved',
+           finalized = 1,
+           raw_status = COALESCE(?, raw_status)
+       WHERE transaction_id = ?`,
+      [rawStatus ? JSON.stringify(rawStatus) : null, transactionId]
+    );
+
+    await conn.commit();
+
+    return {
+      ok: true,
+      message: "SMS credits added successfully.",
+      sms_added: Number(payment.package_sms || 0),
+      sms_balance: newSmsBalance
+    };
+  } catch (err) {
+    await conn.rollback();
+    console.error("finalizeSmsCreditPayment error:", err);
+    return {
+      ok: false,
+      message: "Could not finalize payment."
+    };
+  } finally {
+    conn.release();
+  }
+}
+
+// INITIATE MOMO PROMPT FOR SMS CREDIT
+app.post("/api/agent/sms-credit/initiate-momo", async (req, res) => {
+  try {
+    const { agent_id, package_sms, momo_number } = req.body;
+
+    const agentId = Number(agent_id || 0);
+    const packageKey = String(package_sms || "").trim();
+    const momoNumber = String(momo_number || "").trim();
+
+    if (!agentId) {
+      return res.status(400).json({
+        ok: false,
+        message: "Agent ID is required."
+      });
+    }
+
+    if (!SMS_PACKAGES[packageKey]) {
+      return res.status(400).json({
+        ok: false,
+        message: "Invalid SMS package selected."
+      });
+    }
+
+    if (!momoNumber) {
+      return res.status(400).json({
+        ok: false,
+        message: "MoMo number is required."
+      });
+    }
+
+    const [agentRows] = await db.promise().query(
+      `SELECT id, first_name, last_name, status
+       FROM agents
+       WHERE id = ?
+       LIMIT 1`,
+      [agentId]
+    );
+
+    if (!agentRows.length) {
+      return res.status(404).json({
+        ok: false,
+        message: "Agent account not found."
+      });
+    }
+
+    const agent = agentRows[0];
+
+    if (String(agent.status).toLowerCase() !== "active") {
+      return res.status(403).json({
+        ok: false,
+        message: "Your account is not active."
+      });
+    }
+
+    const pkg = SMS_PACKAGES[packageKey];
+
+    const payerNet = detectMomoNetwork(momoNumber);
+    const rSwitch = getSwitchCode(payerNet);
+
+    if (!rSwitch) {
+      return res.status(400).json({
+        ok: false,
+        message: "Unsupported payer network."
+      });
+    }
+
+    const transactionId = makeTransactionId();
+
+    await db.promise().query(
+      `INSERT INTO sms_credit_payments
+       (transaction_id, agent_id, package_sms, amount, momo_number, status)
+       VALUES (?, ?, ?, ?, ?, 'pending')`,
+      [
+        transactionId,
+        agentId,
+        pkg.sms,
+        pkg.amount,
+        momoNumber
+      ]
+    );
+
+    const payload = {
+      amount: thetellerAmount12(pkg.amount),
+      processing_code: "000200",
+      transaction_id: transactionId,
+      desc: `EDATA SMS Credit - ${pkg.sms} SMS`,
+      merchant_id: THETELLER.merchantId,
+      subscriber_number: formatMsisdnForTheTeller(momoNumber),
+      "r-switch": rSwitch,
+      redirect_url: process.env.THETELLER_REDIRECT_URL || "https://edatagh.com/payment-callback"
+    };
+
+    const tt = await axios.post(THETELLER.endpoint, payload, {
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Basic ${THETELLER.basicToken}`,
+        "Cache-Control": "no-cache"
+      },
+      timeout: 30000
+    });
+
+    if (!isInitAccepted(tt.data)) {
+      await db.promise().query(
+        `UPDATE sms_credit_payments
+         SET status = 'failed', raw_status = ?
+         WHERE transaction_id = ?`,
+        [JSON.stringify(tt.data), transactionId]
+      );
+
+      return res.status(400).json({
+        ok: false,
+        message: "Payment prompt not accepted.",
+        theteller: tt.data
+      });
+    }
+
+    await db.promise().query(
+      `UPDATE sms_credit_payments
+       SET raw_status = ?
+       WHERE transaction_id = ?`,
+      [JSON.stringify(tt.data), transactionId]
+    );
+
+    return res.json({
+      ok: true,
+      message: "Prompt sent. Please approve on your phone.",
+      transaction_id: transactionId,
+      package_sms: pkg.sms,
+      amount: pkg.amount
+    });
+  } catch (err) {
+    console.error("SMS CREDIT INIT ERROR:", err.response?.data || err.message);
+    return res.status(500).json({
+      ok: false,
+      message: "Payment could not be initiated."
+    });
+  }
+});
+
+// AUTO / MANUAL STATUS CHECK
+app.get("/api/agent/sms-credit/status", async (req, res) => {
+  const transaction_id = String(req.query.transaction_id || "").trim();
+
+  if (!transaction_id) {
+    return res.json({
+      ok: false,
+      status: "unknown",
+      message: "transaction_id is required"
+    });
+  }
+
+  try {
+    const url = `${THETELLER.statusBase}/${encodeURIComponent(transaction_id)}/status`;
+
+    const resp = await axios.get(url, {
+      headers: {
+        Authorization: `Basic ${THETELLER.basicToken}`,
+        "Merchant-Id": THETELLER.merchantId,
+        "Cache-Control": "no-cache"
+      },
+      timeout: 30000
+    });
+
+    const raw = resp.data || {};
+    const statusRaw = raw.status ?? raw.Status ?? raw.transaction_status ?? raw.state ?? "";
+    const codeRaw = raw.code ?? raw.Code ?? raw.response_code ?? "";
+
+    const status = String(statusRaw).toLowerCase().trim();
+    const code = String(codeRaw).trim();
+
+    const approved =
+      code === "000" || code === "00" || code === "0" ||
+      status.includes("success") || status.includes("approved") ||
+      status.includes("paid") || status.includes("complete");
+
+    const failed =
+      status.includes("fail") || status.includes("decline") ||
+      status.includes("cancel") ||
+      ["failed", "declined", "cancelled", "canceled", "reversed"].includes(status);
+
+    const pending =
+      status.includes("pending") || status.includes("processing") ||
+      status.includes("progress") || status.includes("initiated") ||
+      status.includes("queued") || code === "099";
+
+    if (approved) {
+      const finalized = await finalizeSmsCreditPayment(transaction_id, raw);
+
+      return res.json({
+        ok: true,
+        transaction_id,
+        status: "approved",
+        finalized,
+        raw
+      });
+    }
+
+    if (failed) {
+      await db.promise().query(
+        `UPDATE sms_credit_payments
+         SET status = 'failed', raw_status = ?
+         WHERE transaction_id = ? AND finalized = 0`,
+        [JSON.stringify(raw), transaction_id]
+      );
+
+      return res.json({
+        ok: true,
+        transaction_id,
+        status: "failed",
+        raw
+      });
+    }
+
+    await db.promise().query(
+      `UPDATE sms_credit_payments
+       SET raw_status = ?
+       WHERE transaction_id = ?`,
+      [JSON.stringify(raw), transaction_id]
+    );
+
+    return res.json({
+      ok: true,
+      transaction_id,
+      status: pending ? "pending" : (status || "unknown"),
+      raw
+    });
+  } catch (e) {
+    console.error("SMS CREDIT STATUS ERROR:", e.response?.data || e.message);
+
+    return res.json({
+      ok: false,
+      transaction_id,
+      status: "unknown",
+      message: e.response?.data?.message || e.message || "Status check failed"
+    });
+  }
+});
+
+// MANUAL CHECK BUTTON
+app.post("/api/agent/sms-credit/manual-check", async (req, res) => {
+  const transaction_id = String(req.body.transaction_id || "").trim();
+
+  if (!transaction_id) {
+    return res.status(400).json({
+      ok: false,
+      message: "transaction_id is required"
+    });
+  }
+
+  try {
+    const url = `${THETELLER.statusBase}/${encodeURIComponent(transaction_id)}/status`;
+
+    const resp = await axios.get(url, {
+      headers: {
+        Authorization: `Basic ${THETELLER.basicToken}`,
+        "Merchant-Id": THETELLER.merchantId,
+        "Cache-Control": "no-cache"
+      },
+      timeout: 30000
+    });
+
+    const raw = resp.data || {};
+    const statusRaw = raw.status ?? raw.Status ?? raw.transaction_status ?? raw.state ?? "";
+    const codeRaw = raw.code ?? raw.Code ?? raw.response_code ?? "";
+
+    const status = String(statusRaw).toLowerCase().trim();
+    const code = String(codeRaw).trim();
+
+    const approved =
+      code === "000" || code === "00" || code === "0" ||
+      status.includes("success") || status.includes("approved") ||
+      status.includes("paid") || status.includes("complete");
+
+    if (!approved) {
+      return res.json({
+        ok: false,
+        message: "Payment is not yet confirmed.",
+        status: status || "unknown",
+        raw
+      });
+    }
+
+    const finalized = await finalizeSmsCreditPayment(transaction_id, raw);
+
+    if (!finalized.ok) {
+      return res.status(400).json(finalized);
+    }
+
+    return res.json({
+      ok: true,
+      message: finalized.message,
+      sms_added: finalized.sms_added,
+      sms_balance: finalized.sms_balance,
+      transaction_id
+    });
+  } catch (err) {
+    console.error("SMS CREDIT MANUAL CHECK ERROR:", err.response?.data || err.message);
+
+    return res.status(500).json({
+      ok: false,
+      message: "Manual verification failed."
+    });
+  }
+});
+
+
 
 // =====================================================
 // ✅ BACKGROUND JOB (PROD): updates even if user closes page
