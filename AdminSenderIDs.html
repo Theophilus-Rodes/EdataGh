@@ -2,24 +2,33 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Admin - Agent Sender IDs</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Admin Sender ID Requests</title>
+
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
   <style>
     :root{
       --primary:#0f8f43;
-      --primary-dark:#0b6b31;
-      --bg:#f4f7fb;
+      --primary-dark:#0a6c31;
+      --bg:#f6f8fb;
       --card:#ffffff;
-      --text:#18212b;
+      --text:#16202a;
       --muted:#6b7280;
       --line:#e5e7eb;
       --danger:#dc2626;
-      --danger-bg:#fee2e2;
-      --light:#eef2f7;
-      --shadow:0 10px 30px rgba(0,0,0,.08);
+      --warning:#f59e0b;
+      --warning-bg:#fff7ed;
+      --warning-text:#9a3412;
+      --success:#166534;
+      --success-bg:#ecfdf3;
+      --success-border:#bbf7d0;
+      --error-bg:#fef2f2;
+      --error-border:#fecaca;
+      --error-text:#991b1b;
+      --shadow:0 10px 30px rgba(16,24,40,.08);
       --radius:22px;
     }
 
@@ -45,9 +54,9 @@
       background:linear-gradient(135deg,var(--primary),var(--primary-dark));
       color:#fff;
       border-radius:28px;
-      padding:24px 22px;
-      margin-bottom:22px;
+      padding:24px 20px;
       box-shadow:var(--shadow);
+      margin-bottom:22px;
     }
 
     .topbar h1{
@@ -57,10 +66,10 @@
     }
 
     .topbar p{
-      font-size:14px;
       color:rgba(255,255,255,.9);
-      max-width:760px;
+      font-size:14px;
       line-height:1.5;
+      max-width:800px;
     }
 
     .card{
@@ -71,38 +80,39 @@
       padding:22px;
     }
 
-    .card-head{
+    .head-row{
       display:flex;
       justify-content:space-between;
       align-items:center;
-      gap:12px;
+      gap:14px;
       flex-wrap:wrap;
       margin-bottom:18px;
     }
 
-    .card-head h2{
-      font-size:20px;
+    .head-row h2{
+      font-size:18px;
       font-weight:800;
+      margin-bottom:4px;
     }
 
-    .card-head p{
-      color:var(--muted);
+    .head-row p{
       font-size:13px;
-      margin-top:4px;
+      color:var(--muted);
     }
 
     .search-box{
-      width:280px;
+      width:320px;
       max-width:100%;
     }
 
     .search-box input{
       width:100%;
-      padding:12px 14px;
       border:1px solid var(--line);
+      background:#fff;
       border-radius:14px;
-      outline:none;
+      padding:13px 14px;
       font-size:14px;
+      outline:none;
     }
 
     .search-box input:focus{
@@ -119,12 +129,11 @@
     table{
       width:100%;
       border-collapse:collapse;
-      min-width:850px;
-      background:#fff;
+      min-width:1050px;
     }
 
     th, td{
-      padding:14px 12px;
+      padding:14px 14px;
       border-bottom:1px solid var(--line);
       text-align:left;
       font-size:14px;
@@ -133,26 +142,58 @@
 
     th{
       background:#f9fafb;
-      font-size:13px;
       color:#374151;
+      font-size:13px;
       position:sticky;
       top:0;
       z-index:2;
     }
 
-    .sender-input{
-      width:180px;
-      padding:10px 12px;
-      border:1px solid var(--line);
-      border-radius:12px;
-      outline:none;
-      font-size:14px;
-      text-transform:uppercase;
+    .badge{
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      padding:7px 12px;
+      border-radius:999px;
+      font-size:12px;
+      font-weight:800;
+      text-transform:capitalize;
     }
 
-    .sender-input:focus{
-      border-color:var(--primary);
-      box-shadow:0 0 0 4px rgba(15,143,67,.08);
+    .pending{
+      background:#fff7ed;
+      color:#c2410c;
+    }
+
+    .processing{
+      background:#eff6ff;
+      color:#1d4ed8;
+    }
+
+    .approved{
+      background:#ecfdf3;
+      color:#15803d;
+    }
+
+    .rejected{
+      background:#fef2f2;
+      color:#b91c1c;
+    }
+
+    .sender-chip{
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      padding:7px 12px;
+      border-radius:999px;
+      background:#eaf9f0;
+      color:#0a6c31;
+      font-size:12px;
+      font-weight:800;
+    }
+
+    .muted{
+      color:#9ca3af;
     }
 
     .actions{
@@ -163,73 +204,72 @@
 
     .btn{
       border:none;
-      padding:10px 14px;
       border-radius:12px;
+      padding:10px 14px;
       font-size:13px;
       font-weight:700;
       cursor:pointer;
+      transition:.2s ease;
     }
 
-    .btn-save{
-      background:var(--primary);
+    .btn-accept{
+      background:#fff7ed;
+      color:#c2410c;
+    }
+
+    .btn-accept:hover{
+      background:#ffedd5;
+    }
+
+    .btn-approve{
+      background:#0f8f43;
       color:#fff;
     }
 
-    .btn-save:hover{
-      background:var(--primary-dark);
+    .btn-approve:hover{
+      background:#0a6c31;
     }
 
-    .btn-edit{
-      background:var(--light);
-      color:#111827;
+    .btn-reject{
+      background:#fee2e2;
+      color:#dc2626;
     }
 
-    .btn-remove{
-      background:var(--danger-bg);
-      color:var(--danger);
+    .btn-reject:hover{
+      background:#fecaca;
     }
 
-    .badge{
-      display:inline-block;
-      padding:6px 10px;
-      border-radius:999px;
-      font-size:12px;
-      font-weight:700;
-      background:#ecfdf3;
-      color:#166534;
-    }
-
-    .empty{
+    .empty-state{
+      padding:30px 18px;
       text-align:center;
       color:var(--muted);
-      padding:30px;
       font-size:14px;
     }
 
-    .message{
-      display:none;
+    .notice{
       margin-bottom:16px;
-      padding:12px 14px;
       border-radius:14px;
-      font-size:14px;
-      font-weight:600;
+      padding:12px 14px;
+      font-size:13px;
+      line-height:1.5;
+      display:none;
     }
 
-    .message.success{
+    .notice.success{
       display:block;
-      background:#ecfdf3;
-      color:#166534;
-      border:1px solid #bbf7d0;
+      background:var(--success-bg);
+      color:var(--success);
+      border:1px solid var(--success-border);
     }
 
-    .message.error{
+    .notice.error{
       display:block;
-      background:#fef2f2;
-      color:#991b1b;
-      border:1px solid #fecaca;
+      background:var(--error-bg);
+      color:var(--error-text);
+      border:1px solid var(--error-border);
     }
 
-    @media (max-width: 768px){
+    @media (max-width: 700px){
       .topbar h1{
         font-size:22px;
       }
@@ -239,23 +279,24 @@
 <body>
   <div class="page">
     <div class="topbar">
-      <h1>Agent Sender ID Management</h1>
+      <h1>Agent Sender ID Requests</h1>
       <p>
-        Set, edit, or remove sender IDs for agents. These sender IDs can later be used when agents send bulk SMS.
+        Review sender ID requests submitted by agents. You can mark a request as processing,
+        approve it and assign the sender ID to the agent, or reject it.
       </p>
     </div>
 
-    <div id="pageMessage" class="message"></div>
-
     <div class="card">
-      <div class="card-head">
+      <div id="pageNotice" class="notice"></div>
+
+      <div class="head-row">
         <div>
-          <h2>Agents List</h2>
-          <p>Fetches agent ID, first name, last name, and current sender ID.</p>
+          <h2>Sender ID Requests</h2>
+          <p>Loads all requests from the sender_id_requests table with the related agent details.</p>
         </div>
 
         <div class="search-box">
-          <input type="text" id="searchInput" placeholder="Search by name or ID..." oninput="filterAgents()" />
+          <input type="text" id="searchInput" placeholder="Search by agent name, sender ID, or status..." />
         </div>
       </div>
 
@@ -263,17 +304,20 @@
         <table>
           <thead>
             <tr>
-              <th style="width:90px;">ID</th>
+              <th>Request ID</th>
+              <th>Agent ID</th>
               <th>First Name</th>
               <th>Last Name</th>
-              <th>Current Sender ID</th>
-              <th>Set / Edit Sender ID</th>
-              <th style="width:260px;">Actions</th>
+              <th>Requested Sender ID</th>
+              <th>Status</th>
+              <th>Current Agent Sender ID</th>
+              <th>Created At</th>
+              <th>Actions</th>
             </tr>
           </thead>
-          <tbody id="agentsTableBody">
+          <tbody id="requestsTableBody">
             <tr>
-              <td colspan="6" class="empty">Loading agents...</td>
+              <td colspan="9" class="empty-state">Loading requests...</td>
             </tr>
           </tbody>
         </table>
@@ -282,169 +326,192 @@
   </div>
 
   <script>
-     const API_BASE =
+    const API_BASE =
       location.hostname === "localhost"
         ? "http://localhost:8080"
         : "https://edatagh.com/edatagh-backend";
-    let allAgents = [];
 
-    function showMessage(text, isError = false) {
-      const box = document.getElementById("pageMessage");
-      box.className = isError ? "message error" : "message success";
-      box.textContent = text;
-      box.style.display = "block";
+    let allRequests = [];
 
-      setTimeout(() => {
-        box.style.display = "none";
-      }, 3000);
+    function showNotice(message, type = "success") {
+      const box = document.getElementById("pageNotice");
+      box.className = `notice ${type}`;
+      box.textContent = message;
     }
 
-    async function loadAgents() {
-      const tbody = document.getElementById("agentsTableBody");
-      tbody.innerHTML = `<tr><td colspan="6" class="empty">Loading agents...</td></tr>`;
+    function escapeHtml(value) {
+      return String(value ?? "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+    }
+
+    async function loadSenderRequests() {
+      const tbody = document.getElementById("requestsTableBody");
+      tbody.innerHTML = `<tr><td colspan="9" class="empty-state">Loading requests...</td></tr>`;
 
       try {
-        const res = await fetch(`${API_BASE}/api/admin/agents/sender-ids`);
+        const res = await fetch(`${API_BASE}/api/admin/sender-id-requests`);
         const data = await res.json();
 
         if (!res.ok || !data.ok) {
-          tbody.innerHTML = `<tr><td colspan="6" class="empty">Failed to load agents.</td></tr>`;
+          tbody.innerHTML = `<tr><td colspan="9" class="empty-state">${data.message || "Failed to load requests."}</td></tr>`;
           return;
         }
 
-        allAgents = data.agents || [];
-        renderAgents(allAgents);
+        allRequests = data.rows || [];
+        renderRequests(allRequests);
       } catch (err) {
         console.error(err);
-        tbody.innerHTML = `<tr><td colspan="6" class="empty">Network error while loading agents.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="9" class="empty-state">Network error while loading requests.</td></tr>`;
       }
     }
 
-    function renderAgents(agents) {
-      const tbody = document.getElementById("agentsTableBody");
+    function renderRequests(rows) {
+      const tbody = document.getElementById("requestsTableBody");
 
-      if (!agents.length) {
-        tbody.innerHTML = `<tr><td colspan="6" class="empty">No agents found.</td></tr>`;
+      if (!rows.length) {
+        tbody.innerHTML = `<tr><td colspan="9" class="empty-state">No sender ID requests found.</td></tr>`;
         return;
       }
 
-      tbody.innerHTML = agents.map(agent => `
-        <tr>
-          <td>${agent.id}</td>
-          <td>${agent.first_name || ""}</td>
-          <td>${agent.last_name || ""}</td>
-          <td>
-            ${agent.sender_id
-              ? `<span class="badge">${agent.sender_id}</span>`
-              : `<span style="color:#9ca3af;">Not set</span>`
-            }
-          </td>
-          <td>
-            <input
-              type="text"
-              class="sender-input"
-              id="sender_${agent.id}"
-              value="${agent.sender_id || ""}"
-              placeholder="Enter Sender ID"
-              maxlength="20"
-            />
-          </td>
-          <td>
-            <div class="actions">
-              <button class="btn btn-save" onclick="saveSenderId(${agent.id})">Save</button>
-              <button class="btn btn-edit" onclick="editSenderId(${agent.id})">Edit</button>
-              <button class="btn btn-remove" onclick="removeSenderId(${agent.id})">Remove</button>
-            </div>
-          </td>
-        </tr>
-      `).join("");
+      tbody.innerHTML = rows.map(row => {
+        const currentSender = row.current_sender_id
+          ? `<span class="sender-chip">${escapeHtml(row.current_sender_id)}</span>`
+          : `<span class="muted">Not set</span>`;
+
+        const canAccept = row.status === "pending";
+        const canApprove = row.status === "pending" || row.status === "processing";
+        const canReject = row.status === "pending" || row.status === "processing";
+
+        return `
+          <tr>
+            <td>${row.id}</td>
+            <td>${row.agent_id}</td>
+            <td>${escapeHtml(row.first_name || "")}</td>
+            <td>${escapeHtml(row.last_name || "")}</td>
+            <td><span class="sender-chip">${escapeHtml(row.sender_id_name || "")}</span></td>
+            <td><span class="badge ${escapeHtml(row.status)}">${escapeHtml(row.status)}</span></td>
+            <td>${currentSender}</td>
+            <td>${row.created_at ? new Date(row.created_at).toLocaleString() : "-"}</td>
+            <td>
+              <div class="actions">
+                <button class="btn btn-accept" onclick="markProcessing(${row.id})" ${canAccept ? "" : "disabled"}>
+                  Accepted
+                </button>
+                <button class="btn btn-approve" onclick="approveRequest(${row.id})" ${canApprove ? "" : "disabled"}>
+                  Approve
+                </button>
+                <button class="btn btn-reject" onclick="rejectRequest(${row.id})" ${canReject ? "" : "disabled"}>
+                  Reject
+                </button>
+              </div>
+            </td>
+          </tr>
+        `;
+      }).join("");
     }
 
-    function filterAgents() {
-      const value = document.getElementById("searchInput").value.trim().toLowerCase();
-
-      const filtered = allAgents.filter(agent => {
-        const fullName = `${agent.first_name || ""} ${agent.last_name || ""}`.toLowerCase();
-        const id = String(agent.id || "").toLowerCase();
-        return fullName.includes(value) || id.includes(value);
-      });
-
-      renderAgents(filtered);
-    }
-
-    async function saveSenderId(agentId) {
-      const input = document.getElementById(`sender_${agentId}`);
-      const senderId = input.value.trim().toUpperCase();
-
-      if (!senderId) {
-        showMessage("Please enter a Sender ID.", true);
-        return;
-      }
-
-      try {
-        const res = await fetch(`${API_BASE}/api/admin/agents/set-sender-id`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json"
-          },
-          body: JSON.stringify({
-            agent_id: agentId,
-            sender_id: senderId
-          })
-        });
-
-        const data = await res.json();
-
-        if (!res.ok || !data.ok) {
-          showMessage(data.message || "Failed to save Sender ID.", true);
-          return;
-        }
-
-        showMessage(data.message || "Sender ID saved successfully.");
-        loadAgents();
-      } catch (err) {
-        console.error(err);
-        showMessage("Network error while saving Sender ID.", true);
-      }
-    }
-
-    async function editSenderId(agentId) {
-      const input = document.getElementById(`sender_${agentId}`);
-      input.focus();
-      showMessage("You can now edit the Sender ID and click Save.");
-    }
-
-    async function removeSenderId(agentId) {
-      const yes = confirm("Are you sure you want to remove this Sender ID?");
+    async function markProcessing(requestId) {
+      const yes = confirm("Change this request status to processing?");
       if (!yes) return;
 
       try {
-        const res = await fetch(`${API_BASE}/api/admin/agents/remove-sender-id`, {
+        const res = await fetch(`${API_BASE}/api/admin/sender-id-requests/${requestId}/processing`, {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json"
-          },
-          body: JSON.stringify({
-            agent_id: agentId
-          })
+          headers: { "Content-Type": "application/json" }
         });
 
         const data = await res.json();
 
         if (!res.ok || !data.ok) {
-          showMessage(data.message || "Failed to remove Sender ID.", true);
+          showNotice(data.message || "Could not update status.", "error");
           return;
         }
 
-        showMessage(data.message || "Sender ID removed successfully.");
-        loadAgents();
+        showNotice(data.message || "Request marked as processing.", "success");
+        loadSenderRequests();
       } catch (err) {
         console.error(err);
-        showMessage("Network error while removing Sender ID.", true);
+        showNotice("Network error while updating status.", "error");
       }
     }
 
-    loadAgents();
+    async function approveRequest(requestId) {
+      const yes = confirm("Approve this sender ID request and assign it to the agent?");
+      if (!yes) return;
+
+      try {
+        const res = await fetch(`${API_BASE}/api/admin/sender-id-requests/${requestId}/approve`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" }
+        });
+
+        const data = await res.json();
+
+        if (!res.ok || !data.ok) {
+          showNotice(data.message || "Could not approve request.", "error");
+          return;
+        }
+
+        showNotice(data.message || "Sender ID approved successfully.", "success");
+        loadSenderRequests();
+      } catch (err) {
+        console.error(err);
+        showNotice("Network error while approving request.", "error");
+      }
+    }
+
+    async function rejectRequest(requestId) {
+      const yes = confirm("Reject this sender ID request?");
+      if (!yes) return;
+
+      try {
+        const res = await fetch(`${API_BASE}/api/admin/sender-id-requests/${requestId}/reject`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" }
+        });
+
+        const data = await res.json();
+
+        if (!res.ok || !data.ok) {
+          showNotice(data.message || "Could not reject request.", "error");
+          return;
+        }
+
+        showNotice(data.message || "Request rejected successfully.", "success");
+        loadSenderRequests();
+      } catch (err) {
+        console.error(err);
+        showNotice("Network error while rejecting request.", "error");
+      }
+    }
+
+    document.getElementById("searchInput").addEventListener("input", function() {
+      const q = this.value.trim().toLowerCase();
+
+      if (!q) {
+        renderRequests(allRequests);
+        return;
+      }
+
+      const filtered = allRequests.filter(row => {
+        return (
+          String(row.id).includes(q) ||
+          String(row.agent_id).includes(q) ||
+          String(row.first_name || "").toLowerCase().includes(q) ||
+          String(row.last_name || "").toLowerCase().includes(q) ||
+          String(row.sender_id_name || "").toLowerCase().includes(q) ||
+          String(row.status || "").toLowerCase().includes(q)
+        );
+      });
+
+      renderRequests(filtered);
+    });
+
+    loadSenderRequests();
   </script>
 </body>
 </html>
