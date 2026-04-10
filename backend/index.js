@@ -116,6 +116,66 @@ async function sendSingleSmsViaGiantSMS({ recipients, message, senderId }) {
   }
 }
 
+
+//////////
+app.get("/api/agent/my-sender-id", (req, res) => {
+  try {
+    // CHANGE THIS if your session key is different
+    const agentId = req.session?.agent_id || req.session?.agentId || null;
+
+    if (!agentId) {
+      return res.status(401).json({
+        ok: false,
+        message: "Agent not logged in"
+      });
+    }
+
+    const sql = `
+      SELECT id, first_name, last_name, sender_id
+      FROM agents
+      WHERE id = ?
+      LIMIT 1
+    `;
+
+    db.query(sql, [agentId], (err, results) => {
+      if (err) {
+        console.error("Error fetching sender ID:", err);
+        return res.status(500).json({
+          ok: false,
+          message: "Database error while fetching sender ID"
+        });
+      }
+
+      if (!results.length) {
+        return res.status(404).json({
+          ok: false,
+          message: "Agent not found"
+        });
+      }
+
+      const agent = results[0];
+
+      return res.json({
+        ok: true,
+        agent: {
+          id: agent.id,
+          first_name: agent.first_name,
+          last_name: agent.last_name,
+          sender_id: agent.sender_id || ""
+        }
+      });
+    });
+  } catch (err) {
+    console.error("Sender ID route error:", err);
+    return res.status(500).json({
+      ok: false,
+      message: "Server error",
+      error: err.message
+    });
+  }
+});
+
+
 ///// AGENT SMS ROUTE 
 app.post("/api/agent/sms/send", async (req, res) => {
   try {
