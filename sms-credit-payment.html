@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Complete SMS Credit Payment</title>
+  <style>
+    body{
+      margin:0;
+      font-family:Arial,sans-serif;
+      background:#f8f8f8;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      min-height:100vh;
+      padding:20px;
+    }
+    .box{
+      width:100%;
+      max-width:430px;
+      background:#fff;
+      border-radius:16px;
+      padding:24px;
+      box-shadow:0 8px 24px rgba(0,0,0,0.08);
+      text-align:center;
+    }
+    h2{
+      margin-top:0;
+      margin-bottom:10px;
+      font-size:24px;
+    }
+    p{
+      color:#555;
+      line-height:1.6;
+    }
+    input{
+      width:100%;
+      padding:14px;
+      border:1px solid #ddd;
+      border-radius:12px;
+      margin-top:14px;
+      margin-bottom:14px;
+      font-size:16px;
+      box-sizing:border-box;
+    }
+    button{
+      width:100%;
+      padding:14px;
+      border:none;
+      border-radius:12px;
+      font-size:16px;
+      cursor:pointer;
+      margin-top:10px;
+    }
+    .primary{
+      background:#16a34a;
+      color:#fff;
+      font-weight:bold;
+    }
+    .secondary{
+      background:#f3f4f6;
+      color:#111827;
+      font-weight:bold;
+    }
+    .danger{
+      background:#fff1f2;
+      color:#b91c1c;
+      border:1px solid #fecdd3;
+      font-weight:bold;
+    }
+    .status{
+      margin-top:16px;
+      padding:14px;
+      border-radius:12px;
+      font-size:14px;
+      line-height:1.6;
+      display:none;
+    }
+    .success{
+      background:#ecfdf3;
+      border:1px solid #bbf7d0;
+      color:#166534;
+      display:block;
+    }
+    .error{
+      background:#fef2f2;
+      border:1px solid #fecaca;
+      color:#991b1b;
+      display:block;
+    }
+    .pending{
+      background:#eff6ff;
+      border:1px solid #bfdbfe;
+      color:#1d4ed8;
+      display:block;
+    }
+  </style>
+</head>
+<body>
+  <div class="box">
+    <h2>Complete Payment</h2>
+    <p id="packageText">Preparing payment...</p>
+
+    <input type="tel" id="momoNumber" placeholder="Enter MoMo Number">
+
+    <button class="primary" onclick="startPrompt()">Send Payment Prompt</button>
+    <button class="secondary" onclick="manualCheck()">I've completed the payment</button>
+    <button class="danger" onclick="cancelPayment()">Cancel</button>
+
+    <div id="statusBox" class="status"></div>
+  </div>
+
+  <script>
+    const API_BASE =
+      location.hostname === "localhost"
+        ? "http://localhost:8080"
+        : "https://edatagh.com/edatagh-backend";
+
+    const params = new URLSearchParams(location.search);
+    const agentId = params.get("agent_id") || "";
+    const packageSms = params.get("package_sms") || "";
+    const amount = params.get("amount") || "";
+
+    let transactionId = "";
+    let pollTimer = null;
+
+    document.getElementById("packageText").textContent =
+      packageSms && amount
+        ? `You are about to pay GHS ${amount} for ${Number(packageSms).toLocaleString()} SMS credits.`
+        : "Payment details missing.";
+
+    function showStatus(message, type = "pending") {
+      const box = document.getElementById("statusBox");
+      box.className = `status ${type}`;
+      box.innerHTML = message;
+    }
+
+    async function startPrompt() {
+      const momoNumber = document.getElementById("momoNumber").value.trim();
+
+      if (!agentId) {
+        showStatus("Agent ID missing.", "error");
+        return;
+      }
+
+      if (!packageSms) {
+        showStatus("Package information missing.", "error");
+        return;
+      }
+
+      if (!momoNumber) {
+        showStatus("Please enter your MoMo number.", "error");
+        return;
+      }
+
+      try {
+        showStatus("Sending prompt to your phone. Please enter your PIN on your device.", "pending");
+
+        const res = await fetch(`${API_BASE}/api/agent/sms-credit/initiate-momo`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            agent_id: Number(agentId),
+            package_sms: String(packageSms),
+            momo_number: momoNumber
+          })
+        });
+
+        const data = await res.json();
+
+        if (!res.ok || !data.ok) {
+          showStatus(data.message || "Could not start payment.", "error");
+          return;
+        }
+
+        transactionId = data.transaction_id;
+        showStatus("Prompt sent. Please approve on your phone. Waiting for payment confirmation...", "pending");
+        startPolling();
+      } catch (err) {
+        console.error(err);
+        showStatus("Network or server error while starting payment.", "error");
+      }
+    }
+
+    function startPolling() {
+      if (!transactionId) return;
+
+      clearInterval(pollTimer);
+
+      pollTimer = setInterval(async () => {
+        try {
+          const res = await fetch(`${API_BASE}/api/agent/sms-credit/status?transaction_id=${encodeURIComponent(transactionId)}`);
+          const data = await res.json();
+
+          if (!data.ok) return;
+
+          if (data.status === "approved") {
+            clearInterval(pollTimer);
+
+            const smsAdded = data.finalized?.sms_added || packageSms;
+            const smsBalance = data.finalized?.sms_balance || "";
+
+            showStatus(
+              `Payment successful.<br><br><strong>SMS Added:</strong> ${smsAdded}<br><strong>New SMS Balance:</strong> ${smsBalance}`,
+              "success"
+            );
+          } else if (data.status === "failed") {
+            clearInterval(pollTimer);
+            showStatus("Payment failed or was cancelled.", "error");
+          }
+        } catch (err) {
+          console.error(err);
+        }
+      }, 5000);
+    }
+
+    async function manualCheck() {
+      if (!transactionId) {
+        showStatus("No payment session found yet. Please send the prompt first.", "error");
+        return;
+      }
+
+      try {
+        showStatus("Checking payment manually...", "pending");
+
+        const res = await fetch(`${API_BASE}/api/agent/sms-credit/manual-check`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            transaction_id: transactionId
+          })
+        });
+
+        const data = await res.json();
+
+        if (!res.ok || !data.ok) {
+          showStatus(data.message || "Payment is not yet confirmed.", "error");
+          return;
+        }
+
+        clearInterval(pollTimer);
+
+        showStatus(
+          `${data.message}<br><br><strong>SMS Added:</strong> ${data.sms_added}<br><strong>New SMS Balance:</strong> ${data.sms_balance}`,
+          "success"
+        );
+      } catch (err) {
+        console.error(err);
+        showStatus("Manual check failed.", "error");
+      }
+    }
+
+    function cancelPayment() {
+      clearInterval(pollTimer);
+      window.close();
+      history.back();
+    }
+  </script>
+</body>
+</html>

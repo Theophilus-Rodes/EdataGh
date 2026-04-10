@@ -454,10 +454,16 @@
           return;
         }
 
-        if (data.pending) {
-          showResult(data.message || "MoMo purchase flow will be connected next.");
-          return;
-        }
+       if (selectedMethod === "momo") {
+  const qs = new URLSearchParams({
+    agent_id: String(agentId),
+    package_sms: String(selectedSms),
+    amount: String(selectedAmount)
+  });
+
+  window.location.href = `sms-credit-payment.html?${qs.toString()}`;
+  return;
+}
 
         showResult(`
           ${data.message}<br><br>
