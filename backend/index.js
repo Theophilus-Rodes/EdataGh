@@ -5874,10 +5874,23 @@ app.get("/api/dev/check-balance", verifyAgentApiKey, (req, res) => {
   });
 });
 
+
+
 app.post("/api/dev/make-order", verifyAgentApiKey, (req, res) => {
+  console.log("========== /api/dev/make-order called ==========");
+  console.log("Request body:", req.body);
+  console.log("Authenticated agent:", req.agent);
+
   const { network, package_name, recipient_number, amount } = req.body;
 
-  if (!network || !package_name || !recipient_number || !amount) {
+  if (!network || !package_name || !recipient_number || amount === undefined || amount === null) {
+    console.log("Validation failed:", {
+      network,
+      package_name,
+      recipient_number,
+      amount
+    });
+
     return res.status(400).json({
       success: false,
       message: "network, package_name, recipient_number and amount are required"
@@ -5885,6 +5898,20 @@ app.post("/api/dev/make-order", verifyAgentApiKey, (req, res) => {
   }
 
   const packageId = "PKG" + Date.now();
+
+  console.log("Generated packageId:", packageId);
+
+  const orderData = {
+    agent_id: req.agent?.agent_id,
+    network,
+    package_name,
+    recipient_number,
+    amount,
+    status: "pending",
+    package_id: packageId
+  };
+
+  console.log("Prepared order data:", orderData);
 
   const sql = `
     INSERT INTO orders (
@@ -5900,10 +5927,12 @@ app.post("/api/dev/make-order", verifyAgentApiKey, (req, res) => {
     VALUES (?, ?, ?, ?, ?, 'pending', ?, NOW())
   `;
 
+  console.log("Running INSERT into orders...");
+
   db.query(
     sql,
     [
-      req.agent.agent_id,
+      req.agent?.agent_id,
       network,
       package_name,
       recipient_number,
@@ -5912,12 +5941,28 @@ app.post("/api/dev/make-order", verifyAgentApiKey, (req, res) => {
     ],
     (err, result) => {
       if (err) {
-        console.error("Order insert error:", err);
+        console.error("========== ORDER INSERT ERROR ==========");
+        console.error("MySQL error object:", err);
+        console.error("MySQL error code:", err.code);
+        console.error("MySQL error errno:", err.errno);
+        console.error("MySQL error sqlMessage:", err.sqlMessage);
+        console.error("MySQL error sqlState:", err.sqlState);
+        console.error("MySQL error sql:", err.sql);
+
         return res.status(500).json({
           success: false,
-          message: "Could not create order"
+          message: "Could not create order",
+          debug: {
+            code: err.code,
+            errno: err.errno,
+            sqlMessage: err.sqlMessage,
+            sqlState: err.sqlState
+          }
         });
       }
+
+      console.log("Order inserted successfully:", result);
+      console.log("========================================");
 
       res.json({
         success: true,
@@ -5931,6 +5976,7 @@ app.post("/api/dev/make-order", verifyAgentApiKey, (req, res) => {
     }
   );
 });
+
 
 app.get("/api/dev/order-status/:orderId", verifyAgentApiKey, (req, res) => {
   const { orderId } = req.params;
