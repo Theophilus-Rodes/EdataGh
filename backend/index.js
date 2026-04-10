@@ -21,6 +21,13 @@ app.use(cors({
   credentials: true
 }));
 
+// TEMP CONFIG (we will move to .env later)
+const GIANTSMS_API_URL = "https://api.giantsms.com/api/v1/send";
+const GIANTSMS_USERNAME = "26985_edygxt"; // replace
+const GIANTSMS_SECRET = "MjY5ODVfZWR5Z3h0OmlXWmpPbWdOaEpIZQ==";     // replace
+const GIANTSMS_DEFAULT_SENDER = "SANDYPAY";
+
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
@@ -36,6 +43,140 @@ app.use(session({
     secure: true, // DigitalOcean uses HTTPS
   }
 }));
+
+
+
+function normalizeGhanaNumber(value) {
+  let num = String(value || "").trim();
+
+  num = num.replace(/[^\d+]/g, "");
+
+  if (!num) return "";
+
+  if (num.startsWith("+233")) {
+    num = "0" + num.slice(4);
+  } else if (num.startsWith("233")) {
+    num = "0" + num.slice(3);
+  }
+
+  if (!/^0\d{9}$/.test(num)) return "";
+
+  return "+233" + num.slice(1); // convert to international
+}
+
+function uniqueValidNumbers(numbers = []) {
+  const seen = new Set();
+  const clean = [];
+
+  for (const raw of numbers) {
+    const normalized = normalizeGhanaNumber(raw);
+    if (normalized && !seen.has(normalized)) {
+      seen.add(normalized);
+      clean.push(normalized);
+    }
+  }
+
+  return clean;
+}
+
+
+
+async function sendSingleSmsViaGiantSMS({ to, message, senderId }) {
+  try {
+    const response = await axios.post(
+      GIANTSMS_API_URL,
+      {
+        to,
+        message,
+        sender: senderId
+      },
+      {
+        auth: {
+          username: GIANTSMS_USERNAME,
+          password: GIANTSMS_SECRET
+        },
+        headers: {
+          "Content-Type": "application/json"
+        },
+        timeout: 30000
+      }
+    );
+
+    return {
+      ok: true,
+      data: response.data
+    };
+
+  } catch (err) {
+    return {
+      ok: false,
+      error: err.response?.data || err.message
+    };
+  }
+}
+
+///// AGENT SMS ROUTE 
+app.post("/api/agent/sms/send", async (req, res) => {
+  try {
+    const { senderId, message, numbers } = req.body;
+
+    const finalSender = (senderId || GIANTSMS_DEFAULT_SENDER).trim();
+    const finalMessage = (message || "").trim();
+    const finalNumbers = uniqueValidNumbers(numbers || []);
+
+    if (!finalSender) {
+      return res.status(400).json({ ok: false, message: "Sender ID required" });
+    }
+
+    if (!finalMessage) {
+      return res.status(400).json({ ok: false, message: "Message required" });
+    }
+
+    if (!finalNumbers.length) {
+      return res.status(400).json({ ok: false, message: "No valid numbers" });
+    }
+
+    let sent = 0;
+    let failed = 0;
+    const results = [];
+
+    for (const num of finalNumbers) {
+      const result = await sendSingleSmsViaGiantSMS({
+        to: num,
+        message: finalMessage,
+        senderId: finalSender
+      });
+
+      if (result.ok) {
+        sent++;
+        results.push({ number: num, status: "sent" });
+      } else {
+        failed++;
+        results.push({ number: num, status: "failed", error: result.error });
+      }
+    }
+
+    return res.json({
+      ok: true,
+      message: `Done. Sent: ${sent}, Failed: ${failed}`,
+      summary: {
+        total: finalNumbers.length,
+        sent,
+        failed
+      },
+      results
+    });
+
+  } catch (err) {
+    console.error("SMS ERROR:", err);
+
+    res.status(500).json({
+      ok: false,
+      message: "Server error",
+      error: err.message
+    });
+  }
+});
 
 
 
