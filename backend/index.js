@@ -80,23 +80,19 @@ function uniqueValidNumbers(numbers = []) {
 }
 
 
-async function sendSingleSmsViaGiantSMS({ to, message, senderId }) {
+async function sendSingleSmsViaGiantSMS({ recipients, message, senderId }) {
   try {
     const response = await axios.post(
       GIANTSMS_API_URL,
       {
-        to,
-        message,
-        sender: senderId
+        from: senderId,
+        recipients: recipients,
+        msg: message
       },
       {
-        auth: {
-          username: GIANTSMS_USERNAME,
-          password: GIANTSMS_SECRET
-        },
         headers: {
-          "Content-Type": "application/json",
-          "Accept": "application/json"
+          "Authorization": `Basic ${GIANTSMS_SECRET}`,
+          "Content-Type": "application/json"
         },
         timeout: 30000
       }
@@ -106,7 +102,7 @@ async function sendSingleSmsViaGiantSMS({ to, message, senderId }) {
     console.log("GIANTSMS DATA:", response.data);
 
     return {
-      ok: true,
+      ok: response.data?.status === true,
       data: response.data
     };
   } catch (err) {
@@ -126,64 +122,65 @@ app.post("/api/agent/sms/send", async (req, res) => {
   try {
     const { senderId, message, numbers } = req.body;
 
-    const finalSender = (senderId || GIANTSMS_DEFAULT_SENDER).trim();
+    const finalSender = (senderId || GIANTSMS_DEFAULT_SENDER || "").trim();
     const finalMessage = (message || "").trim();
-    const finalNumbers = uniqueValidNumbers(numbers || []);
+    const finalNumbers = uniqueValidNumbers(Array.isArray(numbers) ? numbers : []);
 
     if (!finalSender) {
-      return res.status(400).json({ ok: false, message: "Sender ID required" });
+      return res.status(400).json({
+        ok: false,
+        message: "Sender ID required"
+      });
     }
 
     if (!finalMessage) {
-      return res.status(400).json({ ok: false, message: "Message required" });
+      return res.status(400).json({
+        ok: false,
+        message: "Message required"
+      });
     }
 
     if (!finalNumbers.length) {
-      return res.status(400).json({ ok: false, message: "No valid numbers" });
+      return res.status(400).json({
+        ok: false,
+        message: "No valid numbers"
+      });
     }
 
-    let sent = 0;
-    let failed = 0;
-    const results = [];
-
- for (const num of finalNumbers) {
-  const result = await sendSingleSmsViaGiantSMS({
-    to: num,
-    message: finalMessage,
-    senderId: finalSender
-  });
-
-  if (result.ok) {
-    const provider = result.data;
-
-    results.push({
-      number: num,
-      status: "submitted",
-      providerResponse: provider
+    const result = await sendSingleSmsViaGiantSMS({
+      recipients: finalNumbers,
+      message: finalMessage,
+      senderId: finalSender
     });
 
-    sent++;
-  } else {
-    failed++;
-    results.push({
-      number: num,
-      status: "failed",
-      error: result.error
+    if (!result.ok) {
+      return res.status(400).json({
+        ok: false,
+        message: result.data?.message || result.error?.message || "SMS sending failed",
+        providerResponse: result.data || result.error
+      });
+    }
+
+    return res.json({
+      ok: true,
+      message: result.data?.message || "Bulk messages queued successfully",
+      summary: {
+        total: finalNumbers.length,
+        submitted: finalNumbers.length
+      },
+      providerResponse: result.data
     });
-  }
-}
 
   } catch (err) {
     console.error("SMS ERROR:", err);
 
-    res.status(500).json({
+    return res.status(500).json({
       ok: false,
       message: "Server error",
       error: err.message
     });
   }
 });
-
 
 
 
