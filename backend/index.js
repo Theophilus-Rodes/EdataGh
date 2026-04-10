@@ -23,9 +23,8 @@ app.use(cors({
 
 // TEMP CONFIG (we will move to .env later)
 const GIANTSMS_API_URL = "https://api.giantsms.com/api/v1/send";
-const GIANTSMS_USERNAME = "26985_edygxt"; // replace
-const GIANTSMS_SECRET = "MjY5ODVfZWR5Z3h0OmlXWmpPbWdOaEpIZQ==";     // replace
-const GIANTSMS_DEFAULT_SENDER = "SANDYPAY";
+const GIANTSMS_USERNAME = "26985_edygxt";
+const GIANTSMS_SECRET = "MjY5ODVfZWR5Z3h0OmlXWmpPbWdOaEpIZQ==";
 
 
 app.use(express.json());
@@ -122,16 +121,18 @@ app.post("/api/agent/sms/send", async (req, res) => {
   try {
     const { senderId, message, numbers } = req.body;
 
-    const finalSender = (senderId || GIANTSMS_DEFAULT_SENDER || "").trim();
-    const finalMessage = (message || "").trim();
-    const finalNumbers = uniqueValidNumbers(Array.isArray(numbers) ? numbers : []);
+    // CHANGE THIS if your session key is different
+    const agentId = req.session?.agent_id || req.session?.agentId || null;
 
-    if (!finalSender) {
-      return res.status(400).json({
+    if (!agentId) {
+      return res.status(401).json({
         ok: false,
-        message: "Sender ID required"
+        message: "Agent not logged in"
       });
     }
+
+    const finalMessage = (message || "").trim();
+    const finalNumbers = uniqueValidNumbers(Array.isArray(numbers) ? numbers : []);
 
     if (!finalMessage) {
       return res.status(400).json({
@@ -144,6 +145,30 @@ app.post("/api/agent/sms/send", async (req, res) => {
       return res.status(400).json({
         ok: false,
         message: "No valid numbers"
+      });
+    }
+
+    const [agentRows] = await db.promise().query(
+      `SELECT id, sender_id FROM agents WHERE id = ? LIMIT 1`,
+      [agentId]
+    );
+
+    if (!agentRows.length) {
+      return res.status(404).json({
+        ok: false,
+        message: "Agent account not found"
+      });
+    }
+
+    const dbSenderId = (agentRows[0].sender_id || "").trim();
+    const manualSenderId = (senderId || "").trim();
+
+    const finalSender = manualSenderId || dbSenderId;
+
+    if (!finalSender) {
+      return res.status(400).json({
+        ok: false,
+        message: "No Sender ID has been assigned to this agent yet."
       });
     }
 
@@ -168,6 +193,7 @@ app.post("/api/agent/sms/send", async (req, res) => {
         total: finalNumbers.length,
         submitted: finalNumbers.length
       },
+      sender_used: finalSender,
       providerResponse: result.data
     });
 
@@ -181,7 +207,6 @@ app.post("/api/agent/sms/send", async (req, res) => {
     });
   }
 });
-
 
 
 
