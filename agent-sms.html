@@ -447,6 +447,34 @@
   color: #fff;
   transform: translateY(-2px);
 }
+
+.sms-balance-box{
+  background:#ffffff;
+  border:2px solid #0f7b3f;
+  border-radius:12px;
+  padding:10px 14px;
+  min-width:220px;
+  display:flex;
+  flex-direction:column;
+  justify-content:center;
+}
+
+.sms-balance-box label{
+  font-size:13px;
+  font-weight:600;
+  color:#0f7b3f;
+  margin-bottom:6px;
+}
+
+.sms-balance-box input{
+  border:none;
+  outline:none;
+  background:transparent;
+  font-size:18px;
+  font-weight:700;
+  color:#1e293b;
+  padding:0;
+}
   </style>
 </head>
 <body>
@@ -462,7 +490,10 @@
     <div class="top-actions">
   <button class="action-btn" onclick="openSenderID()">📩 Request Sender ID</button>
   <button class="action-btn" onclick="openPurchase()">💰 Purchase SMS Credit</button>
-  <button class="action-btn" onclick="openMonitor()">📊 Monitor SMS</button>
+  <div class="sms-balance-box">
+  <label for="smsBalanceField">SMS Credit</label>
+  <input type="text" id="smsBalanceField" value="Loading..." readonly />
+</div>
 </div>
 
     <div class="stats">
@@ -938,6 +969,49 @@ function openPurchase() {
 function openMonitor() {
   window.location.href = "monitor-sms.html";
 }
+
+function getAgentId() {
+  return localStorage.getItem("agent_id") || sessionStorage.getItem("agent_id");
+}
+
+async function loadSmsBalance() {
+  const agentId = getAgentId();
+  const smsField = document.getElementById("smsBalanceField");
+
+  if (!smsField) return;
+
+  if (!agentId) {
+    smsField.value = "No agent";
+    return;
+  }
+
+  try {
+    const res = await fetch(`${API_BASE}/api/agent/${agentId}/sms-balance`);
+    const data = await res.json();
+
+    if (!res.ok || !data.success) {
+      smsField.value = "Unavailable";
+      return;
+    }
+
+    smsField.value = data.sms_balance;
+  } catch (error) {
+    console.error("Error loading SMS balance:", error);
+    smsField.value = "Error";
+  }
+}
+
+function openSenderID() {
+  window.location.href = "request-sender-id.html";
+}
+
+function openPurchase() {
+  window.location.href = "purchase-sms.html";
+}
+
+loadSmsBalance();
 </script>
+
+
 </body>
 </html>
