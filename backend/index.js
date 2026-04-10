@@ -2131,6 +2131,48 @@ app.post("/api/sender-id-request", (req, res) => {
 });
 
 
+
+
+app.get("/api/agent/:id/sms-balance", (req, res) => {
+  const agentId = Number(req.params.id);
+
+  if (!agentId) {
+    return res.status(400).json({
+      success: false,
+      message: "Invalid agent id"
+    });
+  }
+
+  const sql = `
+    SELECT id, smsfield
+    FROM agents
+    WHERE id = ?
+    LIMIT 1
+  `;
+
+  db.query(sql, [agentId], (err, rows) => {
+    if (err) {
+      console.error("Error fetching sms balance:", err);
+      return res.status(500).json({
+        success: false,
+        message: "Database error"
+      });
+    }
+
+    if (!rows.length) {
+      return res.status(404).json({
+        success: false,
+        message: "Agent not found"
+      });
+    }
+
+    return res.json({
+      success: true,
+      sms_balance: Number(rows[0].smsfield || 0)
+    });
+  });
+});
+
 ///// SMS PURCHASE 
 
 
