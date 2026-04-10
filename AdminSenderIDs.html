@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Admin - Agent Sender IDs</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root{
+      --primary:#0f8f43;
+      --primary-dark:#0b6b31;
+      --bg:#f4f7fb;
+      --card:#ffffff;
+      --text:#18212b;
+      --muted:#6b7280;
+      --line:#e5e7eb;
+      --danger:#dc2626;
+      --danger-bg:#fee2e2;
+      --light:#eef2f7;
+      --shadow:0 10px 30px rgba(0,0,0,.08);
+      --radius:22px;
+    }
+
+    *{
+      box-sizing:border-box;
+      margin:0;
+      padding:0;
+      font-family:'Inter',sans-serif;
+    }
+
+    body{
+      background:var(--bg);
+      color:var(--text);
+    }
+
+    .page{
+      max-width:1200px;
+      margin:0 auto;
+      padding:24px 16px 60px;
+    }
+
+    .topbar{
+      background:linear-gradient(135deg,var(--primary),var(--primary-dark));
+      color:#fff;
+      border-radius:28px;
+      padding:24px 22px;
+      margin-bottom:22px;
+      box-shadow:var(--shadow);
+    }
+
+    .topbar h1{
+      font-size:28px;
+      font-weight:800;
+      margin-bottom:8px;
+    }
+
+    .topbar p{
+      font-size:14px;
+      color:rgba(255,255,255,.9);
+      max-width:760px;
+      line-height:1.5;
+    }
+
+    .card{
+      background:var(--card);
+      border:1px solid var(--line);
+      border-radius:var(--radius);
+      box-shadow:var(--shadow);
+      padding:22px;
+    }
+
+    .card-head{
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      gap:12px;
+      flex-wrap:wrap;
+      margin-bottom:18px;
+    }
+
+    .card-head h2{
+      font-size:20px;
+      font-weight:800;
+    }
+
+    .card-head p{
+      color:var(--muted);
+      font-size:13px;
+      margin-top:4px;
+    }
+
+    .search-box{
+      width:280px;
+      max-width:100%;
+    }
+
+    .search-box input{
+      width:100%;
+      padding:12px 14px;
+      border:1px solid var(--line);
+      border-radius:14px;
+      outline:none;
+      font-size:14px;
+    }
+
+    .search-box input:focus{
+      border-color:var(--primary);
+      box-shadow:0 0 0 4px rgba(15,143,67,.08);
+    }
+
+    .table-wrap{
+      overflow:auto;
+      border:1px solid var(--line);
+      border-radius:18px;
+    }
+
+    table{
+      width:100%;
+      border-collapse:collapse;
+      min-width:850px;
+      background:#fff;
+    }
+
+    th, td{
+      padding:14px 12px;
+      border-bottom:1px solid var(--line);
+      text-align:left;
+      font-size:14px;
+      vertical-align:middle;
+    }
+
+    th{
+      background:#f9fafb;
+      font-size:13px;
+      color:#374151;
+      position:sticky;
+      top:0;
+      z-index:2;
+    }
+
+    .sender-input{
+      width:180px;
+      padding:10px 12px;
+      border:1px solid var(--line);
+      border-radius:12px;
+      outline:none;
+      font-size:14px;
+      text-transform:uppercase;
+    }
+
+    .sender-input:focus{
+      border-color:var(--primary);
+      box-shadow:0 0 0 4px rgba(15,143,67,.08);
+    }
+
+    .actions{
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+    }
+
+    .btn{
+      border:none;
+      padding:10px 14px;
+      border-radius:12px;
+      font-size:13px;
+      font-weight:700;
+      cursor:pointer;
+    }
+
+    .btn-save{
+      background:var(--primary);
+      color:#fff;
+    }
+
+    .btn-save:hover{
+      background:var(--primary-dark);
+    }
+
+    .btn-edit{
+      background:var(--light);
+      color:#111827;
+    }
+
+    .btn-remove{
+      background:var(--danger-bg);
+      color:var(--danger);
+    }
+
+    .badge{
+      display:inline-block;
+      padding:6px 10px;
+      border-radius:999px;
+      font-size:12px;
+      font-weight:700;
+      background:#ecfdf3;
+      color:#166534;
+    }
+
+    .empty{
+      text-align:center;
+      color:var(--muted);
+      padding:30px;
+      font-size:14px;
+    }
+
+    .message{
+      display:none;
+      margin-bottom:16px;
+      padding:12px 14px;
+      border-radius:14px;
+      font-size:14px;
+      font-weight:600;
+    }
+
+    .message.success{
+      display:block;
+      background:#ecfdf3;
+      color:#166534;
+      border:1px solid #bbf7d0;
+    }
+
+    .message.error{
+      display:block;
+      background:#fef2f2;
+      color:#991b1b;
+      border:1px solid #fecaca;
+    }
+
+    @media (max-width: 768px){
+      .topbar h1{
+        font-size:22px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <div class="topbar">
+      <h1>Agent Sender ID Management</h1>
+      <p>
+        Set, edit, or remove sender IDs for agents. These sender IDs can later be used when agents send bulk SMS.
+      </p>
+    </div>
+
+    <div id="pageMessage" class="message"></div>
+
+    <div class="card">
+      <div class="card-head">
+        <div>
+          <h2>Agents List</h2>
+          <p>Fetches agent ID, first name, last name, and current sender ID.</p>
+        </div>
+
+        <div class="search-box">
+          <input type="text" id="searchInput" placeholder="Search by name or ID..." oninput="filterAgents()" />
+        </div>
+      </div>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th style="width:90px;">ID</th>
+              <th>First Name</th>
+              <th>Last Name</th>
+              <th>Current Sender ID</th>
+              <th>Set / Edit Sender ID</th>
+              <th style="width:260px;">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="agentsTableBody">
+            <tr>
+              <td colspan="6" class="empty">Loading agents...</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const API_BASE = "http://localhost:5000";
+    let allAgents = [];
+
+    function showMessage(text, isError = false) {
+      const box = document.getElementById("pageMessage");
+      box.className = isError ? "message error" : "message success";
+      box.textContent = text;
+      box.style.display = "block";
+
+      setTimeout(() => {
+        box.style.display = "none";
+      }, 3000);
+    }
+
+    async function loadAgents() {
+      const tbody = document.getElementById("agentsTableBody");
+      tbody.innerHTML = `<tr><td colspan="6" class="empty">Loading agents...</td></tr>`;
+
+      try {
+        const res = await fetch(`${API_BASE}/api/admin/agents/sender-ids`);
+        const data = await res.json();
+
+        if (!res.ok || !data.ok) {
+          tbody.innerHTML = `<tr><td colspan="6" class="empty">Failed to load agents.</td></tr>`;
+          return;
+        }
+
+        allAgents = data.agents || [];
+        renderAgents(allAgents);
+      } catch (err) {
+        console.error(err);
+        tbody.innerHTML = `<tr><td colspan="6" class="empty">Network error while loading agents.</td></tr>`;
+      }
+    }
+
+    function renderAgents(agents) {
+      const tbody = document.getElementById("agentsTableBody");
+
+      if (!agents.length) {
+        tbody.innerHTML = `<tr><td colspan="6" class="empty">No agents found.</td></tr>`;
+        return;
+      }
+
+      tbody.innerHTML = agents.map(agent => `
+        <tr>
+          <td>${agent.id}</td>
+          <td>${agent.first_name || ""}</td>
+          <td>${agent.last_name || ""}</td>
+          <td>
+            ${agent.sender_id
+              ? `<span class="badge">${agent.sender_id}</span>`
+              : `<span style="color:#9ca3af;">Not set</span>`
+            }
+          </td>
+          <td>
+            <input
+              type="text"
+              class="sender-input"
+              id="sender_${agent.id}"
+              value="${agent.sender_id || ""}"
+              placeholder="Enter Sender ID"
+              maxlength="20"
+            />
+          </td>
+          <td>
+            <div class="actions">
+              <button class="btn btn-save" onclick="saveSenderId(${agent.id})">Save</button>
+              <button class="btn btn-edit" onclick="editSenderId(${agent.id})">Edit</button>
+              <button class="btn btn-remove" onclick="removeSenderId(${agent.id})">Remove</button>
+            </div>
+          </td>
+        </tr>
+      `).join("");
+    }
+
+    function filterAgents() {
+      const value = document.getElementById("searchInput").value.trim().toLowerCase();
+
+      const filtered = allAgents.filter(agent => {
+        const fullName = `${agent.first_name || ""} ${agent.last_name || ""}`.toLowerCase();
+        const id = String(agent.id || "").toLowerCase();
+        return fullName.includes(value) || id.includes(value);
+      });
+
+      renderAgents(filtered);
+    }
+
+    async function saveSenderId(agentId) {
+      const input = document.getElementById(`sender_${agentId}`);
+      const senderId = input.value.trim().toUpperCase();
+
+      if (!senderId) {
+        showMessage("Please enter a Sender ID.", true);
+        return;
+      }
+
+      try {
+        const res = await fetch(`${API_BASE}/api/admin/agents/set-sender-id`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            agent_id: agentId,
+            sender_id: senderId
+          })
+        });
+
+        const data = await res.json();
+
+        if (!res.ok || !data.ok) {
+          showMessage(data.message || "Failed to save Sender ID.", true);
+          return;
+        }
+
+        showMessage(data.message || "Sender ID saved successfully.");
+        loadAgents();
+      } catch (err) {
+        console.error(err);
+        showMessage("Network error while saving Sender ID.", true);
+      }
+    }
+
+    async function editSenderId(agentId) {
+      const input = document.getElementById(`sender_${agentId}`);
+      input.focus();
+      showMessage("You can now edit the Sender ID and click Save.");
+    }
+
+    async function removeSenderId(agentId) {
+      const yes = confirm("Are you sure you want to remove this Sender ID?");
+      if (!yes) return;
+
+      try {
+        const res = await fetch(`${API_BASE}/api/admin/agents/remove-sender-id`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            agent_id: agentId
+          })
+        });
+
+        const data = await res.json();
+
+        if (!res.ok || !data.ok) {
+          showMessage(data.message || "Failed to remove Sender ID.", true);
+          return;
+        }
+
+        showMessage(data.message || "Sender ID removed successfully.");
+        loadAgents();
+      } catch (err) {
+        console.error(err);
+        showMessage("Network error while removing Sender ID.", true);
+      }
+    }
+
+    loadAgents();
+  </script>
+</body>
+</html>
