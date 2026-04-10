@@ -1141,52 +1141,66 @@ console.log("Logged in agent ID:", agentId);
   
 
 
-  async function selectNet(displayName, networkValue){
-    const offersContainer = document.getElementById('offersContainer');
-    offersContainer.innerHTML = `<div class="loading-state">Loading ${displayName} offers...</div>`;
+ async function selectNet(displayName, networkValue){
+  const offersContainer = document.getElementById('offersContainer');
+  offersContainer.innerHTML = `<div class="loading-state">Loading ${displayName} offers...</div>`;
 
-    try {
-      const res = await fetch(`${API_BASE}/api/admin-prices?network=${encodeURIComponent(networkValue)}`);
+  try {
+    const res = await fetch(`${API_BASE}/api/admin-prices?network=${encodeURIComponent(networkValue)}`);
 
-      if (!res.ok) {
-        const text = await res.text();
-        throw new Error(`HTTP ${res.status} - ${text}`);
-      }
+    if (!res.ok) {
+      const text = await res.text();
+      throw new Error(`HTTP ${res.status} - ${text}`);
+    }
 
-      const result = await res.json();
+    const result = await res.json();
 
-      // Match your backend response format
-      if (!result.ok) {
-        offersContainer.innerHTML = `
-          <div class="empty-state">
-            ${result.message || 'Failed to load offers.'}
-          </div>
-        `;
-        return;
-      }
-
-      const offers = result.rows || [];
-
-      if (offers.length === 0) {
-        offersContainer.innerHTML = `
-          <div class="empty-state">
-            No active offers found for ${displayName}.
-          </div>
-        `;
-        return;
-      }
-
-      offersContainer.innerHTML = offers.map(item => createOfferCard(item, displayName)).join('');
-      toast(`${displayName} offers loaded`);
-    } catch (error) {
-      console.error('Error loading offers:', error);
+    // Match your backend response format
+    if (!result.ok) {
       offersContainer.innerHTML = `
         <div class="empty-state">
-          ${error.message || 'Something went wrong while loading offers.'}
+          ${result.message || 'Failed to load offers.'}
         </div>
       `;
+      return;
     }
+
+    const offers = (result.rows || []).sort((a, b) => {
+      const getSizeInMB = (text) => {
+        text = String(text || '').toUpperCase().trim();
+        const match = text.match(/([\d.]+)\s*(MB|GB)/);
+
+        if (!match) return 0;
+
+        const value = parseFloat(match[1]);
+        const unit = match[2];
+
+        return unit === 'GB' ? value * 1024 : value;
+      };
+
+      return getSizeInMB(a.package_name) - getSizeInMB(b.package_name);
+    });
+
+    if (offers.length === 0) {
+      offersContainer.innerHTML = `
+        <div class="empty-state">
+          No active offers found for ${displayName}.
+        </div>
+      `;
+      return;
+    }
+
+    offersContainer.innerHTML = offers.map(item => createOfferCard(item, displayName)).join('');
+    toast(`${displayName} offers loaded`);
+  } catch (error) {
+    console.error('Error loading offers:', error);
+    offersContainer.innerHTML = `
+      <div class="empty-state">
+        ${error.message || 'Something went wrong while loading offers.'}
+      </div>
+    `;
   }
+}
 
 
 
