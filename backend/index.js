@@ -5849,31 +5849,64 @@ app.get("/api/dev/auth", verifyAgentApiKey, (req, res) => {
 });
 
 app.get("/api/dev/check-balance", verifyAgentApiKey, (req, res) => {
+  console.log("========== /api/dev/check-balance called ==========");
+  console.log("Authenticated agent:", req.agent);
+
+  const agentId = req.agent?.agent_id;
+
+  if (!agentId) {
+    return res.status(401).json({
+      success: false,
+      message: "Invalid API key agent"
+    });
+  }
+
   const sql = `
-    SELECT COALESCE(SUM(amount), 0) AS balance
-    FROM wallet_deposits
-    WHERE agent_id = ?
+    SELECT id, balance
+    FROM agents
+    WHERE id = ?
+    LIMIT 1
   `;
 
-  db.query(sql, [req.agent.agent_id], (err, results) => {
+  db.query(sql, [agentId], (err, results) => {
     if (err) {
-      console.error("Balance fetch error:", err);
+      console.error("========== BALANCE FETCH ERROR ==========");
+      console.error("MySQL error object:", err);
+      console.error("MySQL error code:", err.code);
+      console.error("MySQL error errno:", err.errno);
+      console.error("MySQL error sqlMessage:", err.sqlMessage);
+      console.error("MySQL error sqlState:", err.sqlState);
+
       return res.status(500).json({
         success: false,
-        message: "Could not fetch balance"
+        message: "Could not fetch balance",
+        debug: {
+          code: err.code,
+          errno: err.errno,
+          sqlMessage: err.sqlMessage,
+          sqlState: err.sqlState
+        }
       });
     }
 
-    res.json({
+    if (!results.length) {
+      return res.status(404).json({
+        success: false,
+        message: "Agent not found"
+      });
+    }
+
+    const agent = results[0];
+
+    return res.json({
       success: true,
       data: {
-        agent_id: req.agent.agent_id,
-        balance: Number(results[0].balance || 0)
+        agent_id: agent.id,
+        balance: Number(agent.balance || 0)
       }
     });
   });
 });
-
 
 
 app.post("/api/dev/make-order", verifyAgentApiKey, (req, res) => {
@@ -5884,94 +5917,154 @@ app.post("/api/dev/make-order", verifyAgentApiKey, (req, res) => {
   const { network, package_name, recipient_number, amount } = req.body;
 
   if (!network || !package_name || !recipient_number || amount === undefined || amount === null) {
-    console.log("Validation failed:", {
-      network,
-      package_name,
-      recipient_number,
-      amount
-    });
-
     return res.status(400).json({
       success: false,
       message: "network, package_name, recipient_number and amount are required"
     });
   }
 
-  const packageId = "PKG" + Date.now();
+  const cleanNetwork = String(network).trim().toLowerCase();
+  const cleanPackageName = String(package_name).trim();
+  const cleanRecipient = String(recipient_number).trim();
+  const cleanAmount = Number(amount);
 
-  console.log("Generated packageId:", packageId);
+  if (Number.isNaN(cleanAmount)) {
+    return res.status(400).json({
+      success: false,
+      message: "amount must be a valid number"
+    });
+  }
 
-  const orderData = {
-    agent_id: req.agent?.agent_id,
-    network,
-    package_name,
-    recipient_number,
-    amount,
-    status: "pending",
-    package_id: packageId
-  };
+  const vendorId = req.agent.agent_id; // keep this if verifyAgentApiKey returns agent_id
+  const transactionId = "EDATA-" + Date.now() + "-" + Math.floor(Math.random() * 1000);
 
-  console.log("Prepared order data:", orderData);
+  console.log("Prepared values:", {
+    vendorId,
+    cleanNetwork,
+    cleanPackageName,
+    cleanRecipient,
+    cleanAmount,
+    transactionId
+  });
 
-  const sql = `
-    INSERT INTO orders (
-      agent_id,
-      network,
-      package_name,
-      recipient_number,
-      amount,
-      status,
-      package_id,
-      created_at
-    )
-    VALUES (?, ?, ?, ?, ?, 'pending', ?, NOW())
+  // Step 1: find matching package in admin_prices
+  const findPackageSql = `
+    SELECT id, network, package_name, price, status
+    FROM admin_prices
+    WHERE LOWER(network) = ?
+      AND package_name = ?
+      AND price = ?
+      AND status = 'active'
+    LIMIT 1
   `;
 
-  console.log("Running INSERT into orders...");
-
   db.query(
-    sql,
-    [
-      req.agent?.agent_id,
-      network,
-      package_name,
-      recipient_number,
-      amount,
-      packageId
-    ],
-    (err, result) => {
-      if (err) {
-        console.error("========== ORDER INSERT ERROR ==========");
-        console.error("MySQL error object:", err);
-        console.error("MySQL error code:", err.code);
-        console.error("MySQL error errno:", err.errno);
-        console.error("MySQL error sqlMessage:", err.sqlMessage);
-        console.error("MySQL error sqlState:", err.sqlState);
-        console.error("MySQL error sql:", err.sql);
+    findPackageSql,
+    [cleanNetwork, cleanPackageName, cleanAmount],
+    (findErr, packageRows) => {
+      if (findErr) {
+        console.error("========== PACKAGE LOOKUP ERROR ==========");
+        console.error("MySQL error object:", findErr);
+        console.error("MySQL error code:", findErr.code);
+        console.error("MySQL error errno:", findErr.errno);
+        console.error("MySQL error sqlMessage:", findErr.sqlMessage);
+        console.error("MySQL error sqlState:", findErr.sqlState);
 
         return res.status(500).json({
           success: false,
-          message: "Could not create order",
+          message: "Could not validate package",
           debug: {
-            code: err.code,
-            errno: err.errno,
-            sqlMessage: err.sqlMessage,
-            sqlState: err.sqlState
+            code: findErr.code,
+            errno: findErr.errno,
+            sqlMessage: findErr.sqlMessage,
+            sqlState: findErr.sqlState
           }
         });
       }
 
-      console.log("Order inserted successfully:", result);
-      console.log("========================================");
+      console.log("Matched package rows:", packageRows);
 
-      res.json({
-        success: true,
-        message: "Order created successfully",
-        data: {
-          order_id: result.insertId,
-          package_id: packageId,
-          status: "pending"
+      if (!packageRows || !packageRows.length) {
+        return res.status(404).json({
+          success: false,
+          message: "No active package matches the supplied network, package_name and amount"
+        });
+      }
+
+      const matchedPackage = packageRows[0];
+      const realPackageId = matchedPackage.id;
+
+      console.log("Matched package:", matchedPackage);
+
+      // Step 2: insert into orders using your real column names
+      const insertSql = `
+        INSERT INTO orders (
+          transaction_id,
+          vendor_id,
+          network,
+          package_id,
+          package_name,
+          amount,
+          recipient_number,
+          momo_number,
+          status,
+          raw_status,
+          created_at
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
+      `;
+
+      const insertValues = [
+        transactionId,
+        vendorId,
+        cleanNetwork,
+        realPackageId,
+        cleanPackageName,
+        cleanAmount,
+        cleanRecipient,
+        null,
+        "pending",
+        null
+      ];
+
+      console.log("Running INSERT into orders...");
+      console.log("Insert values:", insertValues);
+
+      db.query(insertSql, insertValues, (insertErr, result) => {
+        if (insertErr) {
+          console.error("========== ORDER INSERT ERROR ==========");
+          console.error("MySQL error object:", insertErr);
+          console.error("MySQL error code:", insertErr.code);
+          console.error("MySQL error errno:", insertErr.errno);
+          console.error("MySQL error sqlMessage:", insertErr.sqlMessage);
+          console.error("MySQL error sqlState:", insertErr.sqlState);
+          console.error("MySQL error sql:", insertErr.sql);
+
+          return res.status(500).json({
+            success: false,
+            message: "Could not create order",
+            debug: {
+              code: insertErr.code,
+              errno: insertErr.errno,
+              sqlMessage: insertErr.sqlMessage,
+              sqlState: insertErr.sqlState
+            }
+          });
         }
+
+        console.log("Order inserted successfully:", result);
+        console.log("========================================");
+
+        return res.json({
+          success: true,
+          message: "Order created successfully",
+          data: {
+            order_id: result.insertId,
+            transaction_id: transactionId,
+            package_id: realPackageId,
+            status: "pending"
+          }
+        });
       });
     }
   );
@@ -5979,22 +6072,66 @@ app.post("/api/dev/make-order", verifyAgentApiKey, (req, res) => {
 
 
 app.get("/api/dev/order-status/:orderId", verifyAgentApiKey, (req, res) => {
+  console.log("========== /api/dev/order-status called ==========");
+  console.log("Params:", req.params);
+  console.log("Authenticated agent:", req.agent);
+
   const { orderId } = req.params;
+  const vendorId = req.agent?.agent_id;
+
+  if (!orderId) {
+    return res.status(400).json({
+      success: false,
+      message: "orderId is required"
+    });
+  }
+
+  if (!vendorId) {
+    return res.status(401).json({
+      success: false,
+      message: "Invalid API key agent"
+    });
+  }
 
   const sql = `
-    SELECT id, network, package_name, recipient_number, amount, status, package_id, created_at
+    SELECT 
+      id,
+      transaction_id,
+      vendor_id,
+      network,
+      package_id,
+      package_name,
+      amount,
+      recipient_number,
+      momo_number,
+      status,
+      raw_status,
+      created_at,
+      updated_at
     FROM orders
     WHERE id = ?
-      AND agent_id = ?
+      AND vendor_id = ?
     LIMIT 1
   `;
 
-  db.query(sql, [orderId, req.agent.agent_id], (err, results) => {
+  db.query(sql, [orderId, vendorId], (err, results) => {
     if (err) {
-      console.error("Order status error:", err);
+      console.error("========== ORDER STATUS ERROR ==========");
+      console.error("MySQL error object:", err);
+      console.error("MySQL error code:", err.code);
+      console.error("MySQL error errno:", err.errno);
+      console.error("MySQL error sqlMessage:", err.sqlMessage);
+      console.error("MySQL error sqlState:", err.sqlState);
+
       return res.status(500).json({
         success: false,
-        message: "Could not fetch order status"
+        message: "Could not fetch order status",
+        debug: {
+          code: err.code,
+          errno: err.errno,
+          sqlMessage: err.sqlMessage,
+          sqlState: err.sqlState
+        }
       });
     }
 
@@ -6005,80 +6142,124 @@ app.get("/api/dev/order-status/:orderId", verifyAgentApiKey, (req, res) => {
       });
     }
 
-    res.json({
+    const row = results[0];
+
+    return res.json({
       success: true,
-      data: results[0]
+      data: {
+        id: row.id,
+        transaction_id: row.transaction_id,
+        network: row.network,
+        package_id: row.package_id,
+        package_name: row.package_name,
+        amount: Number(row.amount || 0),
+        recipient_number: row.recipient_number,
+        status: row.status,
+        created_at: row.created_at,
+        updated_at: row.updated_at
+      }
     });
   });
 });
 
 app.post("/api/dev/afa-register", verifyAgentApiKey, (req, res) => {
+  console.log("========== /api/dev/afa-register called ==========");
+  console.log("Request body:", req.body);
+  console.log("Authenticated agent:", req.agent);
+
   const {
-    first_name,
-    last_name,
-    ghana_card_number,
+    full_name,
+    phone_number,
+    id_number,
+    date_of_birth,
     town,
     occupation,
-    date_of_birth,
-    phone
+    email,
+    momo_number
   } = req.body;
 
   if (
-    !first_name ||
-    !last_name ||
-    !ghana_card_number ||
+    !full_name ||
+    !phone_number ||
+    !id_number ||
+    !date_of_birth ||
     !town ||
     !occupation ||
-    !date_of_birth ||
-    !phone
+    !email ||
+    !momo_number
   ) {
     return res.status(400).json({
       success: false,
-      message: "All AFA registration fields are required"
+      message: "full_name, phone_number, id_number, date_of_birth, town, occupation, email and momo_number are required"
     });
   }
 
+  const transactionId = "EDATA-" + Date.now() + "-" + Math.floor(Math.random() * 1000);
+
+  // Change this if your AFA price should come from another table
+  const afaPrice = 15.00;
+
   const sql = `
     INSERT INTO afa_registrations (
-      agent_id,
-      first_name,
-      last_name,
-      ghana_card_number,
+      full_name,
+      phone_number,
+      id_number,
+      date_of_birth,
       town,
       occupation,
-      date_of_birth,
-      phone,
+      email,
+      price,
+      momo_number,
+      transaction_id,
+      payment_status,
       created_at
     )
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW())
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
   `;
 
   db.query(
     sql,
     [
-      req.agent.agent_id,
-      first_name,
-      last_name,
-      ghana_card_number,
+      full_name,
+      phone_number,
+      id_number,
+      date_of_birth,
       town,
       occupation,
-      date_of_birth,
-      phone
+      email,
+      afaPrice,
+      momo_number,
+      transactionId,
+      "pending"
     ],
     (err, result) => {
       if (err) {
-        console.error("AFA registration error:", err);
+        console.error("========== AFA REGISTRATION ERROR ==========");
+        console.error("MySQL error object:", err);
+        console.error("MySQL error code:", err.code);
+        console.error("MySQL error errno:", err.errno);
+        console.error("MySQL error sqlMessage:", err.sqlMessage);
+        console.error("MySQL error sqlState:", err.sqlState);
+
         return res.status(500).json({
           success: false,
-          message: "Could not complete AFA registration"
+          message: "Could not complete AFA registration",
+          debug: {
+            code: err.code,
+            errno: err.errno,
+            sqlMessage: err.sqlMessage,
+            sqlState: err.sqlState
+          }
         });
       }
 
-      res.json({
+      return res.json({
         success: true,
         message: "AFA registration successful",
         data: {
-          registration_id: result.insertId
+          registration_id: result.insertId,
+          transaction_id: transactionId,
+          payment_status: "pending"
         }
       });
     }
