@@ -477,7 +477,8 @@
   "message": "Order created successfully",
   "data": {
     "order_id": 25,
-    "package_id": "PKG1711450000000",
+    "transaction_id": "EDATA-1711450000000-321",
+    "package_id": 16,
     "status": "pending"
   }
 }`,
@@ -510,13 +511,18 @@
   "success": true,
   "data": {
     "id": 25,
-    "network": "MTN",
-    "package_name": "5GB",
-    "recipient_number": "233XXXXXXXXX",
-    "amount": 10,
+    "transaction_id": "EDATA-1712870000000-321",
+    "vendor_id": 9,
+    "network": "mtn",
+    "package_id": 12,
+    "package_name": "1GB",
+    "amount": 4.6,
+    "recipient_number": "233551300186",
+    "momo_number": null,
     "status": "pending",
-    "package_id": "PKG1711450000000",
-    "created_at": "2026-03-26 08:20:00"
+    "raw_status": null,
+    "created_at": "2026-04-11 12:45:10",
+    "updated_at": "2026-04-11 12:45:10"
   }
 }`,
         code: `fetch("${API_BASE}/api/dev/order-status/25", {
@@ -538,40 +544,44 @@
   "Authorization": "Bearer YOUR_API_KEY"
 }`,
         body: `{
-  "first_name": "John",
-  "last_name": "Doe",
-  "ghana_card_number": "GHA-123456789-0",
+  "full_name": "John Doe",
+  "phone_number": "233XXXXXXXXX",
+  "id_number": "GHA-123456789-0",
+  "date_of_birth": "2000-05-10",
   "town": "Kumasi",
   "occupation": "Trader",
-  "date_of_birth": "2000-05-10",
-  "phone": "233XXXXXXXXX"
+  "email": "john@example.com",
+  "momo_number": "233XXXXXXXXX"
 }`,
         response: `{
   "success": true,
   "message": "AFA registration successful",
   "data": {
-    "registration_id": 12
+    "registration_id": 12,
+    "transaction_id": "EDATA-1712900000000-321",
+    "payment_status": "pending"
   }
 }`,
-        code: `fetch("${API_BASE}/api/dev/afa-register", {
+        code: `fetch("https://edatagh.com/edatagh-backend/api/dev/afa-register", {
   method: "POST",
   headers: {
     "Content-Type": "application/json",
     "Authorization": "Bearer YOUR_API_KEY"
   },
   body: JSON.stringify({
-    first_name: "John",
-    last_name: "Doe",
-    ghana_card_number: "GHA-123456789-0",
+    full_name: "John Doe",
+    phone_number: "233XXXXXXXXX",
+    id_number: "GHA-123456789-0",
+    date_of_birth: "2000-05-10",
     town: "Kumasi",
     occupation: "Trader",
-    date_of_birth: "2000-05-10",
-    phone: "233XXXXXXXXX"
+    email: "john@example.com",
+    momo_number: "233XXXXXXXXX"
   })
 })
-  .then(res => res.json())
-  .then(data => console.log(data))
-  .catch(err => console.error(err));`
+.then(res => res.json())
+.then(data => console.log(data))
+.catch(err => console.error(err));`
       }
     };
 
