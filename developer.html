@@ -467,19 +467,74 @@
   "Authorization": "Bearer YOUR_API_KEY"
 }`,
         body: `{
-  "network": "MTN",
-  "package_name": "5GB",
+  "network": "mtn",
+  "package_name": "1GB",
   "recipient_number": "233XXXXXXXXX",
-  "amount": 10
-}`,
+  "amount": 4.6
+}
+
+Allowed network values:
+- mtn
+- telecel
+- airteltigo
+
+Do not use:
+- AT
+
+Available package list:
+
+MTN:
+- 1GB
+- 2GB
+- 3GB
+- 4GB
+- 5GB
+- 6GB
+- 8GB
+- 10GB
+- 15GB
+- 20GB
+- 25GB
+- 30GB
+- 40GB
+- 50GB
+
+TELECEL:
+- 1GB
+- 2GB
+- 3GB
+- 4GB
+- 5GB
+- 6GB
+- 8GB
+- 10GB
+
+AIRTELTIGO:
+- 1GB
+- 2GB
+- 3GB
+- 4GB
+- 5GB
+- 6GB
+- 7GB
+- 8GB
+- 10GB
+
+Important:
+- Use the exact package_name
+- The amount must match the exact package price
+- Order is approved only when balance or overdraft is sufficient`,
         response: `{
   "success": true,
   "message": "Order created successfully",
   "data": {
     "order_id": 25,
     "transaction_id": "EDATA-1711450000000-321",
-    "package_id": 16,
-    "status": "pending"
+    "package_id": 12,
+    "status": "approved",
+    "deducted_amount": 4.6,
+    "new_balance": 16.8,
+    "overdraft": 3
   }
 }`,
         code: `fetch("${API_BASE}/api/dev/make-order", {
@@ -489,10 +544,10 @@
     "Authorization": "Bearer YOUR_API_KEY"
   },
   body: JSON.stringify({
-    network: "MTN",
-    package_name: "5GB",
+    network: "mtn",
+    package_name: "1GB",
     recipient_number: "233XXXXXXXXX",
-    amount: 10
+    amount: 4.6
   })
 })
   .then(res => res.json())
@@ -519,7 +574,7 @@
     "amount": 4.6,
     "recipient_number": "233551300186",
     "momo_number": null,
-    "status": "pending",
+    "status": "approved",
     "raw_status": null,
     "created_at": "2026-04-11 12:45:10",
     "updated_at": "2026-04-11 12:45:10"
