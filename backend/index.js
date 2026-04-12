@@ -4688,7 +4688,7 @@ app.put("/api/admin/network-delivery-status/:id", (req, res) => {
 
   const sql = `
     UPDATE network_delivery_status
-    SET network = ?, delivery_status = ?, delivery_time = ?, updated_at = NOW()
+    SET network = ?, delivery_status = ?, delivery_time = ?
     WHERE id = ?
   `;
 
@@ -6054,7 +6054,7 @@ app.post("/api/dev/make-order", verifyAgentApiKey, async (req, res) => {
     // 3. Deduct from balance
     const updateBalanceSql = `
       UPDATE agents
-      SET balance = ?, updated_at = NOW()
+      SET balance = ?
       WHERE id = ?
     `;
 
