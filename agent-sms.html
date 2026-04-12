@@ -765,27 +765,37 @@ function getAgentId() {
     `).join("");
   }
 
-  function updateStats() {
-    const msg = smsMessage.value.trim();
-    const length = msg.length;
-    const parts = length === 0 ? 0 : Math.ceil(length / 160);
+ function getSmsCreditsPerNumber(text) {
+  const len = String(text || "").trim().length;
 
-    document.getElementById("totalContacts").textContent = recipients.length;
-    document.getElementById("validContacts").textContent = recipients.length;
-    document.getElementById("messageLength").textContent = length;
-    document.getElementById("smsParts").textContent = parts;
+  if (len <= 0) return 0;
+  if (len <= 160) return 1;
+  if (len <= 306) return 2;
+  if (len <= 459) return 3;
+  if (len <= 621) return 4;
+  if (len <= 766) return 5;
+  if (len <= 800) return 6;
 
-    document.getElementById("charCount").textContent = `${length} characters`;
-    document.getElementById("partsCount").textContent = `${parts} SMS parts`;
+  return 6 + Math.ceil((len - 800) / 153);
+}
 
-    document.getElementById("previewRecipients").textContent = recipients.length;
-    document.getElementById("previewSender").textContent = senderId.value.trim() || "-";
-    document.getElementById("previewType").textContent = messageType.options[messageType.selectedIndex].text;
-  }
+function updateStats() {
+  const msg = smsMessage.value.trim();
+  const length = msg.length;
+  const parts = getSmsCreditsPerNumber(msg);
 
-  function refreshPreview() {
-    updateStats();
-  }
+  document.getElementById("totalContacts").textContent = recipients.length;
+  document.getElementById("validContacts").textContent = recipients.length;
+  document.getElementById("messageLength").textContent = length;
+  document.getElementById("smsParts").textContent = parts;
+
+  document.getElementById("charCount").textContent = `${length} characters`;
+  document.getElementById("partsCount").textContent = `${parts} SMS credit${parts === 1 ? "" : "s"} per number`;
+
+  document.getElementById("previewRecipients").textContent = recipients.length;
+  document.getElementById("previewSender").textContent = senderId.value.trim() || "-";
+  document.getElementById("previewType").textContent = messageType.options[messageType.selectedIndex].text;
+}
 
   function showResult(message, isError = false) {
     sendResult.style.display = "block";
@@ -883,8 +893,9 @@ function getAgentId() {
     showResult(`
       ${data.message}<br><br>
       <strong>Recipients:</strong> ${data.summary?.recipients ?? recipients.length}<br>
-      <strong>SMS Parts:</strong> ${data.summary?.sms_parts ?? 1}<br>
-      <strong>Credits Used:</strong> ${data.summary?.credits_used ?? recipients.length}<br>
+     <strong>Message Length:</strong> ${data.summary?.message_length ?? message.length}<br>
+<strong>Credit Per Number:</strong> ${data.summary?.credits_per_number ?? 1}<br>
+<strong>Total Credits Used:</strong> ${data.summary?.credits_used ?? recipients.length}<br>
       <strong>Sender Used:</strong> ${data.sender_used || sender}<br>
       <strong>Balance Left:</strong> ${data.sms_balance_after ?? "-"}
     `, false);
