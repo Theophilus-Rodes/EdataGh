@@ -5909,7 +5909,7 @@ app.get("/api/dev/check-balance", verifyAgentApiKey, (req, res) => {
 });
 
 
-app.post("/api/dev/make-order", verifyAgentApiKey, (req, res) => {
+app.post("/api/dev/make-order", verifyAgentApiKey, async (req, res) => {
   console.log("========== /api/dev/make-order called ==========");
   console.log("Request body:", req.body);
   console.log("Authenticated agent:", req.agent);
@@ -5927,149 +5927,224 @@ app.post("/api/dev/make-order", verifyAgentApiKey, (req, res) => {
   const cleanPackageName = String(package_name).trim();
   const cleanRecipient = String(recipient_number).trim();
   const cleanAmount = Number(amount);
+  const vendorId = Number(req.agent?.agent_id);
 
-  if (Number.isNaN(cleanAmount)) {
-    return res.status(400).json({
+  if (!vendorId || Number.isNaN(vendorId)) {
+    return res.status(401).json({
       success: false,
-      message: "amount must be a valid number"
+      message: "Invalid API agent"
     });
   }
 
-  const vendorId = req.agent.agent_id; // keep this if verifyAgentApiKey returns agent_id
+  if (Number.isNaN(cleanAmount) || cleanAmount <= 0) {
+    return res.status(400).json({
+      success: false,
+      message: "amount must be a valid number greater than 0"
+    });
+  }
+
   const transactionId = "EDATA-" + Date.now() + "-" + Math.floor(Math.random() * 1000);
 
-  console.log("Prepared values:", {
-    vendorId,
-    cleanNetwork,
-    cleanPackageName,
-    cleanRecipient,
-    cleanAmount,
-    transactionId
-  });
+  let conn;
 
-  // Step 1: find matching package in admin_prices
-  const findPackageSql = `
-    SELECT id, network, package_name, price, status
-    FROM admin_prices
-    WHERE LOWER(network) = ?
-      AND package_name = ?
-      AND price = ?
-      AND status = 'active'
-    LIMIT 1
-  `;
+  try {
+    conn = await db.promise().getConnection();
+    await conn.beginTransaction();
 
-  db.query(
-    findPackageSql,
-    [cleanNetwork, cleanPackageName, cleanAmount],
-    (findErr, packageRows) => {
-      if (findErr) {
-        console.error("========== PACKAGE LOOKUP ERROR ==========");
-        console.error("MySQL error object:", findErr);
-        console.error("MySQL error code:", findErr.code);
-        console.error("MySQL error errno:", findErr.errno);
-        console.error("MySQL error sqlMessage:", findErr.sqlMessage);
-        console.error("MySQL error sqlState:", findErr.sqlState);
+    console.log("Prepared values:", {
+      vendorId,
+      cleanNetwork,
+      cleanPackageName,
+      cleanRecipient,
+      cleanAmount,
+      transactionId
+    });
 
-        return res.status(500).json({
-          success: false,
-          message: "Could not validate package",
-          debug: {
-            code: findErr.code,
-            errno: findErr.errno,
-            sqlMessage: findErr.sqlMessage,
-            sqlState: findErr.sqlState
-          }
-        });
-      }
+    // 1. Find matching active package
+    const findPackageSql = `
+      SELECT id, network, package_name, price, status
+      FROM admin_prices
+      WHERE LOWER(network) = ?
+        AND package_name = ?
+        AND ROUND(price, 2) = ROUND(?, 2)
+        AND status = 'active'
+      LIMIT 1
+    `;
 
-      console.log("Matched package rows:", packageRows);
+    const [packageRows] = await conn.query(findPackageSql, [
+      cleanNetwork,
+      cleanPackageName,
+      cleanAmount
+    ]);
 
-      if (!packageRows || !packageRows.length) {
-        return res.status(404).json({
-          success: false,
-          message: "No active package matches the supplied network, package_name and amount"
-        });
-      }
+    console.log("Matched package rows:", packageRows);
 
-      const matchedPackage = packageRows[0];
-      const realPackageId = matchedPackage.id;
-
-      console.log("Matched package:", matchedPackage);
-
-      // Step 2: insert into orders using your real column names
-      const insertSql = `
-        INSERT INTO orders (
-          transaction_id,
-          vendor_id,
-          network,
-          package_id,
-          package_name,
-          amount,
-          recipient_number,
-          momo_number,
-          status,
-          raw_status,
-          created_at
-        )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
-      `;
-
-      const insertValues = [
-        transactionId,
-        vendorId,
-        cleanNetwork,
-        realPackageId,
-        cleanPackageName,
-        cleanAmount,
-        cleanRecipient,
-        null,
-        "pending",
-        null
-      ];
-
-      console.log("Running INSERT into orders...");
-      console.log("Insert values:", insertValues);
-
-      db.query(insertSql, insertValues, (insertErr, result) => {
-        if (insertErr) {
-          console.error("========== ORDER INSERT ERROR ==========");
-          console.error("MySQL error object:", insertErr);
-          console.error("MySQL error code:", insertErr.code);
-          console.error("MySQL error errno:", insertErr.errno);
-          console.error("MySQL error sqlMessage:", insertErr.sqlMessage);
-          console.error("MySQL error sqlState:", insertErr.sqlState);
-          console.error("MySQL error sql:", insertErr.sql);
-
-          return res.status(500).json({
-            success: false,
-            message: "Could not create order",
-            debug: {
-              code: insertErr.code,
-              errno: insertErr.errno,
-              sqlMessage: insertErr.sqlMessage,
-              sqlState: insertErr.sqlState
-            }
-          });
-        }
-
-        console.log("Order inserted successfully:", result);
-        console.log("========================================");
-
-        return res.json({
-          success: true,
-          message: "Order created successfully",
-          data: {
-            order_id: result.insertId,
-            transaction_id: transactionId,
-            package_id: realPackageId,
-            status: "pending"
-          }
-        });
+    if (!packageRows.length) {
+      await conn.rollback();
+      return res.status(404).json({
+        success: false,
+        message: "No active package matches the supplied network, package_name and amount"
       });
     }
-  );
-});
 
+    const matchedPackage = packageRows[0];
+    const realPackageId = matchedPackage.id;
+
+    // 2. Lock agent row and check balance + overdraft
+    const findAgentSql = `
+      SELECT id, balance, overdraft, status
+      FROM agents
+      WHERE id = ?
+      LIMIT 1
+      FOR UPDATE
+    `;
+
+    const [agentRows] = await conn.query(findAgentSql, [vendorId]);
+
+    console.log("Matched agent rows:", agentRows);
+
+    if (!agentRows.length) {
+      await conn.rollback();
+      return res.status(404).json({
+        success: false,
+        message: "Agent not found"
+      });
+    }
+
+    const agent = agentRows[0];
+    const currentBalance = Number(agent.balance || 0);
+    const currentOverdraft = Number(agent.overdraft || 0);
+    const availableFunds = currentBalance + currentOverdraft;
+    const newBalance = currentBalance - cleanAmount;
+
+    console.log("Agent funds:", {
+      currentBalance,
+      currentOverdraft,
+      availableFunds,
+      cleanAmount,
+      newBalance
+    });
+
+    if (String(agent.status || "").toLowerCase() !== "active") {
+      await conn.rollback();
+      return res.status(403).json({
+        success: false,
+        message: "Agent account is not active"
+      });
+    }
+
+    // Not enough balance + overdraft => no order insertion
+    if (availableFunds < cleanAmount) {
+      await conn.rollback();
+      return res.status(400).json({
+        success: false,
+        message: "Insufficient balance and overdraft"
+      });
+    }
+
+    // Extra safety: do not allow balance to go below negative overdraft
+    if (newBalance < -currentOverdraft) {
+      await conn.rollback();
+      return res.status(400).json({
+        success: false,
+        message: "Overdraft limit exceeded"
+      });
+    }
+
+    // 3. Deduct from balance
+    const updateBalanceSql = `
+      UPDATE agents
+      SET balance = ?, updated_at = NOW()
+      WHERE id = ?
+    `;
+
+    await conn.query(updateBalanceSql, [newBalance, vendorId]);
+
+    // 4. Insert approved order
+    const insertSql = `
+      INSERT INTO orders (
+        transaction_id,
+        vendor_id,
+        network,
+        package_id,
+        package_name,
+        amount,
+        recipient_number,
+        momo_number,
+        status,
+        raw_status,
+        created_at,
+        updated_at
+      )
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
+    `;
+
+    const insertValues = [
+      transactionId,
+      vendorId,
+      cleanNetwork,
+      realPackageId,
+      cleanPackageName,
+      cleanAmount,
+      cleanRecipient,
+      null,
+      "approved",
+      null
+    ];
+
+    console.log("Running INSERT into orders...");
+    console.log("Insert values:", insertValues);
+
+    const [result] = await conn.query(insertSql, insertValues);
+
+    await conn.commit();
+
+    console.log("Order inserted successfully:", result);
+    console.log("========================================");
+
+    return res.json({
+      success: true,
+      message: "Order created successfully",
+      data: {
+        order_id: result.insertId,
+        transaction_id: transactionId,
+        package_id: realPackageId,
+        status: "approved",
+        deducted_amount: cleanAmount,
+        new_balance: Number(newBalance.toFixed(2)),
+        overdraft: currentOverdraft
+      }
+    });
+  } catch (err) {
+    if (conn) {
+      try {
+        await conn.rollback();
+      } catch (rollbackErr) {
+        console.error("Rollback error:", rollbackErr);
+      }
+    }
+
+    console.error("========== MAKE ORDER ERROR ==========");
+    console.error("MySQL error object:", err);
+    console.error("MySQL error code:", err.code);
+    console.error("MySQL error errno:", err.errno);
+    console.error("MySQL error sqlMessage:", err.sqlMessage);
+    console.error("MySQL error sqlState:", err.sqlState);
+
+    return res.status(500).json({
+      success: false,
+      message: "Could not create order",
+      debug: {
+        code: err.code,
+        errno: err.errno,
+        sqlMessage: err.sqlMessage,
+        sqlState: err.sqlState
+      }
+    });
+  } finally {
+    if (conn) conn.release();
+  }
+});
 
 app.get("/api/dev/order-status/:orderId", verifyAgentApiKey, (req, res) => {
   console.log("========== /api/dev/order-status called ==========");
