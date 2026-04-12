@@ -392,11 +392,24 @@ app.post("/api/agent/sms/send", async (req, res) => {
       });
     }
 
-    // Count SMS parts properly
-    const smsParts = Math.max(1, Math.ceil(finalMessage.length / 160));
+    // Custom SMS credit calculator
+    function getSmsCreditsPerNumber(text) {
+      const len = String(text || "").length;
 
-    // Total credits required
-    const totalCreditsNeeded = finalNumbers.length * smsParts;
+      if (len <= 0) return 0;
+      if (len <= 160) return 1;
+      if (len <= 306) return 2;
+      if (len <= 459) return 3;
+      if (len <= 621) return 4;
+      if (len <= 766) return 5;
+      if (len <= 800) return 6;
+
+      // Anything above 800 continues in 153-character blocks
+      return 6 + Math.ceil((len - 800) / 153);
+    }
+
+    const creditsPerNumber = getSmsCreditsPerNumber(finalMessage);
+    const totalCreditsNeeded = finalNumbers.length * creditsPerNumber;
 
     await conn.beginTransaction();
 
@@ -471,9 +484,11 @@ app.post("/api/agent/sms/send", async (req, res) => {
       message: result.data?.message || "Bulk messages queued successfully",
       summary: {
         recipients: finalNumbers.length,
-        sms_parts: smsParts,
+        sms_parts: creditsPerNumber,
+        credits_per_number: creditsPerNumber,
         credits_used: totalCreditsNeeded,
-        submitted: finalNumbers.length
+        submitted: finalNumbers.length,
+        message_length: finalMessage.length
       },
       sender_used: finalSender,
       sms_balance_before: currentSmsBalance,
