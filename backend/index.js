@@ -81,19 +81,33 @@ function uniqueValidNumbers(numbers = []) {
 
 async function sendSingleSmsViaGiantSMS({ recipients, message, senderId }) {
   try {
+    const recipientList = Array.isArray(recipients)
+      ? recipients.map(v => String(v).trim()).filter(Boolean)
+      : [];
+
+    const recipientString = recipientList.join(",");
+
+    console.log("GIANTSMS RECIPIENT COUNT:", recipientList.length);
+    console.log("GIANTSMS MESSAGE LENGTH:", String(message || "").length);
+    console.log("GIANTSMS RECIPIENT STRING LENGTH:", recipientString.length);
+
+    const payload = {
+      from: String(senderId || "").trim(),
+      recipients: recipientString,
+      msg: String(message || "").trim()
+    };
+
     const response = await axios.post(
       GIANTSMS_API_URL,
-      {
-        from: senderId,
-        recipients: recipients,
-        msg: message
-      },
+      payload,
       {
         headers: {
           "Authorization": `Basic ${GIANTSMS_SECRET}`,
           "Content-Type": "application/json"
         },
-        timeout: 30000
+        timeout: 180000,
+        maxBodyLength: Infinity,
+        maxContentLength: Infinity
       }
     );
 
@@ -111,7 +125,7 @@ async function sendSingleSmsViaGiantSMS({ recipients, message, senderId }) {
 
     return {
       ok: false,
-      error: err.response?.data || err.message
+      error: err.response?.data || { message: err.message }
     };
   }
 }
@@ -359,12 +373,17 @@ app.get("/api/agent/my-sender-id", (req, res) => {
   }
 });
 
+app.use(express.json({ limit: "25mb" }));
+app.use(express.urlencoded({ extended: true, limit: "25mb" }));
+
 
 ///// AGENT SMS ROUTE 
 app.post("/api/agent/sms/send", async (req, res) => {
-  const conn = await db.promise().getConnection();
+  let conn;
 
   try {
+    conn = await db.promise().getConnection();
+
     const agentId = Number(req.body.agent_id || 0);
     const { senderId, message, numbers } = req.body;
 
@@ -404,12 +423,18 @@ app.post("/api/agent/sms/send", async (req, res) => {
       if (len <= 766) return 5;
       if (len <= 800) return 6;
 
-      // Anything above 800 continues in 153-character blocks
       return 6 + Math.ceil((len - 800) / 153);
     }
 
     const creditsPerNumber = getSmsCreditsPerNumber(finalMessage);
     const totalCreditsNeeded = finalNumbers.length * creditsPerNumber;
+
+    console.log("===== LARGE SMS REQUEST START =====");
+    console.log("Agent ID:", agentId);
+    console.log("Recipients count:", finalNumbers.length);
+    console.log("Message length:", finalMessage.length);
+    console.log("Credits per number:", creditsPerNumber);
+    console.log("Total credits needed:", totalCreditsNeeded);
 
     await conn.beginTransaction();
 
@@ -453,18 +478,31 @@ app.post("/api/agent/sms/send", async (req, res) => {
       });
     }
 
+    // Optional protection, so nobody sends absurd amounts by mistake
+    if (finalNumbers.length > 30000) {
+      await conn.rollback();
+      return res.status(400).json({
+        ok: false,
+        message: "Maximum allowed recipients per request is 30000."
+      });
+    }
+
+    console.log("Calling GiantSMS now...");
+
     const result = await sendSingleSmsViaGiantSMS({
       recipients: finalNumbers,
       message: finalMessage,
       senderId: finalSender
     });
 
-    if (!result.ok) {
+    console.log("GiantSMS result received.");
+
+    if (!result || !result.ok) {
       await conn.rollback();
       return res.status(400).json({
         ok: false,
-        message: result.data?.message || result.error?.message || "SMS sending failed",
-        providerResponse: result.data || result.error
+        message: result?.data?.message || result?.error?.message || "SMS sending failed",
+        providerResponse: result?.data || result?.error || null
       });
     }
 
@@ -479,12 +517,14 @@ app.post("/api/agent/sms/send", async (req, res) => {
 
     await conn.commit();
 
+    console.log("SMS send completed successfully.");
+    console.log("===== LARGE SMS REQUEST END =====");
+
     return res.json({
       ok: true,
       message: result.data?.message || "Bulk messages queued successfully",
       summary: {
         recipients: finalNumbers.length,
-        sms_parts: creditsPerNumber,
         credits_per_number: creditsPerNumber,
         credits_used: totalCreditsNeeded,
         submitted: finalNumbers.length,
@@ -493,12 +533,21 @@ app.post("/api/agent/sms/send", async (req, res) => {
       sender_used: finalSender,
       sms_balance_before: currentSmsBalance,
       sms_balance_after: newBalance,
-      providerResponse: result.data
+      providerResponse: result.data || null
     });
 
   } catch (err) {
-    await conn.rollback();
-    console.error("SMS ERROR:", err);
+    if (conn) {
+      try {
+        await conn.rollback();
+      } catch (rollbackErr) {
+        console.error("ROLLBACK ERROR:", rollbackErr.message);
+      }
+    }
+
+    console.error("SMS ERROR FULL:", err);
+    console.error("SMS ERROR MESSAGE:", err.message);
+    console.error("SMS ERROR STACK:", err.stack);
 
     return res.status(500).json({
       ok: false,
@@ -506,7 +555,7 @@ app.post("/api/agent/sms/send", async (req, res) => {
       error: err.message
     });
   } finally {
-    conn.release();
+    if (conn) conn.release();
   }
 });
 
