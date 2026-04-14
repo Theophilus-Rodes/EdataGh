@@ -175,6 +175,33 @@
         flex:1 1 45%;
       }
     }
+
+    .sms-menu {
+  display: none;
+  margin-top: 10px;
+  padding: 10px;
+  background: #fff;
+  border-radius: 10px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+  width: fit-content;
+}
+
+.sms-menu button {
+  display: block;
+  width: 200px;
+  margin: 6px 0;
+  padding: 10px;
+  border: none;
+  border-radius: 8px;
+  background: #0a7a33;
+  color: white;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.sms-menu button:hover {
+  background: #086428;
+}
   </style>
 </head>
 
@@ -202,7 +229,12 @@
     <button class="action-btn" onclick="window.location.href='admin_agents.html'">Approvals</button>
     <button class="action-btn" onclick="window.location.href='AdminAgentWallet.html'">Managae Agent</button>
     <button class="action-btn" onclick="window.location.href='AdminSenderIDs.html'">Approve SenderID</button>
-    <button class="action-btn" onclick="window.location.href='AdminSmsDeduction.html'">Agent SMS</button>
+   <button class="action-btn" onclick="toggleSmsMenu()">SMS Checks</button>
+
+<div id="smsMenu" class="sms-menu">
+  <button onclick="goToDeduct()">Deduct SMS</button>
+  <button onclick="goToLogs()">Check SMS Sent</button>
+</div>
     <button class="action-btn" onclick="window.location.href='admin_notifications.html'">Notification</button>
     <button class="action-btn" onclick="window.location.href='AdminNetworkStatus.html'">Networks</button>
   <button class="action-btn" onclick="openLogoutModal()">LOGOUT</button>
@@ -362,6 +394,23 @@
 async function confirmLogout() {
   await fetch(`${API_BASE}/logout`, { method: "POST" });
   window.location.href = "login.html";
+}
+
+
+
+
+
+function toggleSmsMenu() {
+  const menu = document.getElementById("smsMenu");
+  menu.style.display = menu.style.display === "block" ? "none" : "block";
+}
+
+function goToDeduct() {
+  window.location.href = "AdminSmsDeduction.html";
+}
+
+function goToLogs() {
+  window.location.href = "AdminSmsLogs.html";
 }
 </script>
 

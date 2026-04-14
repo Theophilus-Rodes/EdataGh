@@ -1,0 +1,498 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Admin SMS Logs</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: Arial, sans-serif;
+    }
+
+    body {
+      background: #f4f7fb;
+      color: #222;
+      padding: 20px;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: auto;
+    }
+
+    .topbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-bottom: 20px;
+    }
+
+    .topbar h1 {
+      font-size: 28px;
+      color: #0a7a33;
+    }
+
+    .back-btn {
+      background: #0a7a33;
+      color: #fff;
+      border: none;
+      padding: 10px 18px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 14px;
+    }
+
+    .back-btn:hover {
+      background: #086428;
+    }
+
+    .filter-box,
+    .summary-box,
+    .table-box {
+      background: #fff;
+      border-radius: 14px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+      padding: 18px;
+      margin-bottom: 20px;
+    }
+
+    .filter-grid {
+      display: grid;
+      grid-template-columns: 1.3fr 1fr auto auto;
+      gap: 12px;
+      align-items: end;
+    }
+
+    .field label {
+      display: block;
+      font-size: 14px;
+      font-weight: bold;
+      margin-bottom: 6px;
+      color: #333;
+    }
+
+    .field select,
+    .field input {
+      width: 100%;
+      padding: 12px;
+      border: 1px solid #ccc;
+      border-radius: 8px;
+      font-size: 14px;
+      outline: none;
+    }
+
+    .btn {
+      border: none;
+      padding: 12px 18px;
+      border-radius: 8px;
+      font-size: 14px;
+      cursor: pointer;
+      min-width: 120px;
+    }
+
+    .btn-primary {
+      background: #0a7a33;
+      color: white;
+    }
+
+    .btn-primary:hover {
+      background: #086428;
+    }
+
+    .btn-secondary {
+      background: #e9ecef;
+      color: #222;
+    }
+
+    .btn-secondary:hover {
+      background: #d8dde3;
+    }
+
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 14px;
+    }
+
+    .card {
+      background: #f8fafc;
+      border: 1px solid #e5e7eb;
+      border-radius: 12px;
+      padding: 16px;
+    }
+
+    .card h3 {
+      font-size: 13px;
+      color: #666;
+      margin-bottom: 8px;
+    }
+
+    .card p {
+      font-size: 24px;
+      font-weight: bold;
+      color: #0a7a33;
+    }
+
+    .agent-info {
+      margin-top: 14px;
+      padding: 12px;
+      background: #f0f9f3;
+      border-left: 4px solid #0a7a33;
+      border-radius: 8px;
+      font-size: 14px;
+      color: #333;
+      display: none;
+    }
+
+    .table-wrap {
+      overflow-x: auto;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 950px;
+    }
+
+    th, td {
+      padding: 12px;
+      text-align: left;
+      border-bottom: 1px solid #eee;
+      vertical-align: top;
+      font-size: 14px;
+    }
+
+    th {
+      background: #f8fafc;
+      color: #333;
+      font-size: 13px;
+    }
+
+    .msg-box {
+      white-space: pre-wrap;
+      line-height: 1.5;
+      max-width: 350px;
+    }
+
+    .empty-state,
+    .status-box {
+      text-align: center;
+      padding: 20px;
+      border-radius: 10px;
+      font-size: 15px;
+      margin-top: 10px;
+    }
+
+    .empty-state {
+      background: #f9fafb;
+      color: #666;
+    }
+
+    .status-box {
+      display: none;
+    }
+
+    .status-success {
+      background: #eafaf0;
+      color: #0a7a33;
+    }
+
+    .status-error {
+      background: #fdecec;
+      color: #b42318;
+    }
+
+    @media (max-width: 900px) {
+      .filter-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .summary-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .topbar h1 {
+        font-size: 22px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="topbar">
+      <h1>Admin SMS Logs</h1>
+      <button class="back-btn" onclick="window.location.href='admin-dashboard.html'">← Back</button>
+    </div>
+
+    <div class="filter-box">
+      <div class="filter-grid">
+        <div class="field">
+          <label for="agentSelect">Select Agent</label>
+          <select id="agentSelect">
+            <option value="">Loading agents...</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label for="searchInput">Search Message</label>
+          <input type="text" id="searchInput" placeholder="Type part of SMS message">
+        </div>
+
+        <button class="btn btn-primary" onclick="loadSmsLogs()">Load Logs</button>
+        <button class="btn btn-secondary" onclick="resetFilters()">Reset</button>
+      </div>
+
+      <div class="agent-info" id="agentInfo"></div>
+      <div class="status-box" id="statusBox"></div>
+    </div>
+
+    <div class="summary-box">
+      <div class="summary-grid">
+        <div class="card">
+          <h3>Total SMS Records</h3>
+          <p id="totalMessages">0</p>
+        </div>
+        <div class="card">
+          <h3>Total Recipients</h3>
+          <p id="totalRecipients">0</p>
+        </div>
+        <div class="card">
+          <h3>Total Credits Used</h3>
+          <p id="totalCredits">0</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="table-box">
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Account Owner</th>
+              <th>Sender ID</th>
+              <th>Message</th>
+              <th>Total Recipients</th>
+              <th>Total Credits Used</th>
+              <th>Date Sent</th>
+            </tr>
+          </thead>
+          <tbody id="logsTableBody">
+            <tr>
+              <td colspan="7">
+                <div class="empty-state">Select an agent and click "Load Logs".</div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const API_BASE =
+      location.hostname === "localhost" || location.hostname === "127.0.0.1"
+        ? "http://127.0.0.1:5000"
+        : "";
+
+    let allAgents = [];
+
+    function showStatus(message, isError = false) {
+      const box = document.getElementById("statusBox");
+      box.style.display = "block";
+      box.className = "status-box " + (isError ? "status-error" : "status-success");
+      box.textContent = message;
+    }
+
+    function hideStatus() {
+      const box = document.getElementById("statusBox");
+      box.style.display = "none";
+      box.textContent = "";
+      box.className = "status-box";
+    }
+
+    function formatNumber(value) {
+      return Number(value || 0).toLocaleString();
+    }
+
+    function formatDate(dateString) {
+      if (!dateString) return "-";
+      const d = new Date(dateString);
+      if (isNaN(d.getTime())) return dateString;
+      return d.toLocaleString();
+    }
+
+    async function loadAgents() {
+      try {
+        const res = await fetch(`${API_BASE}/api/admin/agents/list`);
+        const data = await res.json();
+
+        const select = document.getElementById("agentSelect");
+
+        if (!res.ok || !data.ok) {
+          select.innerHTML = `<option value="">Failed to load agents</option>`;
+          showStatus(data.message || "Failed to load agents", true);
+          return;
+        }
+
+        allAgents = data.agents || [];
+
+        let html = `<option value="">-- Select Agent --</option>`;
+        allAgents.forEach(agent => {
+          const fullName = `${agent.first_name || ""} ${agent.last_name || ""}`.trim();
+          html += `
+            <option value="${agent.id}">
+              ${fullName} - ${agent.phone || "No phone"}${agent.sender_id ? ` - ${agent.sender_id}` : ""}
+            </option>
+          `;
+        });
+
+        select.innerHTML = html;
+      } catch (err) {
+        console.error("LOAD AGENTS FRONTEND ERROR:", err);
+        document.getElementById("agentSelect").innerHTML = `<option value="">Failed to load agents</option>`;
+        showStatus("Network error while loading agents", true);
+      }
+    }
+
+    function renderAgentInfo(agentId) {
+      const infoBox = document.getElementById("agentInfo");
+
+      if (!agentId) {
+        infoBox.style.display = "none";
+        infoBox.innerHTML = "";
+        return;
+      }
+
+      const agent = allAgents.find(a => Number(a.id) === Number(agentId));
+
+      if (!agent) {
+        infoBox.style.display = "none";
+        infoBox.innerHTML = "";
+        return;
+      }
+
+      const fullName = `${agent.first_name || ""} ${agent.last_name || ""}`.trim();
+
+      infoBox.style.display = "block";
+      infoBox.innerHTML = `
+        <strong>Agent:</strong> ${fullName}<br>
+        <strong>Phone:</strong> ${agent.phone || "-"}<br>
+        <strong>Sender ID:</strong> ${agent.sender_id || "-"}
+      `;
+    }
+
+    async function loadSmsLogs() {
+      hideStatus();
+
+      const agentId = document.getElementById("agentSelect").value;
+      const search = document.getElementById("searchInput").value.trim();
+      const tbody = document.getElementById("logsTableBody");
+
+      renderAgentInfo(agentId);
+
+      if (!agentId) {
+        showStatus("Please select an agent first.", true);
+        return;
+      }
+
+      tbody.innerHTML = `
+        <tr>
+          <td colspan="7">
+            <div class="empty-state">Loading SMS logs...</div>
+          </td>
+        </tr>
+      `;
+
+      try {
+        const url = `${API_BASE}/api/admin/sms/logs?agent_id=${encodeURIComponent(agentId)}&search=${encodeURIComponent(search)}`;
+        const res = await fetch(url);
+        const data = await res.json();
+
+        if (!res.ok || !data.ok) {
+          tbody.innerHTML = `
+            <tr>
+              <td colspan="7">
+                <div class="empty-state">${data.message || "Failed to load logs."}</div>
+              </td>
+            </tr>
+          `;
+          showStatus(data.message || "Failed to load logs", true);
+          return;
+        }
+
+        const logs = data.logs || [];
+        const summary = data.summary || {};
+
+        document.getElementById("totalMessages").textContent = formatNumber(summary.total_messages || 0);
+        document.getElementById("totalRecipients").textContent = formatNumber(summary.total_recipients || 0);
+        document.getElementById("totalCredits").textContent = formatNumber(summary.total_credits_used || 0);
+
+        if (!logs.length) {
+          tbody.innerHTML = `
+            <tr>
+              <td colspan="7">
+                <div class="empty-state">No SMS logs found for this agent.</div>
+              </td>
+            </tr>
+          `;
+          return;
+        }
+
+        tbody.innerHTML = logs.map((log, index) => `
+          <tr>
+            <td>${index + 1}</td>
+            <td>${log.account_owner || "-"}</td>
+            <td>${log.sender_id || "-"}</td>
+            <td><div class="msg-box">${log.sms_message || "-"}</div></td>
+            <td>${formatNumber(log.total_recipients)}</td>
+            <td>${formatNumber(log.total_credits_used)}</td>
+            <td>${formatDate(log.created_at)}</td>
+          </tr>
+        `).join("");
+
+      } catch (err) {
+        console.error("LOAD SMS LOGS FRONTEND ERROR:", err);
+        tbody.innerHTML = `
+          <tr>
+            <td colspan="7">
+              <div class="empty-state">Network error while loading SMS logs.</div>
+            </td>
+          </tr>
+        `;
+        showStatus("Network error while loading SMS logs", true);
+      }
+    }
+
+    function resetFilters() {
+      document.getElementById("agentSelect").value = "";
+      document.getElementById("searchInput").value = "";
+      document.getElementById("totalMessages").textContent = "0";
+      document.getElementById("totalRecipients").textContent = "0";
+      document.getElementById("totalCredits").textContent = "0";
+      document.getElementById("agentInfo").style.display = "none";
+      document.getElementById("agentInfo").innerHTML = "";
+      hideStatus();
+
+      document.getElementById("logsTableBody").innerHTML = `
+        <tr>
+          <td colspan="7">
+            <div class="empty-state">Select an agent and click "Load Logs".</div>
+          </td>
+        </tr>
+      `;
+    }
+
+    document.getElementById("agentSelect").addEventListener("change", function() {
+      renderAgentInfo(this.value);
+    });
+
+    loadAgents();
+  </script>
+</body>
+</html>
