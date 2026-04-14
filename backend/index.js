@@ -805,6 +805,134 @@ app.post("/login", (req, res) => {
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+///// Admin sms deduction 
+app.post("/api/admin/deduct-sms-from-list", async (req, res) => {
+  const agentId = Number(req.body.agent_id);
+  const numbers = Array.isArray(req.body.numbers) ? req.body.numbers : [];
+  const totalNumbers = Number(req.body.total_numbers || 0);
+
+  if (!agentId) {
+    return res.status(400).json({
+      ok: false,
+      message: "Invalid agent selected."
+    });
+  }
+
+  if (!numbers.length || totalNumbers <= 0) {
+    return res.status(400).json({
+      ok: false,
+      message: "No numbers received."
+    });
+  }
+
+  const conn = await db.promise().getConnection();
+
+  try {
+    await conn.beginTransaction();
+
+    const [agentRows] = await conn.query(
+      `SELECT id, first_name, last_name, smsfield
+       FROM agents
+       WHERE id = ?
+       LIMIT 1`,
+      [agentId]
+    );
+
+    if (!agentRows.length) {
+      await conn.rollback();
+      conn.release();
+      return res.status(404).json({
+        ok: false,
+        message: "Agent not found."
+      });
+    }
+
+    const agent = agentRows[0];
+    const currentSmsField = Number(agent.smsfield || 0);
+
+    if (currentSmsField < totalNumbers) {
+      await conn.rollback();
+      conn.release();
+      return res.status(400).json({
+        ok: false,
+        message: `Insufficient SMS balance. Current smsfield is ${currentSmsField}, but file contains ${totalNumbers} numbers.`
+      });
+    }
+
+    const newSmsField = currentSmsField - totalNumbers;
+
+    await conn.query(
+      `UPDATE agents
+       SET smsfield = ?
+       WHERE id = ?`,
+      [newSmsField, agentId]
+    );
+
+    await conn.query(
+      `INSERT INTO sms_credit_payments
+       (agent_id, total_numbers, deducted_amount, balance_before, balance_after, created_at)
+       VALUES (?, ?, ?, ?, ?, NOW())`,
+      [agentId, totalNumbers, totalNumbers, currentSmsField, newSmsField]
+    );
+
+    await conn.commit();
+    conn.release();
+
+    return res.json({
+      ok: true,
+      message: `${totalNumbers} SMS deducted successfully from ${agent.first_name} ${agent.last_name}.`,
+      deducted: totalNumbers,
+      new_smsfield: newSmsField
+    });
+  } catch (err) {
+    console.error("Deduct SMS error:", err);
+
+    try {
+      await conn.rollback();
+    } catch (_) {}
+
+    conn.release();
+
+    return res.status(500).json({
+      ok: false,
+      message: "Failed to deduct SMS."
+    });
+  }
+});
+
+
+app.get("/api/admin/agents-sms-list", (req, res) => {
+  const sql = `
+    SELECT id, first_name, last_name, phone, sender_id, smsfield
+    FROM agents
+    ORDER BY first_name ASC, last_name ASC
+  `;
+
+  db.query(sql, (err, rows) => {
+    if (err) {
+      console.error("Load agents error:", err);
+      return res.status(500).json({
+        ok: false,
+        message: "Failed to load agents."
+      });
+    }
+
+    res.json({
+      ok: true,
+      rows
+    });
+  });
+});
+
+
+
+
+
+
+
+
+
+
 
 app.post("/api/agent/register", (req, res) => {
   try {
