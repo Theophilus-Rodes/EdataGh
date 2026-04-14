@@ -807,6 +807,8 @@ app.post("/login", (req, res) => {
 
 ///// Admin sms deduction 
 app.post("/api/admin/deduct-sms-from-list", async (req, res) => {
+  console.log("BODY RECEIVED:", req.body);
+
   const agentId = Number(req.body.agent_id);
   const numbers = Array.isArray(req.body.numbers) ? req.body.numbers : [];
   const totalNumbers = Number(req.body.total_numbers || 0);
@@ -825,9 +827,10 @@ app.post("/api/admin/deduct-sms-from-list", async (req, res) => {
     });
   }
 
-  const conn = await db.promise().getConnection();
+  let conn;
 
   try {
+    conn = await db.promise().getConnection();
     await conn.beginTransaction();
 
     const [agentRows] = await conn.query(
@@ -840,7 +843,6 @@ app.post("/api/admin/deduct-sms-from-list", async (req, res) => {
 
     if (!agentRows.length) {
       await conn.rollback();
-      conn.release();
       return res.status(404).json({
         ok: false,
         message: "Agent not found."
@@ -852,7 +854,6 @@ app.post("/api/admin/deduct-sms-from-list", async (req, res) => {
 
     if (currentSmsField < totalNumbers) {
       await conn.rollback();
-      conn.release();
       return res.status(400).json({
         ok: false,
         message: `Insufficient SMS balance. Current smsfield is ${currentSmsField}, but file contains ${totalNumbers} numbers.`
@@ -868,6 +869,7 @@ app.post("/api/admin/deduct-sms-from-list", async (req, res) => {
       [newSmsField, agentId]
     );
 
+    // only keep this insert if the table really has these columns
     await conn.query(
       `INSERT INTO sms_credit_payments
        (agent_id, total_numbers, deducted_amount, balance_before, balance_after, created_at)
@@ -876,7 +878,6 @@ app.post("/api/admin/deduct-sms-from-list", async (req, res) => {
     );
 
     await conn.commit();
-    conn.release();
 
     return res.json({
       ok: true,
@@ -885,21 +886,22 @@ app.post("/api/admin/deduct-sms-from-list", async (req, res) => {
       new_smsfield: newSmsField
     });
   } catch (err) {
-    console.error("Deduct SMS error:", err);
+    console.error("DEDUCT SMS ERROR:", err);
 
-    try {
-      await conn.rollback();
-    } catch (_) {}
-
-    conn.release();
+    if (conn) {
+      try {
+        await conn.rollback();
+      } catch {}
+    }
 
     return res.status(500).json({
       ok: false,
-      message: "Failed to deduct SMS."
+      message: err.message || "Failed to deduct SMS."
     });
+  } finally {
+    if (conn) conn.release();
   }
 });
-
 
 app.get("/api/admin/agents-sms-list", (req, res) => {
   const sql = `
