@@ -869,12 +869,27 @@ app.post("/api/admin/deduct-sms-from-list", async (req, res) => {
       [newSmsField, agentId]
     );
 
-    // only keep this insert if the table really has these columns
+    const transactionId = `SMS-DEDUCT-${Date.now()}-${agentId}`;
+
     await conn.query(
       `INSERT INTO sms_credit_payments
-       (agent_id, total_numbers, deducted_amount, balance_before, balance_after, created_at)
-       VALUES (?, ?, ?, ?, ?, NOW())`,
-      [agentId, totalNumbers, totalNumbers, currentSmsField, newSmsField]
+       (transaction_id, agent_id, package_sms, amount, momo_number, status, finalized, raw_status, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
+      [
+        transactionId,
+        agentId,
+        totalNumbers,
+        0,
+        "",
+        "approved",
+        1,
+        JSON.stringify({
+          type: "admin_sms_deduction",
+          deducted_sms: totalNumbers,
+          balance_before: currentSmsField,
+          balance_after: newSmsField
+        })
+      ]
     );
 
     await conn.commit();
