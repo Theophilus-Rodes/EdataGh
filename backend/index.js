@@ -115,7 +115,7 @@ async function sendSingleSmsViaGiantSMS({ recipients, message, senderId }) {
     console.log("GIANTSMS DATA:", response.data);
 
     return {
-      ok: response.data?.status === true,
+      ok: response.data?.status === true || response.status === 200,
       data: response.data
     };
   } catch (err) {
@@ -411,7 +411,6 @@ app.post("/api/agent/sms/send", async (req, res) => {
       });
     }
 
-    // Custom SMS credit calculator
     function getSmsCreditsPerNumber(text) {
       const len = String(text || "").length;
 
@@ -424,6 +423,14 @@ app.post("/api/agent/sms/send", async (req, res) => {
       if (len <= 800) return 6;
 
       return 6 + Math.ceil((len - 800) / 153);
+    }
+
+    function chunkArray(arr, size) {
+      const chunks = [];
+      for (let i = 0; i < arr.length; i += size) {
+        chunks.push(arr.slice(i, i + size));
+      }
+      return chunks;
     }
 
     const creditsPerNumber = getSmsCreditsPerNumber(finalMessage);
@@ -459,6 +466,7 @@ app.post("/api/agent/sms/send", async (req, res) => {
     const dbSenderId = String(agent.sender_id || "").trim();
     const manualSenderId = String(senderId || "").trim();
     const finalSender = manualSenderId || dbSenderId;
+    const accountOwner = `${agent.first_name || ""} ${agent.last_name || ""}`.trim() || "Unknown";
 
     if (!finalSender) {
       await conn.rollback();
@@ -478,7 +486,6 @@ app.post("/api/agent/sms/send", async (req, res) => {
       });
     }
 
-    // Optional protection, so nobody sends absurd amounts by mistake
     if (finalNumbers.length > 30000) {
       await conn.rollback();
       return res.status(400).json({
@@ -487,23 +494,37 @@ app.post("/api/agent/sms/send", async (req, res) => {
       });
     }
 
-    console.log("Calling GiantSMS now...");
+    const batches = chunkArray(finalNumbers, 500);
+    const providerResponses = [];
+    let totalSubmitted = 0;
 
-    const result = await sendSingleSmsViaGiantSMS({
-      recipients: finalNumbers,
-      message: finalMessage,
-      senderId: finalSender
-    });
+    console.log("Total batches:", batches.length);
 
-    console.log("GiantSMS result received.");
+    for (let i = 0; i < batches.length; i++) {
+      const batch = batches[i];
 
-    if (!result || !result.ok) {
-      await conn.rollback();
-      return res.status(400).json({
-        ok: false,
-        message: result?.data?.message || result?.error?.message || "SMS sending failed",
-        providerResponse: result?.data || result?.error || null
+      console.log(`Sending batch ${i + 1}/${batches.length} with ${batch.length} recipients`);
+
+      const result = await sendSingleSmsViaGiantSMS({
+        recipients: batch,
+        message: finalMessage,
+        senderId: finalSender
       });
+
+      if (!result || !result.ok) {
+        await conn.rollback();
+        return res.status(400).json({
+          ok: false,
+          message: result?.data?.message || result?.error?.message || `SMS batch ${i + 1} failed`,
+          failed_batch: i + 1,
+          providerResponse: result?.data || result?.error || null
+        });
+      }
+
+      providerResponses.push(result.data || null);
+      totalSubmitted += batch.length;
+
+      await new Promise(resolve => setTimeout(resolve, 500));
     }
 
     const newBalance = currentSmsBalance - totalCreditsNeeded;
@@ -515,6 +536,25 @@ app.post("/api/agent/sms/send", async (req, res) => {
       [newBalance, agentId]
     );
 
+    await conn.query(
+      `INSERT INTO sms_send_logs (
+        agent_id,
+        account_owner,
+        sender_id,
+        sms_message,
+        total_recipients,
+        total_credits_used
+      ) VALUES (?, ?, ?, ?, ?, ?)`,
+      [
+        agentId,
+        accountOwner,
+        finalSender,
+        finalMessage,
+        finalNumbers.length,
+        totalCreditsNeeded
+      ]
+    );
+
     await conn.commit();
 
     console.log("SMS send completed successfully.");
@@ -522,18 +562,20 @@ app.post("/api/agent/sms/send", async (req, res) => {
 
     return res.json({
       ok: true,
-      message: result.data?.message || "Bulk messages queued successfully",
+      message: "Bulk messages sent successfully",
       summary: {
         recipients: finalNumbers.length,
         credits_per_number: creditsPerNumber,
         credits_used: totalCreditsNeeded,
-        submitted: finalNumbers.length,
-        message_length: finalMessage.length
+        submitted: totalSubmitted,
+        message_length: finalMessage.length,
+        batches: batches.length
       },
       sender_used: finalSender,
+      account_owner: accountOwner,
       sms_balance_before: currentSmsBalance,
       sms_balance_after: newBalance,
-      providerResponse: result.data || null
+      providerResponses
     });
 
   } catch (err) {
