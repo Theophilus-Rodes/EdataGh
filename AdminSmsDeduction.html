@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Admin SMS Deduction</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: Arial, sans-serif;
+    }
+
+    body {
+      background: #f4f7fb;
+      padding: 20px;
+    }
+
+    .container {
+      max-width: 750px;
+      margin: auto;
+      background: #fff;
+      border-radius: 16px;
+      padding: 25px;
+      box-shadow: 0 8px 25px rgba(0,0,0,0.08);
+    }
+
+    h2 {
+      text-align: center;
+      margin-bottom: 20px;
+      color: #0A3D62;
+    }
+
+    .form-group {
+      margin-bottom: 18px;
+    }
+
+    label {
+      display: block;
+      margin-bottom: 8px;
+      font-weight: bold;
+      color: #333;
+    }
+
+    select,
+    input[type="file"],
+    input[type="text"] {
+      width: 100%;
+      padding: 12px;
+      border: 1px solid #dcdcdc;
+      border-radius: 10px;
+      font-size: 15px;
+    }
+
+    .info-box {
+      background: #f8fbff;
+      border: 1px solid #d8e8ff;
+      border-radius: 12px;
+      padding: 15px;
+      margin-bottom: 18px;
+      line-height: 1.8;
+      color: #333;
+    }
+
+    .btn-row {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    button {
+      flex: 1;
+      min-width: 180px;
+      padding: 13px;
+      border: none;
+      border-radius: 10px;
+      font-size: 15px;
+      cursor: pointer;
+      font-weight: bold;
+    }
+
+    .btn-primary {
+      background: #0A3D62;
+      color: #fff;
+    }
+
+    .btn-success {
+      background: #1faa59;
+      color: #fff;
+    }
+
+    .message {
+      margin-top: 18px;
+      padding: 14px;
+      border-radius: 10px;
+      display: none;
+      font-weight: bold;
+    }
+
+    .success {
+      background: #e8fff0;
+      color: #146c2e;
+      border: 1px solid #b7ebc6;
+    }
+
+    .error {
+      background: #fff0f0;
+      color: #b42318;
+      border: 1px solid #f1b3b3;
+    }
+
+    @media (max-width: 600px) {
+      .container {
+        padding: 18px;
+      }
+
+      .btn-row {
+        flex-direction: column;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h2>Admin SMS Deduction</h2>
+
+    <div class="form-group">
+      <label for="agentSelect">Select Agent</label>
+      <select id="agentSelect">
+        <option value="">Loading agents...</option>
+      </select>
+    </div>
+
+    <div class="info-box">
+      <div><strong>Sender ID:</strong> <span id="senderId">-</span></div>
+      <div><strong>Current SMS Balance:</strong> <span id="smsBalance">0</span></div>
+      <div><strong>Phone:</strong> <span id="agentPhone">-</span></div>
+    </div>
+
+    <div class="form-group">
+      <label for="excelFile">Upload Excel File</label>
+      <input type="file" id="excelFile" accept=".xlsx" />
+    </div>
+
+    <div class="form-group">
+      <label for="countField">Total Numbers Found</label>
+      <input type="text" id="countField" readonly value="0" />
+    </div>
+
+    <div class="btn-row">
+      <button class="btn-primary" onclick="previewExcel()">Preview & Count Numbers</button>
+      <button class="btn-success" onclick="deductSms()">Deduct Amount</button>
+    </div>
+
+    <div id="messageBox" class="message"></div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/exceljs/dist/exceljs.min.js"></script>
+  <script>
+    const API_BASE = "http://localhost:5000";
+    let extractedNumbers = [];
+    let previewCount = 0;
+
+    function showMessage(msg, type = "success") {
+      const box = document.getElementById("messageBox");
+      box.style.display = "block";
+      box.className = "message " + type;
+      box.textContent = msg;
+    }
+
+    async function loadAgents() {
+      try {
+        const res = await fetch(`${API_BASE}/api/admin/agents-sms-list`);
+        const data = await res.json();
+
+        const select = document.getElementById("agentSelect");
+        select.innerHTML = `<option value="">Select Agent</option>`;
+
+        if (!data.ok || !data.rows.length) {
+          select.innerHTML = `<option value="">No agents found</option>`;
+          return;
+        }
+
+        data.rows.forEach(agent => {
+          const option = document.createElement("option");
+          option.value = agent.id;
+          option.dataset.smsfield = agent.smsfield || 0;
+          option.dataset.senderid = agent.sender_id || "";
+          option.dataset.phone = agent.phone || "";
+          option.textContent = `${agent.first_name} ${agent.last_name} (${agent.phone})`;
+          select.appendChild(option);
+        });
+      } catch (err) {
+        console.error(err);
+        showMessage("Failed to load agents.", "error");
+      }
+    }
+
+    document.getElementById("agentSelect").addEventListener("change", function () {
+      const selected = this.options[this.selectedIndex];
+      document.getElementById("smsBalance").textContent = selected.dataset.smsfield || 0;
+      document.getElementById("senderId").textContent = selected.dataset.senderid || "-";
+      document.getElementById("agentPhone").textContent = selected.dataset.phone || "-";
+    });
+
+    async function previewExcel() {
+      const fileInput = document.getElementById("excelFile");
+      const file = fileInput.files[0];
+
+      if (!file) {
+        showMessage("Please select an Excel file first.", "error");
+        return;
+      }
+
+      try {
+        const arrayBuffer = await file.arrayBuffer();
+
+        const workbook = new ExcelJS.Workbook();
+        await workbook.xlsx.load(arrayBuffer);
+
+        const worksheet = workbook.worksheets[0];
+
+        if (!worksheet) {
+          showMessage("The Excel file has no worksheet.", "error");
+          return;
+        }
+
+        extractedNumbers = [];
+
+        worksheet.eachRow((row, rowNumber) => {
+          if (rowNumber === 1) return; // skip header row
+
+          row.eachCell((cell) => {
+            const value = String(cell.value || "").trim();
+            if (value !== "") {
+              extractedNumbers.push(value);
+            }
+          });
+        });
+
+        previewCount = extractedNumbers.length;
+        document.getElementById("countField").value = previewCount;
+
+        showMessage(`Excel loaded successfully. ${previewCount} numbers found.`, "success");
+      } catch (err) {
+        console.error(err);
+        showMessage("Failed to read Excel file.", "error");
+      }
+    }
+
+    async function deductSms() {
+      const agentId = document.getElementById("agentSelect").value;
+
+      if (!agentId) {
+        showMessage("Please select an agent.", "error");
+        return;
+      }
+
+      if (!previewCount || previewCount <= 0 || !extractedNumbers.length) {
+        showMessage("Please preview the Excel file first.", "error");
+        return;
+      }
+
+      const yes = confirm(`This will deduct ${previewCount} SMS from the selected user's smsfield. Continue?`);
+      if (!yes) return;
+
+      try {
+        const res = await fetch(`${API_BASE}/api/admin/deduct-sms-from-list`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            agent_id: Number(agentId),
+            numbers: extractedNumbers,
+            total_numbers: previewCount
+          })
+        });
+
+        const data = await res.json();
+
+        if (!res.ok || !data.ok) {
+          showMessage(data.message || "Deduction failed.", "error");
+          return;
+        }
+
+        document.getElementById("smsBalance").textContent = data.new_smsfield;
+        document.getElementById("countField").value = 0;
+        document.getElementById("excelFile").value = "";
+        extractedNumbers = [];
+        previewCount = 0;
+
+        showMessage(data.message || "SMS deducted successfully.", "success");
+      } catch (err) {
+        console.error(err);
+        showMessage("Network error while deducting SMS.", "error");
+      }
+    }
+
+    loadAgents();
+  </script>
+</body>
+</html>
