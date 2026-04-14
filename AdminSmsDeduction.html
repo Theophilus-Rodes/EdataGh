@@ -252,55 +252,65 @@
       }
     }
 
-    async function deductSms() {
-      const agentId = document.getElementById("agentSelect").value;
+   async function deductSms() {
+  const agentId = document.getElementById("agentSelect").value;
 
-      if (!agentId) {
-        showMessage("Please select an agent.", "error");
-        return;
-      }
+  if (!agentId) {
+    showMessage("Please select an agent.", "error");
+    return;
+  }
 
-      if (!previewCount || previewCount <= 0 || !extractedNumbers.length) {
-        showMessage("Please preview the Excel file first.", "error");
-        return;
-      }
+  if (!previewCount || previewCount <= 0 || !extractedNumbers.length) {
+    showMessage("Please preview the Excel file first.", "error");
+    return;
+  }
 
-      const yes = confirm(`This will deduct ${previewCount} SMS from the selected user's smsfield. Continue?`);
-      if (!yes) return;
+  const yes = confirm(`This will deduct ${previewCount} SMS from the selected user's smsfield. Continue?`);
+  if (!yes) return;
 
-      try {
-        const res = await fetch(`${API_BASE}/api/admin/deduct-sms-from-list`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json"
-          },
-          body: JSON.stringify({
-            agent_id: Number(agentId),
-            numbers: extractedNumbers,
-            total_numbers: previewCount
-          })
-        });
+  try {
+    const res = await fetch(`${API_BASE}/api/admin/deduct-sms-from-list`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        agent_id: Number(agentId),
+        numbers: extractedNumbers,
+        total_numbers: previewCount
+      })
+    });
 
-        const data = await res.json();
+    let data;
+    const text = await res.text();
 
-        if (!res.ok || !data.ok) {
-          showMessage(data.message || "Deduction failed.", "error");
-          return;
-        }
-
-        document.getElementById("smsBalance").textContent = data.new_smsfield;
-        document.getElementById("countField").value = 0;
-        document.getElementById("excelFile").value = "";
-        extractedNumbers = [];
-        previewCount = 0;
-
-        showMessage(data.message || "SMS deducted successfully.", "success");
-      } catch (err) {
-        console.error(err);
-        showMessage("Network error while deducting SMS.", "error");
-      }
+    try {
+      data = JSON.parse(text);
+    } catch {
+      console.log("Raw response:", text);
+      showMessage(`Server returned invalid response: ${text}`, "error");
+      return;
     }
 
+    console.log("Deduct response:", data);
+
+    if (!res.ok || !data.ok) {
+      showMessage(data.message || "Failed to deduct SMS.", "error");
+      return;
+    }
+
+    document.getElementById("smsBalance").textContent = data.new_smsfield;
+    document.getElementById("countField").value = 0;
+    document.getElementById("excelFile").value = "";
+    extractedNumbers = [];
+    previewCount = 0;
+
+    showMessage(data.message || "SMS deducted successfully.", "success");
+  } catch (err) {
+    console.error("Deduct error:", err);
+    showMessage(`Network error: ${err.message}`, "error");
+  }
+}
     loadAgents();
   </script>
 </body>
