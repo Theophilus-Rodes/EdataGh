@@ -130,7 +130,96 @@ async function sendSingleSmsViaGiantSMS({ recipients, message, senderId }) {
   }
 }
 
+/////SMS LOGS
+app.get("/api/admin/agents/list", async (req, res) => {
+  try {
+    const [rows] = await db.promise().query(`
+      SELECT 
+        id,
+        first_name,
+        last_name,
+        phone,
+        sender_id
+      FROM agents
+      ORDER BY first_name ASC, last_name ASC
+    `);
 
+    return res.json({
+      ok: true,
+      agents: rows
+    });
+  } catch (err) {
+    console.error("LOAD AGENTS ERROR:", err);
+    return res.status(500).json({
+      ok: false,
+      message: "Failed to load agents"
+    });
+  }
+});
+
+
+app.get("/api/admin/sms/logs", async (req, res) => {
+  try {
+    const agentId = Number(req.query.agent_id || 0);
+    const search = String(req.query.search || "").trim();
+
+    if (!agentId) {
+      return res.status(400).json({
+        ok: false,
+        message: "agent_id is required"
+      });
+    }
+
+    let sql = `
+      SELECT 
+        l.id,
+        l.agent_id,
+        l.account_owner,
+        l.sender_id,
+        l.sms_message,
+        l.total_recipients,
+        l.total_credits_used,
+        l.created_at,
+        a.first_name,
+        a.last_name,
+        a.phone
+      FROM sms_send_logs l
+      LEFT JOIN agents a ON l.agent_id = a.id
+      WHERE l.agent_id = ?
+    `;
+
+    const params = [agentId];
+
+    if (search) {
+      sql += ` AND l.sms_message LIKE ? `;
+      params.push(`%${search}%`);
+    }
+
+    sql += ` ORDER BY l.created_at DESC `;
+
+    const [rows] = await db.promise().query(sql, params);
+
+    const totalMessages = rows.length;
+    const totalRecipients = rows.reduce((sum, row) => sum + Number(row.total_recipients || 0), 0);
+    const totalCredits = rows.reduce((sum, row) => sum + Number(row.total_credits_used || 0), 0);
+
+    return res.json({
+      ok: true,
+      logs: rows,
+      summary: {
+        total_messages: totalMessages,
+        total_recipients: totalRecipients,
+        total_credits_used: totalCredits
+      }
+    });
+  } catch (err) {
+    console.error("LOAD SMS LOGS ERROR:", err);
+    return res.status(500).json({
+      ok: false,
+      message: "Failed to load SMS logs"
+    });
+  }
+});
 
 ///// BUY SMS CREDIT 
 const SMS_PACKAGES = {
